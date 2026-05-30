@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="dessertshop-utils" />
+        <module name="dessertshop-pojo" />
+      </profile>
+      <profile name="Annotation profile for dessert-parent" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$PROJECT_DIR$/../../develop/apache-maven-3.9.9/mvn_repo/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+          <entry name="$PROJECT_DIR$/../../develop/apache-maven-3.9.9/mvn_repo/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+        </processorPath>
+        <module name="dessertshop-web-management" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel target="22">
+      <module name="dessertshop-util" target="22" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="dessertshop-pojo" options="-parameters" />
+      <module name="dessertshop-utils" options="-parameters" />
+      <module name="dessertshop-web-management" options="-parameters" />
+    </option>
+  </component>
+</project>
