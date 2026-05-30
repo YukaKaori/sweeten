@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.EmpLogMapper">
+
+    <select id="list" resultType="com.itheima.pojo.EmpLog">
+        select * from emp_log order by operate_time desc
+    </select>
+
+</mapper>

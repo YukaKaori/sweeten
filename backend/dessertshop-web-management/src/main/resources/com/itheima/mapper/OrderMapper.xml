@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.OrderMapper">
+
+    <select id="list" resultType="com.itheima.pojo.Order">
+        select * from orders
+        <where>
+            <if test="orderNo != null and orderNo != ''">
+                and order_no like concat('%',#{orderNo},'%')
+            </if>
+            <if test="customerName != null and customerName != ''">
+                and customer_name like concat('%',#{customerName},'%')
+            </if>
+            <if test="status != null">
+                and status = #{status}
+            </if>
+            <if test="begin != null and end != null">
+                and create_time between #{begin} and #{end}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <update id="updateById">
+        update orders
+        <set>
+            <if test="customerName != null and customerName != ''">customer_name = #{customerName},</if>
+            <if test="phone != null and phone != ''">phone = #{phone},</if>
+            <if test="items != null and items != ''">items = #{items},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="address != null and address != ''">address = #{address},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+</mapper>

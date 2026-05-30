@@ -1,8 +1,12 @@
 package com.itheima.mapper;
 
 import com.itheima.pojo.OperateLog;
+import com.itheima.pojo.OperateLogQueryParam;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
 
 @Mapper
 public interface OperateLogMapper {
@@ -12,4 +16,10 @@ public interface OperateLogMapper {
             "values (#{operateEmpId}, #{operateTime}, #{className}, #{methodName}, #{methodParams}, #{returnValue}, #{costTime});")
     public void insert(OperateLog log);
 
+    //分页查询操作日志
+    List<OperateLog> list(OperateLogQueryParam queryParam);
+
+    //根据ID查询操作日志详情
+    @Select("select * from operate_log where id = #{id}")
+    OperateLog getById(Integer id);
 }
