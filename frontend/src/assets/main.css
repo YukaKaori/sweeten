@@ -1,0 +1,6 @@
+@import './base.css';
+
+/* Additional global styles */
+#app {
+  min-height: 100vh;
+}

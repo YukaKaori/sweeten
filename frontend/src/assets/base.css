@@ -1,0 +1,660 @@
+/* ============================================
+   DessertShop Design System
+   A warm, modern, portfolio-worthy design
+   ============================================ */
+
+:root {
+  /* Primary palette — warm rose/coral tones */
+  --color-primary: #e8637a;
+  --color-primary-light: #f08c9e;
+  --color-primary-lighter: #fde8ec;
+  --color-primary-dark: #c94d63;
+
+  /* Accent — golden amber for highlights */
+  --color-accent: #f0a35c;
+  --color-accent-light: #fcdcc5;
+
+  /* Neutrals — warm grays */
+  --color-text-primary: #2d2327;
+  --color-text-secondary: #6b5b63;
+  --color-text-muted: #a3949b;
+  --color-text-inverse: #ffffff;
+
+  /* Backgrounds */
+  --color-bg-primary: #faf7f5;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f5f0ec;
+  --color-bg-sidebar: #2d2327;
+  --color-bg-sidebar-hover: #3d3138;
+
+  /* Borders & Shadows */
+  --color-border: #ede6e1;
+  --color-border-light: #f5f0ec;
+  --shadow-xs: 0 1px 2px rgba(45, 35, 39, 0.04);
+  --shadow-sm: 0 2px 8px rgba(45, 35, 39, 0.06);
+  --shadow-md: 0 4px 16px rgba(45, 35, 39, 0.08);
+  --shadow-lg: 0 8px 32px rgba(45, 35, 39, 0.12);
+  --shadow-xl: 0 16px 48px rgba(45, 35, 39, 0.16);
+  --shadow-glow: 0 0 24px rgba(232, 99, 122, 0.15);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-display: 'Playfair Display', 'Georgia', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-index layers */
+  --z-sidebar: 100;
+  --z-header: 200;
+  --z-dropdown: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+
+  /* Glass design tokens */
+  --glass-bg: rgba(255, 255, 255, 0.58);
+  --glass-bg-light: rgba(255, 255, 255, 0.35);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-specular: 0 1px 0 0 rgba(255, 255, 255, 0.4) inset;
+  --glass-shadow: 0 4px 30px rgba(45, 35, 39, 0.05);
+  --glass-shadow-hover: 0 12px 40px rgba(45, 35, 39, 0.12);
+  --glass-blur: blur(24px) saturate(190%);
+  --transition-spring: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================
+   Dark Mode Tokens
+   ============================================ */
+[data-theme="dark"] {
+  /* Primary palette — slightly brighter for dark */
+  --color-primary: #f08c9e;
+  --color-primary-light: #f5a8b8;
+  --color-primary-lighter: rgba(232, 99, 122, 0.15);
+  --color-primary-dark: #e8637a;
+
+  /* Accent */
+  --color-accent: #f5b87a;
+  --color-accent-light: rgba(240, 163, 92, 0.2);
+
+  /* Neutrals — inverted */
+  --color-text-primary: #f0ebe8;
+  --color-text-secondary: #b5a8ae;
+  --color-text-muted: #7a6e74;
+  --color-text-inverse: #2d2327;
+
+  /* Backgrounds — deep warm darks */
+  --color-bg-primary: #1a1215;
+  --color-bg-secondary: #251c20;
+  --color-bg-tertiary: #302529;
+  --color-bg-sidebar: #150e11;
+  --color-bg-sidebar-hover: #2a1f23;
+
+  /* Borders & Shadows */
+  --color-border: #3d3138;
+  --color-border-light: #302529;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 24px rgba(232, 99, 122, 0.25);
+
+  /* Glass — darker translucent for dark mode */
+  --glass-bg: rgba(37, 28, 32, 0.65);
+  --glass-bg-light: rgba(37, 28, 32, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-specular: 0 1px 0 0 rgba(255, 255, 255, 0.08) inset;
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.3);
+  --glass-blur: blur(24px) saturate(160%);
+}
+
+/* Smooth theme transition */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 0.4s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+/* ============================================
+   Reset & Base
+   ============================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  overflow-x: hidden;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-primary-dark);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+h1 { font-size: 1.75rem; font-weight: 700; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ============================================
+   Keyframe Animations
+   ============================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.animate-fade-in { animation: fadeIn 0.5s var(--transition-base) forwards; }
+.animate-fade-in-up { animation: fadeInUp 0.5s var(--transition-base) forwards; }
+.animate-fade-in-down { animation: fadeInDown 0.5s var(--transition-base) forwards; }
+.animate-slide-in-left { animation: slideInLeft 0.5s var(--transition-base) forwards; }
+.animate-slide-in-right { animation: slideInRight 0.5s var(--transition-base) forwards; }
+.animate-scale-in { animation: scaleIn 0.3s var(--transition-base) forwards; }
+
+/* Staggered animation delays */
+.delay-1 { animation-delay: 0.1s; opacity: 0; }
+.delay-2 { animation-delay: 0.2s; opacity: 0; }
+.delay-3 { animation-delay: 0.3s; opacity: 0; }
+.delay-4 { animation-delay: 0.4s; opacity: 0; }
+.delay-5 { animation-delay: 0.5s; opacity: 0; }
+
+/* ============================================
+   Element Plus Overrides (Global)
+   ============================================ */
+
+/* Buttons */
+.el-button {
+  border-radius: var(--radius-md) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em;
+  transition: all var(--transition-base) !important;
+  font-family: var(--font-body) !important;
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(232, 99, 122, 0.3) !important;
+}
+
+.el-button--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(232, 99, 122, 0.4) !important;
+}
+
+.el-button--primary:active {
+  transform: translateY(0);
+}
+
+.el-button--danger {
+  background: linear-gradient(135deg, #ef6b6b, #d94f4f) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(239, 107, 107, 0.3) !important;
+}
+
+.el-button--danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239, 107, 107, 0.4) !important;
+}
+
+.el-button--success {
+  background: linear-gradient(135deg, #5cb88a, #4a9e74) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(92, 184, 138, 0.3) !important;
+}
+
+.el-button--success:hover {
+  transform: translateY(-1px);
+}
+
+.el-button--info {
+  background: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+.el-button--info:hover {
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+/* Tables — Enhanced with glass interactions */
+.el-table {
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden;
+  border: none !important;
+  background: transparent !important;
+}
+
+.el-table th.el-table__cell {
+  background: rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--color-border-light) !important;
+  color: var(--color-text-primary) !important;
+  transition: background 0.25s ease !important;
+}
+
+.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
+  background: rgba(232, 99, 122, 0.06) !important;
+}
+
+/* Selected row pulse */
+.el-table__body tr.current-row > td.el-table__cell {
+  background: rgba(232, 99, 122, 0.08) !important;
+}
+
+/* Checkbox selected row */
+.el-table__body tr.selection-row > td.el-table__cell {
+  background: rgba(232, 99, 122, 0.05) !important;
+}
+
+/* Striped rows glass effect */
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Table empty state */
+.el-table__empty-block {
+  background: transparent !important;
+}
+
+/* Dialogs */
+.el-dialog {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-xl) !important;
+  overflow: hidden;
+}
+
+.el-dialog__header {
+  background: linear-gradient(135deg, var(--color-primary-lighter), #fff5f7) !important;
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.el-dialog__title {
+  font-weight: 700 !important;
+  color: var(--color-text-primary) !important;
+  font-size: 16px !important;
+}
+
+.el-dialog__body {
+  padding: 24px !important;
+}
+
+.el-dialog__footer {
+  padding: 16px 24px !important;
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-primary);
+}
+
+/* Form inputs */
+.el-input__wrapper {
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 0 0 1px var(--color-border) inset !important;
+  transition: all var(--transition-base) !important;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--color-primary-light) inset !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px var(--color-primary) inset, var(--shadow-glow) !important;
+}
+
+.el-select .el-input__wrapper {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Pagination */
+.el-pagination {
+  justify-content: flex-end !important;
+}
+
+.el-pagination .el-pager li.is-active {
+  background: var(--color-primary) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.el-pagination .el-pager li {
+  border-radius: var(--radius-sm) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+/* Date picker */
+.el-date-editor {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Upload */
+.el-upload {
+  border-radius: var(--radius-md) !important;
+  transition: all var(--transition-base) !important;
+}
+
+.el-upload:hover {
+  border-color: var(--color-primary) !important;
+}
+
+/* Message Box */
+.el-message-box {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+/* Menu overrides for sidebar */
+.el-menu {
+  border-right: none !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-primary-lighter);
+  color: var(--color-text-primary);
+}
+
+/* ============================================
+   Liquid Glass Panel System
+   ============================================ */
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-specular), var(--glass-shadow);
+  transition: all var(--transition-spring);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.glass-panel--hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glass-specular), var(--glass-shadow-hover);
+  border-color: rgba(232, 99, 122, 0.2);
+}
+
+.glass-panel--hover:active {
+  transform: scale(0.99) translateY(0);
+}
+
+/* Lighter glass variant for nested elements */
+.glass-panel--light {
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+
+/* ============================================
+   Element Plus Glass Overrides
+   ============================================ */
+
+/* Dialog — frosted glass */
+.el-dialog {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(40px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.4) inset,
+    0 24px 80px rgba(45, 35, 39, 0.15) !important;
+}
+
+.el-dialog::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%) !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  border-radius: inherit !important;
+}
+
+.el-dialog__header {
+  background: linear-gradient(135deg, rgba(232, 99, 122, 0.08), rgba(240, 163, 92, 0.06)) !important;
+  backdrop-filter: blur(8px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.el-dialog__body {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.el-dialog__footer {
+  background: rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* Drawer — frosted glass */
+.el-drawer {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(40px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: -8px 0 40px rgba(45, 35, 39, 0.1) !important;
+}
+
+.el-drawer__header {
+  background: linear-gradient(135deg, rgba(232, 99, 122, 0.08), rgba(240, 163, 92, 0.06)) !important;
+  backdrop-filter: blur(8px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+  margin-bottom: 0 !important;
+  padding: 20px 24px !important;
+}
+
+.el-drawer__body {
+  background: transparent !important;
+}
+
+/* ============================================
+   Dialog & Drawer Spring Animations
+   ============================================ */
+
+/* Dialog spring entrance */
+.el-overlay-dialog {
+  perspective: 800px;
+}
+
+.el-dialog {
+  transform-origin: center center;
+}
+
+.dialog-spring-enter-active .el-dialog,
+.el-overlay-dialog .el-dialog {
+  animation: dialogSpringIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.dialog-spring-leave-active .el-dialog {
+  animation: dialogSpringOut 0.25s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes dialogSpringIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dialogSpringOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+}
+
+/* Drawer spring entrance */
+.el-drawer {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* Overlay fade */
+.v-enter-active .el-overlay,
+.v-leave-active .el-overlay {
+  transition: opacity 0.3s ease !important;
+}
+
+/* Message box spring */
+.el-overlay-message-box {
+  perspective: 800px;
+}
+
+.el-message-box {
+  animation: dialogSpringIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
