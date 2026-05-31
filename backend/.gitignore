@@ -4,3 +4,19 @@ target/
 .DS_Store
 Thumbs.db
 *.log
+
+# Database backups
+*.sql.bak
+*_backup.sql
+*_backup_*.sql
+dessertshop_backup*.sql
+
+# Sensitive configuration
+application-local.yml
+application-prod.yml
+.env
+.env.local
+.env.production
+
+# OS generated files
+ehthumbs.db

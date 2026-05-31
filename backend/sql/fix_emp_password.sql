@@ -1,0 +1,2 @@
+ALTER TABLE emp MODIFY COLUMN password VARCHAR(100);
+UPDATE emp SET password = 'Aaa111';

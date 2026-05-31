@@ -11,18 +11,34 @@ spring:
     url: jdbc:mysql://localhost:3306/dessertshop
     username: root
     password: 1234
+  # 密码迁移配置
+  password:
+    migration:
+      # 首次运行时设置为true，迁移完成后设置为false
+      enabled: false
+
+# JWT配置
+jwt:
+  # 签名密钥（生产环境请使用更复杂的密钥）
+  secret: DessertShop@2024#SecureKey!@#$%^&*
+  # Token过期时间（毫秒），默认12小时
+  expire: 43200000
+
 mybatis:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
-  #分页查询防不规范
+
+#分页查询防不规范
 pagehelper:
   reasonable: true
   helper-dialect: mysql
+
 #spring事务管理日志
 logging:
   level:
     org.springframework.jdbc.support.JdbcTransactionManager: debug
+
 #阿里云OSS
 aliyun:
   oss:

@@ -1,26 +1,20 @@
 package com.itheima.mapper;
 
-
 import com.itheima.pojo.Emp;
 import com.itheima.pojo.EmpQueryParam;
 import org.apache.ibatis.annotations.*;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 @Mapper
 public interface EmpMapper {
-    /*@Select("select e.*,d.name deptName from emp e left join dept d on e.dept_id = d.id")
-    List<Emp> list();*/
 
-    //List<Emp> list(String name, Integer gender, LocalDate begin, LocalDate end);
     List<Emp> list(EmpQueryParam empQueryParam);
 
-    @Options(useGeneratedKeys = true,keyProperty = "id")
-    @Insert("insert into emp(username,name,gender,phone,job,salary,image,entry_date,dept_id,create_time,update_time)"+
-            "values (#{username},#{name},#{gender},#{phone},#{job},#{salary},#{image},#{entryDate},#{deptId},#{createTime},#{updateTime})"
-    )
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    @Insert("insert into emp(username, password, name, gender, phone, job, salary, image, entry_date, dept_id, create_time, update_time)" +
+            "values (#{username}, #{password}, #{name}, #{gender}, #{phone}, #{job}, #{salary}, #{image}, #{entryDate}, #{deptId}, #{createTime}, #{updateTime})")
     void insert(Emp emp);
 
     void deleteByIds(List<Integer> ids);
@@ -35,12 +29,21 @@ public interface EmpMapper {
     @MapKey("name")
     List<Map> countEmpGenderData();
 
-    @Select("select * from emp where username = #{username} and password = #{password}")
-    Emp getUsernameAndPassword(Emp emp);
+    /**
+     * 根据用户名查询员工（用于登录验证）
+     */
+    @Select("select * from emp where username = #{username}")
+    Emp getByUsername(String username);
 
+    /**
+     * 根据ID查询员工详情（包含部门名称）
+     */
     @Select("select e.*, d.name as deptName from emp e left join dept d on e.dept_id = d.id where e.id = #{id}")
     Emp selectById(Integer id);
 
-    @Update("update emp set password = #{newPassword}, update_time = now() where id = #{id} and password = #{oldPassword}")
-    int updatePassword(@Param("id") Integer id, @Param("oldPassword") String oldPassword, @Param("newPassword") String newPassword);
+    /**
+     * 更新密码
+     */
+    @Update("update emp set password = #{newPassword}, update_time = now() where id = #{id}")
+    int updatePassword(@Param("id") Integer id, @Param("newPassword") String newPassword);
 }

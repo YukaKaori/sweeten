@@ -2,6 +2,7 @@ package com.itheima.controller;
 
 import com.itheima.pojo.*;
 import com.itheima.service.DessertService;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -21,8 +22,8 @@ public class DessertController {
      * 分页查询甜品
      */
     @GetMapping
-    public Result page(DessertQueryParam queryParam){
-        log.info("分页查询甜品:{}",queryParam);
+    public Result page(DessertQueryParam queryParam) {
+        log.info("分页查询甜品:{}", queryParam);
         PageResult<Dessert> pageResult = dessertService.page(queryParam);
         return Result.success(pageResult);
     }
@@ -31,8 +32,8 @@ public class DessertController {
      * 根据分类查询甜品列表
      */
     @GetMapping("/category/{category}")
-    public Result listByCategory(@PathVariable String category){
-        log.info("根据分类查询甜品:{}",category);
+    public Result listByCategory(@PathVariable String category) {
+        log.info("根据分类查询甜品:{}", category);
         List<Dessert> dessertList = dessertService.listByCategory(category);
         return Result.success(dessertList);
     }
@@ -41,7 +42,7 @@ public class DessertController {
      * 查询各分类数量
      */
     @GetMapping("/categoryCount")
-    public Result countByCategory(){
+    public Result countByCategory() {
         log.info("查询各分类数量");
         List<Map<String, Object>> countList = dessertService.countByCategory();
         return Result.success(countList);
@@ -51,8 +52,8 @@ public class DessertController {
      * 根据ID查询甜品
      */
     @GetMapping("/{id}")
-    public Result getById(@PathVariable Integer id){
-        log.info("根据id查询甜品:{}",id);
+    public Result getById(@PathVariable Integer id) {
+        log.info("根据id查询甜品:{}", id);
         Dessert dessert = dessertService.getById(id);
         return Result.success(dessert);
     }
@@ -61,8 +62,8 @@ public class DessertController {
      * 新增甜品
      */
     @PostMapping
-    public Result save(@RequestBody Dessert dessert){
-        log.info("新增甜品:{}",dessert);
+    public Result save(@Valid @RequestBody Dessert dessert) {
+        log.info("新增甜品:{}", dessert.getName());
         dessertService.save(dessert);
         return Result.success();
     }
@@ -71,8 +72,8 @@ public class DessertController {
      * 修改甜品（含调价）
      */
     @PutMapping
-    public Result update(@RequestBody Dessert dessert){
-        log.info("修改甜品:{}",dessert);
+    public Result update(@Valid @RequestBody Dessert dessert) {
+        log.info("修改甜品,id:{}", dessert.getId());
         dessertService.update(dessert);
         return Result.success();
     }
@@ -81,8 +82,8 @@ public class DessertController {
      * 删除甜品
      */
     @DeleteMapping
-    public Result delete(Integer id){
-        log.info("删除甜品,id:{}",id);
+    public Result delete(Integer id) {
+        log.info("删除甜品,id:{}", id);
         dessertService.deleteById(id);
         return Result.success();
     }
@@ -91,8 +92,8 @@ public class DessertController {
      * 甜品上下架
      */
     @PutMapping("/status")
-    public Result updateStatus(@RequestParam Integer id, @RequestParam Integer status){
-        log.info("甜品上下架,id:{},status:{}",id,status);
+    public Result updateStatus(@RequestParam Integer id, @RequestParam Integer status) {
+        log.info("甜品上下架,id:{},status:{}", id, status);
         Dessert dessert = new Dessert();
         dessert.setId(id);
         dessert.setStatus(status);

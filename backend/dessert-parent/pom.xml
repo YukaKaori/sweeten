@@ -72,7 +72,7 @@
                 <artifactId>jaxb-runtime</artifactId>
                 <version>${jaxb.runtime.version}</version>
             </dependency>
-            <!-- JWT依赖-->
+            <!-- JWT依赖 -->
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt</artifactId>

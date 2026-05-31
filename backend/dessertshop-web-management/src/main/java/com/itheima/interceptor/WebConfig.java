@@ -1,17 +1,25 @@
 package com.itheima.interceptor;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Web配置类
+ */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-    //拦截器对象
-    /*@Autowired
-    private TokenInterceptor tokenInterceptor;
-    public void addInterceptors(InterceptorRegistry registry) {
-        //注册自定义拦截器对象
-        registry.addInterceptor(tokenInterceptor).addPathPatterns("/**");
-    }*/
+
+    /**
+     * 配置跨域请求
+     */
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOriginPatterns("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
+    }
 }

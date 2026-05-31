@@ -11,25 +11,42 @@ import java.util.Map;
 
 public class JwtTest {
 
+    private static final String SIGN_KEY = "DessertShop@2024#SecureKey!@#$%^&*";
+
     @Test
     public void testGenJwt() {
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", 10);
         claims.put("username", "itheima");
 
-        String jwt = Jwts.builder().signWith(SignatureAlgorithm.HS256, "aXRjYXN0")
+        String jwt = Jwts.builder()
                 .addClaims(claims)
+                .signWith(SignatureAlgorithm.HS256, SIGN_KEY)
                 .setExpiration(new Date(System.currentTimeMillis() + 12 * 3600 * 1000))
                 .compact();
 
-        System.out.println(jwt);
+        System.out.println("生成的JWT: " + jwt);
     }
 
     @Test
     public void testParseJwt() {
-        Claims claims = Jwts.parser().setSigningKey("aXRjYXN0")
-                .parseClaimsJws("eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MTAsInVzZXJuYW1lIjoiaXRoZWltYSIsImV4cCI6MTc2MzkyNjAwMH0.wJdP0h3vKzTFGmcy3cDZaMONLZEHBfB8wtx9lp2d6M8")
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("id", 10);
+        claims.put("username", "itheima");
+
+        String jwt = Jwts.builder()
+                .addClaims(claims)
+                .signWith(SignatureAlgorithm.HS256, SIGN_KEY)
+                .setExpiration(new Date(System.currentTimeMillis() + 12 * 3600 * 1000))
+                .compact();
+
+        Claims parsedClaims = Jwts.parser()
+                .setSigningKey(SIGN_KEY)
+                .parseClaimsJws(jwt)
                 .getBody();
-        System.out.println(claims);
+
+        System.out.println("解析结果: " + parsedClaims);
+        System.out.println("ID: " + parsedClaims.get("id"));
+        System.out.println("用户名: " + parsedClaims.get("username"));
     }
 }

@@ -43,11 +43,16 @@
             <artifactId>jaxb-runtime</artifactId>
 
         </dependency>
-        <!-- JWT依赖-->
+        <!-- JWT依赖 -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt</artifactId>
-
+        </dependency>
+        <!-- BCrypt密码加密依赖-->
+        <dependency>
+            <groupId>at.favre.lib</groupId>
+            <artifactId>bcrypt</artifactId>
+            <version>0.10.2</version>
         </dependency>
     </dependencies>
 
