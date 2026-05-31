@@ -41,19 +41,39 @@ const activeMenu = computed(() => route.path)
 const navContainer = ref(null)
 const pillStyle = ref({})
 const pillReady = ref(false)
+const movingDirection = ref('')
+const prevTop = ref(0)
+let moveTimeout = null
 
 const updatePill = () => {
   if (!navContainer.value) return
   const activeEl = navContainer.value.querySelector('.nav-item.active')
   if (!activeEl) {
     pillReady.value = false
+    movingDirection.value = ''
     return
   }
   const containerRect = navContainer.value.getBoundingClientRect()
   const itemRect = activeEl.getBoundingClientRect()
+  const newTop = itemRect.top - containerRect.top
+  const newHeight = itemRect.height
+
+  // Detect motion direction & trigger physics class
+  if (pillReady.value && prevTop.value !== newTop) {
+    movingDirection.value = newTop > prevTop.value ? 'down' : 'up'
+    
+    if (moveTimeout) clearTimeout(moveTimeout)
+    moveTimeout = setTimeout(() => {
+      movingDirection.value = ''
+    }, 500) // matches our 0.5s CSS spring curve
+  }
+
+  prevTop.value = newTop
+
+  // Set pillStyle with hardware-accelerated transform translateY
   pillStyle.value = {
-    top: `${itemRect.top - containerRect.top}px`,
-    height: `${itemRect.height}px`,
+    transform: `translateY(${newTop}px)`,
+    height: `${newHeight}px`,
   }
   pillReady.value = true
 }
@@ -207,7 +227,17 @@ const submitPassword = async () => {
 
       <nav class="sidebar-nav" ref="navContainer">
         <!-- Liquid Glass Pill Indicator -->
-        <div class="glass-pill" :class="{ ready: pillReady }" :style="pillStyle"></div>
+        <div 
+          class="glass-pill" 
+          :class="{ 
+            ready: pillReady, 
+            'moving-down': movingDirection === 'down', 
+            'moving-up': movingDirection === 'up' 
+          }" 
+          :style="pillStyle"
+        >
+          <div class="glass-pill-inner"></div>
+        </div>
 
         <router-link to="/index" class="nav-item" :class="{ active: activeMenu === '/index' }">
           <el-icon :size="20"><HomeFilled /></el-icon>
@@ -405,11 +435,12 @@ const submitPassword = async () => {
   transition: width var(--transition-base);
   overflow: hidden;
 
-  /* Liquid glass background */
-  background: rgba(45, 35, 39, 0.65);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  /* Premium cool charcoal sidebar background (Linear / Arc style) */
+  background: #16161a;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  
+  /* Soft active text color variable - high contrast for SaaS capsule */
+  --nav-active-color: rgba(0, 0, 0, 0.8);
 
   /* Specular highlight along top edge */
   &::before {
@@ -530,60 +561,101 @@ const submitPassword = async () => {
   z-index: 1;
 }
 
-/* ---- Liquid Glass Pill ---- */
+/* ---- iOS 26 Liquid Glass Pill ---- */
 .glass-pill {
   position: absolute;
+  top: 0; /* Explicitly align with absolute baseline to fix padding offset */
   left: 8px;
   right: 8px;
   z-index: 0;
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   pointer-events: none;
   opacity: 0;
+  will-change: transform, height;
 
-  background: linear-gradient(
-    135deg,
-    rgba(232, 99, 122, 0.25) 0%,
-    rgba(232, 99, 122, 0.15) 100%
-  );
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow:
-    0 4px 16px rgba(232, 99, 122, 0.2),
-    0 1px 0 0 rgba(255, 255, 255, 0.15) inset;
-
+  /* Apple Spring Transition - hardware accelerated */
   transition:
-    top 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
-    height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.3s ease;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.2) 0%,
-      rgba(255, 255, 255, 0.05) 40%,
-      transparent 100%
-    );
-    pointer-events: none;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 10%;
-    right: 10%;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 1px;
-  }
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.4s ease;
 
   &.ready {
     opacity: 1;
+  }
+}
+
+.glass-pill-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  
+  /* Premium SaaS Style: White Liquid Capsule (High Contrast, Luminous) */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0.78) 100%
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  
+  /* Razor-crisp luminous border */
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  
+  /* 3D Specs: Top specular light + Subtle white halo glow + Soft ambient ground shadow */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 0 12px rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.12);
+  
+  transform-origin: center;
+  will-change: transform;
+}
+
+/* Liquid Motion Keyframes with Poisson Squeeze Ratio */
+.glass-pill.moving-down .glass-pill-inner {
+  animation: liquidStretchDown 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glass-pill.moving-up .glass-pill-inner {
+  animation: liquidStretchUp 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes liquidStretchDown {
+  0% {
+    transform: scale(1) translateY(0);
+    transform-origin: top;
+  }
+  30% {
+    transform: scale(1.08) translateY(4px); /* Scales overall by 1.08x on click/transition */
+    transform-origin: top;
+  }
+  65% {
+    transform: scale(0.96) translateY(-2px); /* Snap-back compression */
+    transform-origin: top;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    transform-origin: top;
+  }
+}
+
+@keyframes liquidStretchUp {
+  0% {
+    transform: scale(1) translateY(0);
+    transform-origin: bottom;
+  }
+  30% {
+    transform: scale(1.08) translateY(-4px); /* Scales overall by 1.08x on click/transition */
+    transform-origin: bottom;
+  }
+  65% {
+    transform: scale(0.96) translateY(2px); /* Snap-back compression */
+    transform-origin: bottom;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    transform-origin: bottom;
   }
 }
 
@@ -610,35 +682,29 @@ const submitPassword = async () => {
   color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
   font-weight: 500;
-  transition: all var(--transition-fast);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
   cursor: pointer;
   text-decoration: none;
   margin-bottom: 2px;
   position: relative;
   white-space: nowrap;
   z-index: 1;
+  background: transparent !important;
 
   &:hover {
-    color: white;
-    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.95);
+    background: transparent !important;
+    transform: translateX(4px);
   }
 
   &.active {
-    color: white;
-    background: transparent;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    color: var(--nav-active-color, rgba(0, 0, 0, 0.8)) !important;
+    background: transparent !important;
+    font-weight: 600;
+    text-shadow: none;
 
-    &::before {
-      content: '';
-      position: absolute;
-      left: -8px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 3px;
-      height: 20px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.4));
-      border-radius: 0 2px 2px 0;
-      box-shadow: 0 0 8px rgba(232, 99, 122, 0.4);
+    &:hover {
+      transform: none; /* Active item shouldn't slide on hover */
     }
   }
 }
@@ -656,11 +722,19 @@ const submitPassword = async () => {
 
 .logout-btn {
   color: rgba(255, 255, 255, 0.4);
+  background: transparent !important;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
 
   &:hover {
     color: #ef6b6b;
-    background: rgba(239, 107, 107, 0.1);
+    background: transparent !important;
+    transform: translateX(4px);
   }
+}
+
+.sidebar-collapsed .nav-item:hover,
+.sidebar-collapsed .logout-btn:hover {
+  transform: scale(1.06) !important;
 }
 
 /* ---- Main Area ---- */
@@ -904,8 +978,8 @@ const submitPassword = async () => {
 
 /* ---- Dark Mode Overrides ---- */
 :global([data-theme="dark"]) .sidebar {
-  background: rgba(21, 14, 17, 0.75);
-  border-right-color: rgba(255, 255, 255, 0.04);
+  background: #101012;
+  border-right-color: rgba(255, 255, 255, 0.03);
 }
 
 :global([data-theme="dark"]) .header {
@@ -922,7 +996,7 @@ const submitPassword = async () => {
 }
 
 :global([data-theme="dark"]) .nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent !important;
 }
 
 :global([data-theme="dark"]) .notification-dot {
