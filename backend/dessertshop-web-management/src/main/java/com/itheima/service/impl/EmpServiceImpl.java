@@ -116,4 +116,15 @@ public class EmpServiceImpl implements EmpService {
         }
         return null;
     }
+
+    @Override
+    public Emp getProfile(Integer id) {
+        return empMapper.selectById(id);
+    }
+
+    @Override
+    public boolean updatePassword(Integer id, String oldPassword, String newPassword) {
+        int rows = empMapper.updatePassword(id, oldPassword, newPassword);
+        return rows > 0;
+    }
 }

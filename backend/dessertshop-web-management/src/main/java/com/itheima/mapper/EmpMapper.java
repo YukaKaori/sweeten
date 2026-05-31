@@ -37,4 +37,10 @@ public interface EmpMapper {
 
     @Select("select * from emp where username = #{username} and password = #{password}")
     Emp getUsernameAndPassword(Emp emp);
+
+    @Select("select e.*, d.name as deptName from emp e left join dept d on e.dept_id = d.id where e.id = #{id}")
+    Emp selectById(Integer id);
+
+    @Update("update emp set password = #{newPassword}, update_time = now() where id = #{id} and password = #{oldPassword}")
+    int updatePassword(@Param("id") Integer id, @Param("oldPassword") String oldPassword, @Param("newPassword") String newPassword);
 }

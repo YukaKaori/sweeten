@@ -26,6 +26,7 @@
             <if test="originalPrice != null">original_price = #{originalPrice},</if>
             <if test="image != null and image != ''">image = #{image},</if>
             <if test="sales != null">sales = #{sales},</if>
+            <if test="stock != null">stock = #{stock},</if>
             <if test="status != null">status = #{status},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </set>

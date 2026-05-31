@@ -4,7 +4,9 @@ import com.itheima.pojo.Order;
 import com.itheima.pojo.OrderQueryParam;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface OrderMapper {
@@ -28,4 +30,22 @@ public interface OrderMapper {
     //删除订单
     @Delete("delete from orders where id = #{id}")
     void deleteById(Integer id);
+
+    //统计时间范围内已完成订单数
+    @Select("select count(*) from orders where status = 4 and create_time between #{start} and #{end}")
+    Long countCompletedOrders(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //统计时间范围内总订单数
+    @Select("select count(*) from orders where create_time between #{start} and #{end}")
+    Long countOrders(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //统计时间范围内营收（已完成+配送中）
+    @Select("select coalesce(sum(amount), 0) from orders where status in (3, 4) and create_time between #{start} and #{end}")
+    Double sumRevenue(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //按日分组统计营收和订单数
+    @Select("select date(create_time) as d, coalesce(sum(amount), 0) as revenue, count(*) as orders " +
+            "from orders where status in (3, 4) and create_time between #{start} and #{end} " +
+            "group by date(create_time) order by d")
+    List<Map<String, Object>> selectDailyRevenue(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

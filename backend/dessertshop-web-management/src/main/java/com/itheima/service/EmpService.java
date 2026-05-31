@@ -22,4 +22,8 @@ public interface EmpService {
     void update(Emp emp);
 
     LoginInfo login(Emp emp);
+
+    Emp getProfile(Integer id);
+
+    boolean updatePassword(Integer id, String oldPassword, String newPassword);
 }

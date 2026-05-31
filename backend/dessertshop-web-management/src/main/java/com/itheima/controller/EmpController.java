@@ -83,4 +83,32 @@ public class EmpController {
         empService.update(emp);
         return Result.success();
     }
+
+    /**
+     * 查询当前登录用户个人信息
+     */
+    @GetMapping("/profile/{id}")
+    public Result getProfile(@PathVariable Integer id){
+        log.info("查询用户个人信息,id:{}",id);
+        Emp emp = empService.getProfile(id);
+        if(emp != null){
+            emp.setPassword(null); // 不返回密码
+        }
+        return Result.success(emp);
+    }
+
+    /**
+     * 修改密码
+     */
+    @PutMapping("/password")
+    public Result updatePassword(@RequestParam Integer id,
+                                  @RequestParam String oldPassword,
+                                  @RequestParam String newPassword){
+        log.info("修改密码,id:{}",id);
+        boolean success = empService.updatePassword(id, oldPassword, newPassword);
+        if(success){
+            return Result.success();
+        }
+        return Result.error("原密码错误");
+    }
 }
