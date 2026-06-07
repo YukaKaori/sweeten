@@ -1,13 +1,16 @@
 package com.itheima.controller;
 
+import com.itheima.annotation.LogOperation;
 import com.itheima.pojo.Emp;
 import com.itheima.pojo.EmpQueryParam;
 import com.itheima.pojo.PageResult;
+import com.itheima.pojo.PasswordChangeRequest;
 import com.itheima.pojo.Result;
 import com.itheima.service.EmpService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,16 +18,17 @@ import java.util.List;
 @Slf4j
 @RequestMapping("/emps")
 @RestController
+@Validated
+@RequiredArgsConstructor
 public class EmpController {
 
-    @Autowired
-    private EmpService empService;
+    private final EmpService empService;
 
     /**
      * 分页查询员工
      */
     @GetMapping
-    public Result page(EmpQueryParam empQueryParam) {
+    public Result page(@Valid EmpQueryParam empQueryParam) {
         log.info("查询请求参数:{}", empQueryParam);
         PageResult<Emp> pageResult = empService.page(empQueryParam);
         return Result.success(pageResult);
@@ -33,6 +37,7 @@ public class EmpController {
     /**
      * 新增员工
      */
+    @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Emp emp) {
         log.info("新增员工:{}", emp.getUsername());
@@ -43,6 +48,7 @@ public class EmpController {
     /**
      * 批量删除员工
      */
+    @LogOperation
     @DeleteMapping
     public Result delete(@RequestParam List<Integer> ids) {
         log.info("批量删除员工:ids={}", ids);
@@ -63,6 +69,7 @@ public class EmpController {
     /**
      * 修改员工信息
      */
+    @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Emp emp) {
         log.info("修改员工信息,username:{}", emp.getUsername());
@@ -84,14 +91,13 @@ public class EmpController {
     }
 
     /**
-     * 修改密码
+     * 修改密码 — 使用请求体传输密码参数
      */
+    @LogOperation
     @PutMapping("/password")
-    public Result updatePassword(@RequestParam Integer id,
-                                 @RequestParam String oldPassword,
-                                 @RequestParam String newPassword) {
-        log.info("修改密码,id:{}", id);
-        boolean success = empService.updatePassword(id, oldPassword, newPassword);
+    public Result updatePassword(@RequestBody PasswordChangeRequest req) {
+        log.info("修改密码,id:{}", req.getId());
+        boolean success = empService.updatePassword(req.getId(), req.getOldPassword(), req.getNewPassword());
         if (success) {
             return Result.success();
         }

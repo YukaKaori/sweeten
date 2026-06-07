@@ -33,7 +33,7 @@
         <jaxb.api.version>2.3.1</jaxb.api.version>
         <activation.version>1.1.1</activation.version>
         <jaxb.runtime.version>2.3.3</jaxb.runtime.version>
-        <jjwt.version>0.9.1</jjwt.version>
+        <jjwt.version>0.12.6</jjwt.version>
     </properties>
     <dependencies>
         <dependency>
@@ -72,11 +72,23 @@
                 <artifactId>jaxb-runtime</artifactId>
                 <version>${jaxb.runtime.version}</version>
             </dependency>
-            <!-- JWT依赖 -->
+            <!-- JWT依赖 (jjwt 0.12.x 拆分为 api/impl/jackson) -->
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
-                <artifactId>jjwt</artifactId>
+                <artifactId>jjwt-api</artifactId>
                 <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+                <scope>runtime</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

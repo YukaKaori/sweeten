@@ -1,11 +1,12 @@
 package com.itheima.controller;
 
+import com.itheima.annotation.LogOperation;
 import com.itheima.pojo.Dept;
 import com.itheima.pojo.Result;
 import com.itheima.service.DeptService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,10 +14,10 @@ import java.util.List;
 @Slf4j
 @RequestMapping("/depts")
 @RestController
+@RequiredArgsConstructor
 public class DeptController {
 
-    @Autowired
-    private DeptService deptService;
+    private final DeptService deptService;
 
     /**
      * 查询部门列表
@@ -31,6 +32,7 @@ public class DeptController {
     /**
      * 删除部门
      */
+    @LogOperation
     @DeleteMapping
     public Result delete(Integer id) {
         log.info("根据id删除部门,id:{}", id);
@@ -41,6 +43,7 @@ public class DeptController {
     /**
      * 新增部门
      */
+    @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Dept dept) {
         log.info("新增部门,name:{}", dept.getName());
@@ -61,6 +64,7 @@ public class DeptController {
     /**
      * 修改部门
      */
+    @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Dept dept) {
         log.info("修改部门,id:{}", dept.getId());

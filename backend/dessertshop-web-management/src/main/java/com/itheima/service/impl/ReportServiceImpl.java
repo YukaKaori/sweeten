@@ -3,16 +3,16 @@ package com.itheima.service.impl;
 import com.itheima.mapper.EmpMapper;
 import com.itheima.pojo.JobOption;
 import com.itheima.service.ReportService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class ReportServiceImpl implements ReportService {
-    @Autowired
-    private EmpMapper empMapper;
+    private final EmpMapper empMapper;
     @Override
     public JobOption getEmpJobDate() {
         List<Map<String,Object>> list = empMapper.countEmpJobData();

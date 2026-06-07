@@ -10,7 +10,7 @@
 | Spring Boot | 3.5.7 | 应用框架 |
 | MyBatis | 3.0.5 | ORM 框架 |
 | MySQL | - | 数据库 |
-| JWT (jjwt) | 0.9.1 | 身份认证 |
+| JWT (jjwt) | 0.12.6 | 身份认证 |
 | BCrypt | 0.10.2 | 密码加密 |
 | PageHelper | 1.4.7 | 分页插件 |
 | 阿里云 OSS | 3.17.4 | 文件存储 |

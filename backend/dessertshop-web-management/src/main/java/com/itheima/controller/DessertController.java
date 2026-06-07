@@ -1,10 +1,12 @@
 package com.itheima.controller;
 
+import com.itheima.annotation.LogOperation;
 import com.itheima.pojo.*;
 import com.itheima.service.DessertService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,16 +15,17 @@ import java.util.Map;
 @Slf4j
 @RequestMapping("/desserts")
 @RestController
+@Validated
+@RequiredArgsConstructor
 public class DessertController {
 
-    @Autowired
-    private DessertService dessertService;
+    private final DessertService dessertService;
 
     /**
      * 分页查询甜品
      */
     @GetMapping
-    public Result page(DessertQueryParam queryParam) {
+    public Result page(@Valid DessertQueryParam queryParam) {
         log.info("分页查询甜品:{}", queryParam);
         PageResult<Dessert> pageResult = dessertService.page(queryParam);
         return Result.success(pageResult);
@@ -61,6 +64,7 @@ public class DessertController {
     /**
      * 新增甜品
      */
+    @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Dessert dessert) {
         log.info("新增甜品:{}", dessert.getName());
@@ -71,6 +75,7 @@ public class DessertController {
     /**
      * 修改甜品（含调价）
      */
+    @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Dessert dessert) {
         log.info("修改甜品,id:{}", dessert.getId());
@@ -81,6 +86,7 @@ public class DessertController {
     /**
      * 删除甜品
      */
+    @LogOperation
     @DeleteMapping
     public Result delete(Integer id) {
         log.info("删除甜品,id:{}", id);
@@ -91,6 +97,7 @@ public class DessertController {
     /**
      * 甜品上下架
      */
+    @LogOperation
     @PutMapping("/status")
     public Result updateStatus(@RequestParam Integer id, @RequestParam Integer status) {
         log.info("甜品上下架,id:{},status:{}", id, status);

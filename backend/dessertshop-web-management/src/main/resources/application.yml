@@ -9,8 +9,8 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/dessertshop
-    username: root
-    password: 1234
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
   # 密码迁移配置
   password:
     migration:
@@ -19,8 +19,8 @@ spring:
 
 # JWT配置
 jwt:
-  # 签名密钥（生产环境请使用更复杂的密钥）
-  secret: DessertShop@2024#SecureKey!@#$%^&*
+  # 签名密钥 — 生产环境请通过环境变量 JWT_SECRET 覆盖
+  secret: ${JWT_SECRET:DessertShop@2024#SecureKey!@#$%^&*}
   # Token过期时间（毫秒），默认12小时
   expire: 43200000
 

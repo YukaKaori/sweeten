@@ -30,28 +30,33 @@ public class TokenFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
-        //1. 获取请求url和路径
-        String url = request.getRequestURL().toString();
+        //1. CORS 预检请求直接放行 (OPTIONS 不携带自定义 Header)
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        //2. 获取请求路径
         String uri = request.getRequestURI();
 
-        //2. 判断是否为登录请求（精确匹配/login路径）
-        if (uri.equals("/login") || uri.endsWith("/login")) {
+        //3. 判断是否为登录请求（精确匹配 /login 路径）
+        if ("/login".equals(uri)) {
             log.info("登录请求，直接放行");
             filterChain.doFilter(request, response);
             return;
         }
 
-        //3. 获取请求头中的令牌（token）
+        //4. 获取请求头中的令牌（token）
         String jwt = request.getHeader("token");
 
-        //4. 判断令牌是否存在，如果不存在，返回错误结果（未登录）
+        //5. 判断令牌是否存在，如果不存在，返回错误结果（未登录）
         if (!StringUtils.hasLength(jwt)) {
             log.info("获取到jwt令牌为空,返回错误结果");
             response.setStatus(HttpStatus.SC_UNAUTHORIZED);
             return;
         }
 
-        //5. 解析token，如果解析失败，返回错误结果（未登录）
+        //6. 解析token，如果解析失败，返回错误结果（未登录）
         try {
             jwtUtils.parseJWT(jwt);
         } catch (Exception e) {
@@ -60,7 +65,7 @@ public class TokenFilter implements Filter {
             return;
         }
 
-        //6. 放行
+        //7. 放行
         log.info("令牌合法, 放行");
         filterChain.doFilter(request, response);
     }

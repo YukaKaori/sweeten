@@ -4,8 +4,9 @@ import com.itheima.mapper.EmpMapper;
 import com.itheima.pojo.Emp;
 import com.itheima.pojo.EmpQueryParam;
 import com.itheima.utils.BCryptUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -21,12 +22,12 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class PasswordMigrationRunner implements CommandLineRunner {
 
-    @Autowired
-    private EmpMapper empMapper;
+    private final EmpMapper empMapper;
 
-    @org.springframework.beans.factory.annotation.Value("${spring.password.migration.enabled:false}")
+    @Value("${spring.password.migration.enabled:false}")
     private boolean migrationEnabled;
 
     @Override

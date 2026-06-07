@@ -6,10 +6,10 @@ import com.itheima.pojo.OperateLog;
 import com.itheima.utils.JwtUtils;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -22,13 +22,12 @@ import java.util.Arrays;
  */
 @Aspect
 @Component
+@RequiredArgsConstructor
 public class OperationLogAspect {
 
-    @Autowired
-    private OperateLogMapper operateLogMapper;
+    private final OperateLogMapper operateLogMapper;
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final JwtUtils jwtUtils;
 
     @Around("@annotation(log)")
     public Object around(ProceedingJoinPoint joinPoint, LogOperation log) throws Throwable {

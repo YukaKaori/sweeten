@@ -1,15 +1,14 @@
 package com.itheima.service.impl;
 
-import com.github.pagehelper.Page;
-import com.github.pagehelper.PageHelper;
 import com.itheima.mapper.EmpExprMapper;
 import com.itheima.mapper.EmpMapper;
 import com.itheima.pojo.*;
 import com.itheima.service.EmpLogService;
 import com.itheima.service.EmpService;
+import com.itheima.util.PageHelperUtils;
 import com.itheima.utils.BCryptUtils;
 import com.itheima.utils.JwtUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -18,26 +17,18 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class EmpServiceImpl implements EmpService {
 
-    @Autowired
-    private EmpMapper empMapper;
-    @Autowired
-    private EmpExprMapper empExprMapper;
-    @Autowired
-    private EmpLogService empLogService;
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final EmpMapper empMapper;
+    private final EmpExprMapper empExprMapper;
+    private final EmpLogService empLogService;
+    private final JwtUtils jwtUtils;
 
     @Override
     public PageResult page(EmpQueryParam empQueryParam) {
-        //1. 设置分页参数
-        PageHelper.startPage(empQueryParam.getPage(), empQueryParam.getPageSize());
-        //2. 执行查询
-        List<Emp> empList = empMapper.list(empQueryParam);
-        Page<Emp> p = (Page<Emp>) empList;
-        //3. 封装结果
-        return new PageResult(p.getTotal(), p.getResult());
+        return PageHelperUtils.executePage(empQueryParam.getPage(), empQueryParam.getPageSize(),
+                () -> empMapper.list(empQueryParam));
     }
 
     @Transactional(rollbackFor = {Exception.class})
@@ -77,6 +68,7 @@ public class EmpServiceImpl implements EmpService {
         return empMapper.getById(id);
     }
 
+    @Transactional(rollbackFor = {Exception.class})
     @Override
     public void update(Emp emp) {
         //1. 根据ID更新员工基本信息
