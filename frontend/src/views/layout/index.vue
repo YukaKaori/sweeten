@@ -420,9 +420,30 @@ const submitPassword = async () => {
   display: flex;
   min-height: 100vh;
   background: var(--color-bg-primary);
+  position: relative;
+
+  /* Subtle decorative wash behind the glass sidebar for blur to catch */
+  &::before {
+    content: '';
+    position: fixed;
+    top: -120px;
+    left: -80px;
+    width: 420px;
+    height: 600px;
+    background: radial-gradient(
+      ellipse at 30% 40%,
+      rgba(232, 99, 122, 0.06) 0%,
+      rgba(240, 163, 92, 0.04) 30%,
+      rgba(245, 240, 236, 0.03) 60%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+    transition: background 0.4s ease;
+  }
 }
 
-/* ---- Sidebar — Frosted Glass ---- */
+/* ---- Sidebar — Apple Frosted Glass ---- */
 .sidebar {
   width: 240px;
   display: flex;
@@ -435,12 +456,19 @@ const submitPassword = async () => {
   transition: width var(--transition-base);
   overflow: hidden;
 
-  /* Premium cool charcoal sidebar background (Linear / Arc style) */
-  background: #16161a;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  
-  /* Soft active text color variable - high contrast for SaaS capsule */
+  /* White frosted glass — Apple-style translucent sidebar */
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+
+  /* Active nav text — dark for contrast on white pill */
   --nav-active-color: rgba(0, 0, 0, 0.8);
+
+  /* Subtle warm inner shadow for depth */
+  box-shadow:
+    inset -8px 0 24px rgba(45, 35, 39, 0.04),
+    1px 0 0 rgba(0, 0, 0, 0.04);
 
   /* Specular highlight along top edge */
   &::before {
@@ -453,23 +481,24 @@ const submitPassword = async () => {
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.15) 30%,
-      rgba(255, 255, 255, 0.25) 50%,
-      rgba(255, 255, 255, 0.15) 70%,
+      rgba(232, 99, 122, 0.12) 30%,
+      rgba(232, 99, 122, 0.2) 50%,
+      rgba(232, 99, 122, 0.12) 70%,
       transparent 100%
     );
     z-index: 1;
   }
 
-  /* Subtle inner glow */
+  /* Subtle warm glow from top */
   &::after {
     content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      transparent 30%,
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 245, 242, 0.15) 20%,
+      transparent 60%,
       transparent 100%
     );
     pointer-events: none;
@@ -485,7 +514,7 @@ const submitPassword = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   min-height: 68px;
   position: relative;
   z-index: 1;
@@ -517,22 +546,22 @@ const submitPassword = async () => {
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 700;
-  color: white;
+  color: var(--color-text-primary);
   line-height: 1.2;
 }
 
 .logo-sub {
   font-size: 11px;
-  color: var(--color-primary-light);
+  color: var(--color-primary);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   font-weight: 500;
 }
 
 .collapse-btn {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.04);
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-muted);
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm);
@@ -546,8 +575,8 @@ const submitPassword = async () => {
   z-index: 1;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--color-text-primary);
   }
 }
 
@@ -588,26 +617,27 @@ const submitPassword = async () => {
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  
-  /* Premium SaaS Style: White Liquid Capsule (High Contrast, Luminous) */
+
+  /* White glass capsule — luminous on light glass sidebar */
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.92) 0%,
-    rgba(255, 255, 255, 0.85) 50%,
-    rgba(255, 255, 255, 0.78) 100%
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.88) 50%,
+    rgba(255, 255, 255, 0.82) 100%
   );
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  
-  /* Razor-crisp luminous border */
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  
-  /* 3D Specs: Top specular light + Subtle white halo glow + Soft ambient ground shadow */
+
+  /* Crisp border for definition on white glass */
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  /* Depth via shadows to separate from sidebar glass */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 0 12px rgba(255, 255, 255, 0.08),
-    0 8px 24px rgba(0, 0, 0, 0.12);
-  
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.08);
+
   transform-origin: center;
   will-change: transform;
 }
@@ -667,7 +697,7 @@ const submitPassword = async () => {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--color-text-muted);
   padding: 16px 12px 8px;
   font-weight: 600;
   white-space: nowrap;
@@ -679,7 +709,7 @@ const submitPassword = async () => {
   gap: 12px;
   padding: 10px 14px;
   border-radius: var(--radius-md);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 500;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
@@ -692,8 +722,8 @@ const submitPassword = async () => {
   background: transparent !important;
 
   &:hover {
-    color: rgba(255, 255, 255, 0.95);
-    background: transparent !important;
+    color: var(--color-text-primary);
+    background: rgba(0, 0, 0, 0.03) !important;
     transform: translateX(4px);
   }
 
@@ -715,19 +745,19 @@ const submitPassword = async () => {
 
 .sidebar-footer {
   padding: 12px 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
   z-index: 1;
 }
 
 .logout-btn {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
   background: transparent !important;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
 
   &:hover {
     color: #ef6b6b;
-    background: transparent !important;
+    background: rgba(239, 107, 107, 0.06) !important;
     transform: translateX(4px);
   }
 }
@@ -863,7 +893,7 @@ const submitPassword = async () => {
 }
 
 .sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 2px;
 }
 
@@ -978,25 +1008,103 @@ const submitPassword = async () => {
 
 /* ---- Dark Mode Overrides ---- */
 :global([data-theme="dark"]) .sidebar {
-  background: #101012;
-  border-right-color: rgba(255, 255, 255, 0.03);
+  /* Dark frosted glass for dark mode */
+  background: rgba(24, 18, 21, 0.78);
+  backdrop-filter: blur(40px) saturate(160%);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  border-right-color: rgba(255, 255, 255, 0.05);
+  box-shadow:
+    inset -8px 0 24px rgba(0, 0, 0, 0.15),
+    1px 0 0 rgba(0, 0, 0, 0.2);
+
+  &::before {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(240, 140, 158, 0.1) 30%,
+      rgba(240, 140, 158, 0.18) 50%,
+      rgba(240, 140, 158, 0.1) 70%,
+      transparent 100%
+    );
+  }
+
+  &::after {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 30%,
+      transparent 100%
+    );
+  }
+
+  /* Dark mode nav text */
+  --nav-active-color: rgba(0, 0, 0, 0.8);
+}
+
+:global([data-theme="dark"]) .logo-title {
+  color: #f0ebe8;
+}
+
+:global([data-theme="dark"]) .logo-sub {
+  color: var(--color-primary-light);
+}
+
+:global([data-theme="dark"]) .nav-group-title {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+:global([data-theme="dark"]) .nav-item {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+:global([data-theme="dark"]) .nav-item:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+:global([data-theme="dark"]) .logout-btn {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+:global([data-theme="dark"]) .logout-btn:hover {
+  color: #ef6b6b;
+  background: rgba(239, 107, 107, 0.1) !important;
+}
+
+:global([data-theme="dark"]) .collapse-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+:global([data-theme="dark"]) .collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:global([data-theme="dark"]) .sidebar-header {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+:global([data-theme="dark"]) .sidebar-footer {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+:global([data-theme="dark"]) .glass-pill-inner {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+:global([data-theme="dark"]) .sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 :global([data-theme="dark"]) .header {
   background: rgba(37, 28, 32, 0.65);
   border-bottom-color: rgba(255, 255, 255, 0.06);
-}
-
-:global([data-theme="dark"]) .collapse-btn {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-:global([data-theme="dark"]) .collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-:global([data-theme="dark"]) .nav-item:hover {
-  background: transparent !important;
 }
 
 :global([data-theme="dark"]) .notification-dot {

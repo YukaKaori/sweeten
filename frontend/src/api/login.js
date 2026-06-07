@@ -1,4 +1,2 @@
-import request from '@/utils/request'
-
-//登录
-export const loginApi = (loginForm) => request.post('/login',loginForm);
+// 向后兼容 — 推荐使用 '@/api/modules/auth'
+export { loginApi } from './modules/auth'

@@ -1,16 +1,16 @@
-import request from '@/utils/request'
+// 向后兼容 — 推荐使用 '@/api/modules/dept'
+// 注意：原 querryAllApi 拼写已修正为 queryAllApi
+export {
+  queryAllApi,
+  addApi,
+  queryByIdApi,
+  updateApi,
+  deleteByIdApi,
+} from './modules/dept'
 
-//查询全部部门数据
-export const querryAllApi = () => request.get('/depts');
-
-//新增
-export const addApi = (dept) => request.post('/depts',dept);
-
-//根据id查询部门
-export const querryByIdApi = (id) => request.get(`/depts/${id}`);
-
-//修改
-export const updateApi = (dept) => request.put('/depts',dept);
-
-//删除
-export const deleteByIdApi = (id) => request.delete(`/depts?id=${id}`);
+// 旧名称兼容导出（拼写错误版本，逐步淘汰）
+import { queryAllApi as _queryAllApi, queryByIdApi as _queryByIdApi } from './modules/dept'
+/** @deprecated 使用 queryAllApi 代替 */
+export const querryAllApi = _queryAllApi
+/** @deprecated 使用 queryByIdApi 代替 */
+export const querryByIdApi = _queryByIdApi
