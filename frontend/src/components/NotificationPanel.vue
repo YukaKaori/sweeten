@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { Bell, WarningFilled, Loading } from '@element-plus/icons-vue'
-import { queryStockAlertApi } from '@/api/dashboard'
+import { queryStockAlertApi } from '@/api/modules/dashboard'
 
 const visible = ref(false)
 const loading = ref(false)

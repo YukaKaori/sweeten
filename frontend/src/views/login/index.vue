@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { useUserStore } from '@/stores/user'
+import { useUserStore } from '@/stores/modules/user'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'

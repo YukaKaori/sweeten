@@ -4,103 +4,69 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import {
-  Wallet,
-  ShoppingBag,
-  UserFilled,
-  Dessert,
-  Trophy,
-  Top,
-  Van,
-  Position,
-  CircleCheck,
-  Timer,
-  StarFilled,
-  ArrowRight,
-  Plus,
-  Document,
-  Promotion,
-  DataAnalysis
+  Wallet, ShoppingBag, UserFilled, Dessert,
+  Trophy, Top, Van, Position, CircleCheck, Timer,
+  StarFilled, ArrowRight, Plus, Document, Promotion, DataAnalysis
 } from '@element-plus/icons-vue'
-import { useUserStore } from '@/stores/user'
-import { queryStatsApi, queryRevenueChartApi, queryRankingApi } from '@/api/dashboard'
+import { useUserStore } from '@/stores/modules/user'
+import { useDashboard } from '@/composables/useDashboard'
 import CountUp from '@/components/CountUp.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
-const userName = ref('')
-const dashboardLoading = ref(false)
+const userName = ref(userStore.username || '主厨')
+const {
+  loading: dashboardLoading,
+  statsCards, rankList, stockAlerts, reviews, campaigns, quickActions,
+  handleReorder, sendCompensation: sendCompensationCoupon,
+} = useDashboard()
+
+// ECharts 管理（视图层持有实例）
 const salesChartRef = ref(null)
 const chartRange = ref('week')
 let salesChart = null
 let resizeObserver = null
 
-// 加载仪表盘数据
 const loadDashboardData = async () => {
   dashboardLoading.value = true
   try {
-    userName.value = userStore.username || '主厨'
-
-    // 并行请求仪表盘数据
+    const { queryStatsApi, queryRevenueChartApi, queryRankingApi } = await import('@/api/modules/dashboard')
     const [statsRes, revenueRes, rankingRes] = await Promise.allSettled([
-      queryStatsApi(),
-      queryRevenueChartApi(chartRange.value),
-      queryRankingApi()
+      queryStatsApi(), queryRevenueChartApi(chartRange.value), queryRankingApi(),
     ])
-
-    // 统计数据
     if (statsRes.status === 'fulfilled' && statsRes.value?.code) {
-      const data = statsRes.value.data
-      if (data.statsCards) {
-        statsCards.value = data.statsCards
-      }
-      if (data.campaigns) {
-        campaigns.value = data.campaigns
-      }
-      if (data.stockAlerts) {
-        stockAlerts.value = data.stockAlerts
-      }
-      if (data.reviews) {
-        reviews.value = data.reviews
-      }
+      const d = statsRes.value.data
+      if (d.statsCards?.length) statsCards.value = d.statsCards
+      if (d.campaigns?.length) campaigns.value = d.campaigns
+      if (d.stockAlerts?.length) stockAlerts.value = d.stockAlerts
+      if (d.reviews?.length) reviews.value = d.reviews
     }
-
-    // 营收图表
     if (revenueRes.status === 'fulfilled' && revenueRes.value?.code && salesChart) {
-      const chartData = revenueRes.value.data
-      salesChart.setOption({
-        xAxis: { data: chartData.labels },
-        series: [
-          { data: chartData.revenue },
-          { data: chartData.orders }
-        ]
-      })
+      const d = revenueRes.value.data
+      salesChart.setOption({ xAxis: { data: d.labels }, series: [{ data: d.revenue }, { data: d.orders }] })
     }
-
-    // 排行数据
     if (rankingRes.status === 'fulfilled' && rankingRes.value?.code) {
       rankList.value = rankingRes.value.data
     }
-  } catch {
-    // API 未实现时使用硬编码数据（静默降级）
   } finally {
     dashboardLoading.value = false
   }
 }
 
-onMounted(() => {
-  nextTick(() => {
-    initSalesChart()
-    loadDashboardData()
-  })
-})
+const initSalesChart = () => {
+  if (!salesChartRef.value) return
+  salesChart = echarts.init(salesChartRef.value)
+  renderSalesChart()
+  resizeObserver = new ResizeObserver(() => salesChart?.resize())
+  resizeObserver.observe(salesChartRef.value)
+}
 
+onMounted(() => {
+  nextTick(() => { initSalesChart(); loadDashboardData() })
+})
 onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-  }
-  if (salesChart) {
-    salesChart.dispose()
-  }
+  resizeObserver?.disconnect()
+  salesChart?.dispose()
 })
 
 /* ==================== 智能问候引擎 ==================== */
@@ -121,69 +87,7 @@ const navigateTo = (path) => {
   }
 }
 
-/* ==================== 今日核心经营快照 (Stripe 风格) ==================== */
-const statsCards = ref([
-  {
-    title: '今日销售额',
-    value: 12860,
-    prefix: '¥',
-    suffix: '',
-    decimals: 2,
-    trend: '+12.5%',
-    trendType: 'up',
-    trendIcon: Top,
-    icon: Wallet,
-    iconBg: 'rgba(232, 99, 122, 0.08)',
-    iconColor: '#e8637a',
-    progress: 82,
-    desc: '目标达成额 ¥15,000.00'
-  },
-  {
-    title: '客单交易均价',
-    value: 69.2,
-    prefix: '¥',
-    suffix: '',
-    decimals: 2,
-    trend: '+5.8%',
-    trendType: 'up',
-    trendIcon: Top,
-    icon: ShoppingBag,
-    iconBg: 'rgba(240, 163, 92, 0.08)',
-    iconColor: '#f0a35c',
-    progress: 75,
-    desc: '较昨日上涨 ¥3.80'
-  },
-  {
-    title: '私域高价值尊享会员',
-    value: 1428,
-    prefix: '',
-    suffix: ' 人',
-    decimals: 0,
-    trend: '+2.4%',
-    trendType: 'up',
-    trendIcon: Top,
-    icon: UserFilled,
-    iconBg: 'rgba(92, 184, 138, 0.08)',
-    iconColor: '#5cb88a',
-    progress: 95,
-    desc: '高频复购群体占比 62%'
-  },
-  {
-    title: '冷链物流派单率',
-    value: 186,
-    prefix: '',
-    suffix: ' 单',
-    decimals: 0,
-    trend: '稳定',
-    trendType: 'neutral',
-    trendIcon: CircleCheck,
-    icon: Dessert,
-    iconBg: 'rgba(107, 140, 206, 0.08)',
-    iconColor: '#6b8cce',
-    progress: 88,
-    desc: '平均骑手接单响应 4.2s'
-  }
-])
+/* statsCards / stockAlerts / reviews / campaigns / rankList 由 useDashboard composable 管理 */
 
 /* ==================== Stripe 风格：高密度双轴经营大盘图表数据 ==================== */
 const salesDataMap = {
@@ -202,17 +106,6 @@ const salesDataMap = {
     revenue: [92000, 105000, 98000, 124000, 132000, 145000, 156000],
     margins: [61, 62, 60, 63, 64, 65, 64.8]
   }
-}
-
-const initSalesChart = () => {
-  if (!salesChartRef.value) return
-  salesChart = echarts.init(salesChartRef.value)
-  renderSalesChart()
-
-  resizeObserver = new ResizeObserver(() => {
-    salesChart?.resize()
-  })
-  resizeObserver.observe(salesChartRef.value)
 }
 
 const renderSalesChart = () => {
@@ -314,87 +207,7 @@ watch(chartRange, () => {
   renderSalesChart()
 })
 
-/* ==================== 热销甜品 TOP 5 (Monospace数值) ==================== */
-const topDesserts = ref([
-  { name: '马达加斯加香草千层蛋糕', category: '经典烘焙', sales: 124 },
-  { name: '开心果野莓慕斯', category: '夏日限定', sales: 98 },
-  { name: '冲绳黑糖焦糖布丁', category: '日式冰糕', sales: 86 },
-  { name: '意式特浓提拉米苏', category: '主厨招牌', sales: 74 },
-  { name: '静冈抹茶舒芙蕾', category: '现场烘焙', sales: 52 }
-])
-
-/* ==================== 效期库存防御体系 ==================== */
-const stockAlerts = ref([
-  { name: '法国进口淡奶油 (AOP)', stock: 8, threshold: 24, unit: 'L' },
-  { name: '马斯卡彭芝士 (意大利)', stock: 5, threshold: 15, unit: 'kg' },
-  { name: '有机新鲜大草莓 (奶油红颜)', stock: 3, threshold: 10, unit: 'kg' }
-])
-
-const handleQuickReorder = (itemName) => {
-  ElMessage.success(`已生成 [${itemName}] 的智能合并补货单，已自动流转至采购链系统`)
-}
-
-/* ==================== 顾客社交口碑情感监控 (NLP) ==================== */
-const latestReviews = ref([
-  {
-    user: 'Sherry',
-    rating: 5,
-    text: '香草千层的香草籽清晰可见，奶油轻盈丝滑，完全没有腻感！配上冷链配送简直完美。',
-    avatarBg: 'linear-gradient(135deg, #e8637a, #c94d63)'
-  },
-  {
-    user: '主厨挚友',
-    rating: 5,
-    text: '限定的开心果野莓慕斯酸甜平衡极佳，底部饼干碎的酥脆度在配送20分钟后依旧保持。',
-    avatarBg: 'linear-gradient(135deg, #f0a35c, #e28e46)'
-  },
-  {
-    user: '咖啡小馆',
-    rating: 4,
-    text: '提拉米苏酒香纯正，美中不足的是手指饼干吸附咖啡液略显偏湿，建议微调配比。',
-    avatarBg: 'linear-gradient(135deg, #6b8cce, #5478b8)'
-  }
-])
-
-const sendCompensationCoupon = (username) => {
-  ElMessage.success(`已向客群账户 [${username}] 派送夏日限定「尝鲜新品免单致谢券」`)
-}
-
-/* ==================== Linear 质感主厨悬浮舱 (Action Dock) ==================== */
-const quickActions = ref([
-  {
-    title: '发布当季限定单品',
-    desc: '联动BOM计算物料损耗与价格区间',
-    route: '/price',
-    icon: Plus,
-    iconBg: 'rgba(232, 99, 122, 0.06)',
-    iconColor: '#e8637a'
-  },
-  {
-    title: '冷链配送派送控制台',
-    desc: '实时查看冷藏车在途轨迹与温控曲线',
-    route: '/order',
-    icon: Van,
-    iconBg: 'rgba(107, 140, 206, 0.06)',
-    iconColor: '#6b8cce'
-  },
-  {
-    title: '导出精细化财务报表',
-    desc: '生成包含原材料波动的毛利润桑基图',
-    route: '/report',
-    icon: DataAnalysis,
-    iconBg: 'rgba(92, 184, 138, 0.06)',
-    iconColor: '#5cb88a'
-  },
-  {
-    title: '智能配方与物料调控',
-    desc: '查看烘焙配方变动触发的成本变差',
-    route: '/report',
-    icon: Document,
-    iconBg: 'rgba(240, 163, 92, 0.06)',
-    iconColor: '#f0a35c'
-  }
-])
+/* topDesserts / stockAlerts / latestReviews / quickActions 均由 useDashboard composable 管理 */
 </script>
 
 <template>
@@ -679,7 +492,7 @@ const quickActions = ref([
 
           <div class="bento-rank-flow">
             <div 
-              v-for="(item, index) in topDesserts" 
+              v-for="(item, index) in rankList" 
               :key="item.name" 
               class="bento-rank-item"
             >
@@ -700,7 +513,7 @@ const quickActions = ref([
                   <div class="bento-rank-item__progress-rail">
                     <div 
                       class="bento-rank-item__progress-fill" 
-                      :style="{ width: (item.sales / topDesserts[0].sales * 100) + '%' }"
+                      :style="{ width: (item.sales / (rankList[0]?.sales || 1) * 100) + '%' }"
                     ></div>
                   </div>
                 </div>
@@ -739,7 +552,7 @@ const quickActions = ref([
                 
                 <div class="bento-alert-pill__right">
                   <!-- 智能预测动作按钮，Shopify 商业风格 -->
-                  <el-button type="info" size="small" class="reorder-action-btn" @click="handleQuickReorder(item.name)">
+                  <el-button type="info" size="small" class="reorder-action-btn" @click="handleReorder(item.name)">
                     快捷采购
                   </el-button>
                 </div>
@@ -771,7 +584,7 @@ const quickActions = ref([
 
           <div class="bento-reviews-flow">
             <div 
-              v-for="review in latestReviews" 
+              v-for="review in reviews" 
               :key="review.user" 
               class="bento-review-bubble glass-panel"
             >

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { Search, View, Download } from '@element-plus/icons-vue'
-import { queryOperateLogApi, queryOperateLogByIdApi } from '@/api/log'
+import { queryOperateLogApi, queryOperateLogByIdApi } from '@/api/modules/log'
 import { exportCSV } from '@/composables/useExport'
 import { ElMessage } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'

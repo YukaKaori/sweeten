@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { EditPen, Delete, Plus, Search } from '@element-plus/icons-vue'
-import { querryAllApi, addApi, querryByIdApi, updateApi, deleteByIdApi } from '@/api/dept'
+import { queryAllApi, addApi, queryByIdApi, updateApi, deleteByIdApi } from '@/api/modules/dept'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 
@@ -18,7 +18,7 @@ onMounted(() => {
 const search = async () => {
   loading.value = true
   try {
-    const result = await querryAllApi()
+    const result = await queryAllApi()
     if (result.code) {
       deptList.value = result.data
     }
@@ -69,7 +69,7 @@ const rules = ref({
 const deptFormRef = ref()
 
 const edit = async (id) => {
-  const result = await querryByIdApi(id)
+  const result = await queryByIdApi(id)
   if (result.code) {
     dept.value = result.data
     dialogFormVisible.value = true

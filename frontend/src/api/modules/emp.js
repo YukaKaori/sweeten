@@ -19,6 +19,6 @@ export const deleteByIdApi = (ids) => http.delete(`/emps?ids=${ids}`)
 /** 查询个人信息 */
 export const getProfileApi = (id) => http.get(`/emps/profile/${id}`)
 
-/** 修改密码 */
+/** 修改密码 — 使用请求体传输，避免密码出现在 URL 查询参数中 */
 export const updatePasswordApi = (id, oldPassword, newPassword) =>
-  http.put(`/emps/password?id=${id}&oldPassword=${oldPassword}&newPassword=${newPassword}`)
+  http.put('/emps/password', { id, oldPassword, newPassword })
