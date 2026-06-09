@@ -97,7 +97,7 @@ newdessertshop/
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/YukaKaori/newdessertshop.git
+git clone https://github.com/YukaKaori/dessertshop-backend.git
 cd newdessertshop
 ```
 
