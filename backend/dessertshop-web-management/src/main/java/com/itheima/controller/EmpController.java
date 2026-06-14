@@ -3,6 +3,7 @@ package com.itheima.controller;
 import com.itheima.annotation.LogOperation;
 import com.itheima.pojo.Emp;
 import com.itheima.pojo.EmpQueryParam;
+import com.itheima.pojo.EmpUpdateDTO;
 import com.itheima.pojo.PageResult;
 import com.itheima.pojo.PasswordChangeRequest;
 import com.itheima.pojo.Result;
@@ -71,8 +72,21 @@ public class EmpController {
      */
     @LogOperation
     @PutMapping
-    public Result update(@Valid @RequestBody Emp emp) {
-        log.info("修改员工信息,username:{}", emp.getUsername());
+    public Result update(@Valid @RequestBody EmpUpdateDTO empDTO) {
+        log.info("修改员工信息,username:{}", empDTO.getUsername());
+        // 转换为 Emp 对象，密码字段不传（updateById 的动态 SQL 会跳过 null 字段）
+        Emp emp = new Emp();
+        emp.setId(empDTO.getId());
+        emp.setUsername(empDTO.getUsername());
+        emp.setName(empDTO.getName());
+        emp.setGender(empDTO.getGender());
+        emp.setPhone(empDTO.getPhone());
+        emp.setJob(empDTO.getJob());
+        emp.setSalary(empDTO.getSalary());
+        emp.setImage(empDTO.getImage());
+        emp.setEntryDate(empDTO.getEntryDate());
+        emp.setDeptId(empDTO.getDeptId());
+        emp.setExprList(empDTO.getExprList());
         empService.update(emp);
         return Result.success();
     }

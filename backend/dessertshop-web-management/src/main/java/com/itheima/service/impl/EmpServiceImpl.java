@@ -98,7 +98,7 @@ public class EmpServiceImpl implements EmpService {
                 dataMap.put("username", empLogin.getUsername());
 
                 String jwt = jwtUtils.generateJwt(dataMap);
-                LoginInfo loginInfo = new LoginInfo(empLogin.getId(), empLogin.getUsername(), empLogin.getName(), jwt);
+                LoginInfo loginInfo = new LoginInfo(empLogin.getId(), empLogin.getUsername(), empLogin.getName(), jwt, empLogin.getImage());
                 return loginInfo;
             }
         }

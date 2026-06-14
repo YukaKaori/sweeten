@@ -25,8 +25,8 @@ public class Emp {
     private String name;
 
     @NotNull(message = "性别不能为空")
-    @Min(value = 0, message = "性别值无效")
-    @Max(value = 1, message = "性别值无效")
+    @Min(value = 1, message = "性别值无效")
+    @Max(value = 2, message = "性别值无效")
     private Integer gender;
 
     @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")
