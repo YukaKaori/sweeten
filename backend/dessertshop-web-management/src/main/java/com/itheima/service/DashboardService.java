@@ -19,4 +19,11 @@ public interface DashboardService {
 
     /** 库存预警 */
     List<Map<String, Object>> getStockAlerts();
+
+    // ---------- 数据报表 ----------
+    List<Map<String, Object>> getReportStats(String begin, String end);
+    Map<String, Object> getReportRevenue(String begin, String end);
+    List<Map<String, Object>> getReportCategory(String begin, String end);
+    Map<String, Object> getReportWeekday(String begin, String end);
+    List<Map<String, Object>> getReportRanking(String begin, String end, Integer limit);
 }

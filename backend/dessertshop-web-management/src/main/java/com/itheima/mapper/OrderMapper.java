@@ -48,4 +48,10 @@ public interface OrderMapper {
             "from orders where status in (3, 4) and create_time between #{start} and #{end} " +
             "group by date(create_time) order by d")
     List<Map<String, Object>> selectDailyRevenue(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    //按工作日统计订单数
+    @Select("select dayofweek(create_time) as wd, count(*) as cnt " +
+            "from orders where create_time between #{start} and #{end} " +
+            "group by dayofweek(create_time) order by wd")
+    List<Map<String, Object>> selectWeekdayOrders(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

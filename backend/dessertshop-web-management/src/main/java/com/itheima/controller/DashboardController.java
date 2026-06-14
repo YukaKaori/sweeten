@@ -41,4 +41,47 @@ public class DashboardController {
         log.info("查询库存预警");
         return Result.success(dashboardService.getStockAlerts());
     }
+
+    // ---------- 数据报表 API ----------
+
+    /** 报表统计卡片 */
+    @GetMapping("/report-stats")
+    public Result reportStats(@RequestParam(defaultValue = "") String begin,
+                              @RequestParam(defaultValue = "") String end) {
+        log.info("查询报表统计卡片,begin:{},end:{}", begin, end);
+        return Result.success(dashboardService.getReportStats(begin, end));
+    }
+
+    /** 报表营收趋势 */
+    @GetMapping("/report-revenue")
+    public Result reportRevenue(@RequestParam(defaultValue = "") String begin,
+                                @RequestParam(defaultValue = "") String end) {
+        log.info("查询报表营收趋势,begin:{},end:{}", begin, end);
+        return Result.success(dashboardService.getReportRevenue(begin, end));
+    }
+
+    /** 报表分类销售占比 */
+    @GetMapping("/report-category")
+    public Result reportCategory(@RequestParam(defaultValue = "") String begin,
+                                 @RequestParam(defaultValue = "") String end) {
+        log.info("查询报表分类销售,begin:{},end:{}", begin, end);
+        return Result.success(dashboardService.getReportCategory(begin, end));
+    }
+
+    /** 报表工作日订单分布 */
+    @GetMapping("/report-weekday")
+    public Result reportWeekday(@RequestParam(defaultValue = "") String begin,
+                                @RequestParam(defaultValue = "") String end) {
+        log.info("查询报表工作日分布,begin:{},end:{}", begin, end);
+        return Result.success(dashboardService.getReportWeekday(begin, end));
+    }
+
+    /** 报表热销排行 */
+    @GetMapping("/report-ranking")
+    public Result reportRanking(@RequestParam(defaultValue = "") String begin,
+                                @RequestParam(defaultValue = "") String end,
+                                @RequestParam(defaultValue = "7") Integer limit) {
+        log.info("查询报表排行,limit:{},begin:{},end:{}", limit, begin, end);
+        return Result.success(dashboardService.getReportRanking(begin, end, limit));
+    }
 }
