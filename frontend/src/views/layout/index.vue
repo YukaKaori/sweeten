@@ -415,7 +415,8 @@ const submitPassword = async () => {
       <template v-else-if="profileData">
         <div class="profile-dialog__avatar">
           <div class="profile-dialog__avatar-circle">
-            {{ (profileData.name || '?').charAt(0) }}
+            <img v-if="profileData.image" :src="profileData.image" alt="" class="profile-dialog__avatar-img" />
+            <span v-else>{{ (profileData.name || '?').charAt(0) }}</span>
           </div>
           <span class="profile-dialog__avatar-name">{{ profileData.name }}</span>
           <span class="profile-dialog__avatar-job">{{ JOB_MAP[profileData.job] || '未知职位' }}</span>
@@ -1009,6 +1010,14 @@ const submitPassword = async () => {
   font-size: 28px;
   font-weight: 700;
   box-shadow: 0 6px 20px rgba(232, 99, 122, 0.3);
+  overflow: hidden;
+}
+
+.profile-dialog__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .profile-dialog__avatar-name {

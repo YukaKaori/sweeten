@@ -14,6 +14,7 @@ const visible = ref(false)
 
 const userName = computed(() => userStore.userInfo?.name || userStore.username || '用户')
 const userAccount = computed(() => userStore.username || '-')
+const userImage = computed(() => userStore.userInfo?.image || '')
 
 const toggle = () => {
   visible.value = !visible.value
@@ -34,7 +35,8 @@ onMounted(() => {
   <div class="user-profile-wrapper">
     <div class="user-info" @click.stop="toggle">
       <div class="user-avatar">
-        {{ userName.charAt(0).toUpperCase() }}
+        <img v-if="userImage" :src="userImage" alt="" />
+        <span v-else>{{ userName.charAt(0).toUpperCase() }}</span>
       </div>
       <span class="user-name">{{ userName }}</span>
     </div>
@@ -43,7 +45,8 @@ onMounted(() => {
       <div v-if="visible" class="profile-dropdown glass-panel" @click.stop>
         <div class="profile-header">
           <div class="profile-avatar">
-            {{ userName.charAt(0).toUpperCase() }}
+            <img v-if="userImage" :src="userImage" alt="" />
+            <span v-else>{{ userName.charAt(0).toUpperCase() }}</span>
           </div>
           <div class="profile-info">
             <span class="profile-name">{{ userName }}</span>
@@ -102,6 +105,13 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(232, 99, 122, 0.25);
+  overflow: hidden;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-name {
@@ -142,6 +152,13 @@ onMounted(() => {
   font-weight: 700;
   box-shadow: 0 4px 12px rgba(232, 99, 122, 0.3);
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .profile-info {
