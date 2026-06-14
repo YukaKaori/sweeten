@@ -1,12 +1,15 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { EditPen, Plus, Search } from '@element-plus/icons-vue'
+import { ChatDotRound, EditPen, Plus, Search } from '@element-plus/icons-vue'
 import { DESSERT_CATEGORIES } from '@/utils/constants'
 import { queryByCategoryApi, queryCategoryCountApi, updateApi, updateStatusApi } from '@/api/modules/dessert'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
+
+const router = useRouter()
 
 // 当前分类
 const activeCategory = ref('cake')
@@ -126,7 +129,7 @@ const categoryColors = {
   <div class="page-container">
     <PageHeader title="价格管理" description="管理甜品价格和上下架状态">
       <template #actions>
-        <el-button type="primary">
+        <el-button type="primary" @click="router.push('/dessert')">
           <el-icon><Plus /></el-icon>
           新增甜品
         </el-button>
@@ -206,6 +209,14 @@ const categoryColors = {
               @click="toggleStatus(item)"
             >
               {{ item.status === 1 ? '下架' : '上架' }}
+            </el-button>
+            <el-button
+              size="small"
+              plain
+              @click="router.push(`/dessert/${item.id}`)"
+            >
+              <el-icon><ChatDotRound /></el-icon>
+              评论
             </el-button>
           </div>
         </div>

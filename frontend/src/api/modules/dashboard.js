@@ -20,3 +20,25 @@ export const queryReviewsApi = (limit = 4) =>
 
 /** 获取营销活动 */
 export const queryCampaignsApi = () => http.get('/dashboard/campaigns')
+
+// -------------------- 报表 API --------------------
+
+/** 获取报表统计卡片 */
+export const queryReportStatsApi = (begin = '', end = '') =>
+  http.get(`/dashboard/report-stats?begin=${begin}&end=${end}`)
+
+/** 获取报表营收趋势 */
+export const queryReportRevenueApi = (begin = '', end = '') =>
+  http.get(`/dashboard/report-revenue?begin=${begin}&end=${end}`)
+
+/** 获取报表分类销售占比 */
+export const queryReportCategoryApi = (begin = '', end = '') =>
+  http.get(`/dashboard/report-category?begin=${begin}&end=${end}`)
+
+/** 获取报表工作日订单分布 */
+export const queryReportWeekdayApi = (begin = '', end = '') =>
+  http.get(`/dashboard/report-weekday?begin=${begin}&end=${end}`)
+
+/** 获取报表销售排行 */
+export const queryReportRankingApi = (begin = '', end = '', limit = 7) =>
+  http.get(`/dashboard/report-ranking?begin=${begin}&end=${end}&limit=${limit}`)

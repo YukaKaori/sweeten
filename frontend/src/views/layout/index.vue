@@ -18,6 +18,7 @@ import {
   DataAnalysis,
   Document,
   SwitchButton,
+  WarningFilled,
   Moon,
   Sunny,
   User,
@@ -248,6 +249,12 @@ const submitPassword = async () => {
 
         <div class="nav-group">
           <div v-if="!isCollapsed" class="nav-group-title">甜品管理</div>
+          <router-link to="/dessert" class="nav-item" :class="{ active: activeMenu === '/dessert' }">
+            <el-icon :size="20"><Goods /></el-icon>
+            <transition name="fade">
+              <span v-if="!isCollapsed" class="nav-label">甜品管理</span>
+            </transition>
+          </router-link>
           <router-link to="/price" class="nav-item" :class="{ active: activeMenu === '/price' }">
             <el-icon :size="20"><Wallet /></el-icon>
             <transition name="fade">
@@ -258,6 +265,12 @@ const submitPassword = async () => {
             <el-icon :size="20"><Goods /></el-icon>
             <transition name="fade">
               <span v-if="!isCollapsed" class="nav-label">订单管理</span>
+            </transition>
+          </router-link>
+          <router-link to="/inventory" class="nav-item" :class="{ active: activeMenu === '/inventory' }">
+            <el-icon :size="20"><WarningFilled /></el-icon>
+            <transition name="fade">
+              <span v-if="!isCollapsed" class="nav-label">库存管理</span>
             </transition>
           </router-link>
         </div>
@@ -274,6 +287,12 @@ const submitPassword = async () => {
             <el-icon :size="20"><Avatar /></el-icon>
             <transition name="fade">
               <span v-if="!isCollapsed" class="nav-label">员工管理</span>
+            </transition>
+          </router-link>
+          <router-link to="/customer" class="nav-item" :class="{ active: activeMenu === '/customer' }">
+            <el-icon :size="20"><Postcard /></el-icon>
+            <transition name="fade">
+              <span v-if="!isCollapsed" class="nav-label">客户管理</span>
             </transition>
           </router-link>
         </div>

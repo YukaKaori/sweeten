@@ -14,4 +14,10 @@ export const systemRoutes = [
     component: () => import('@/views/emp/index.vue'),
     meta: { title: '员工管理' },
   },
+  {
+    path: 'customer',
+    name: 'customer',
+    component: () => import('@/views/customer/index.vue'),
+    meta: { title: '客户管理' },
+  },
 ]

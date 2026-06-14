@@ -1,21 +1,63 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import * as echarts from 'echarts'
 import { Download, Refresh } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { exportCSV } from '@/composables/useExport'
+import {
+  queryReportStatsApi,
+  queryReportRevenueApi,
+  queryReportCategoryApi,
+  queryReportWeekdayApi,
+  queryReportRankingApi,
+} from '@/api/modules/dashboard'
 import PageHeader from '@/components/PageHeader.vue'
 
 // 日期范围
 const dateRange = ref([])
 const quickDate = ref('month')
+const loadingStats = ref(false)
 
-// 统计卡片
+// 日期参数
+const dateParams = computed(() => {
+  if (dateRange.value?.length === 2) {
+    return { begin: dateRange.value[0], end: dateRange.value[1] }
+  }
+  return { begin: '', end: '' }
+})
+
+// 统计卡片 (API 数据 + 降级)
 const stats = ref([
   { label: '本月营收', value: '¥128,640', change: '+12.5%', trend: 'up', color: '#e8637a' },
   { label: '订单总数', value: '2,846', change: '+8.3%', trend: 'up', color: '#6b8cce' },
   { label: '客单价', value: '¥45.2', change: '-2.1%', trend: 'down', color: '#5cb88a' },
-  { label: '复购率', value: '34.6%', change: '+5.2%', trend: 'up', color: '#f0a35c' }
+  { label: '复购率', value: '34.6%', change: '+5.2%', trend: 'up', color: '#f0a35c' },
 ])
+
+// 图表数据 (API 数据 + 降级)
+const revenueData = ref({
+  xAxis: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+  revenue: [86000, 72000, 95000, 108000, 128000, 115000, 132000, 148000, 125000, 138000, 142000, 0],
+  orders: [1800, 1520, 2100, 2350, 2846, 2500, 2800, 3100, 2700, 2950, 3050, 0],
+})
+
+const categoryData = ref([
+  { value: 38, name: '蛋糕', itemStyle: { color: '#e8637a' } },
+  { value: 25, name: '面包', itemStyle: { color: '#f0a35c' } },
+  { value: 18, name: '饮品', itemStyle: { color: '#6b8cce' } },
+  { value: 12, name: '甜点', itemStyle: { color: '#5cb88a' } },
+  { value: 7, name: '冰淇淋', itemStyle: { color: '#a78bfa' } },
+])
+
+const weekdayData = ref({
+  xAxis: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+  orders: [320, 280, 350, 410, 520, 680, 590],
+})
+
+const rankingData = ref({
+  names: ['蓝莓芝士蛋糕', '焦糖布丁', '舒芙蕾', '法式可颂', '提拉米苏', '抹茶拿铁', '草莓慕斯蛋糕'],
+  sales: [326, 389, 432, 543, 618, 892, 1024],
+})
 
 // 图表引用
 const revenueChartRef = ref(null)
@@ -36,7 +78,7 @@ const initRevenueChart = () => {
     grid: { top: 40, right: 20, bottom: 30, left: 60 },
     xAxis: {
       type: 'category',
-      data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+      data: revenueData.value.xAxis,
       axisLine: { lineStyle: { color: '#ede6e1' } },
       axisLabel: { color: '#a3949b', fontSize: 12 }
     },
@@ -65,7 +107,7 @@ const initRevenueChart = () => {
             { offset: 1, color: 'rgba(232, 99, 122, 0.02)' }
           ])
         },
-        data: [86000, 72000, 95000, 108000, 128000, 115000, 132000, 148000, 125000, 138000, 142000, 0]
+        data: revenueData.value.revenue
       },
       {
         name: '订单数',
@@ -78,7 +120,7 @@ const initRevenueChart = () => {
           ]),
           borderRadius: [4, 4, 0, 0]
         },
-        data: [1800, 1520, 2100, 2350, 2846, 2500, 2800, 3100, 2700, 2950, 3050, 0],
+        data: revenueData.value.orders,
         yAxisIndex: 0
       }
     ]
@@ -113,13 +155,7 @@ const initCategoryChart = () => {
       emphasis: {
         label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#2d2327' }
       },
-      data: [
-        { value: 38, name: '蛋糕', itemStyle: { color: '#e8637a' } },
-        { value: 25, name: '面包', itemStyle: { color: '#f0a35c' } },
-        { value: 18, name: '饮品', itemStyle: { color: '#6b8cce' } },
-        { value: 12, name: '甜点', itemStyle: { color: '#5cb88a' } },
-        { value: 7, name: '冰淇淋', itemStyle: { color: '#a78bfa' } }
-      ]
+      data: categoryData.value
     }]
   }
   chart.setOption(option)
@@ -138,7 +174,7 @@ const initWeekdayChart = () => {
     grid: { top: 20, right: 20, bottom: 30, left: 50 },
     xAxis: {
       type: 'category',
-      data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+      data: weekdayData.value.xAxis,
       axisLine: { lineStyle: { color: '#ede6e1' } },
       axisLabel: { color: '#a3949b', fontSize: 12 }
     },
@@ -159,7 +195,7 @@ const initWeekdayChart = () => {
           return colors[params.dataIndex]
         }
       },
-      data: [320, 280, 350, 410, 520, 680, 590]
+      data: weekdayData.value.orders
     }]
   }
   chart.setOption(option)
@@ -184,7 +220,7 @@ const initRankingChart = () => {
     },
     yAxis: {
       type: 'category',
-      data: ['蓝莓芝士蛋糕', '焦糖布丁', '舒芙蕾', '法式可颂', '提拉米苏', '抹茶拿铁', '草莓慕斯蛋糕'],
+      data: rankingData.value.names,
       axisLine: { lineStyle: { color: '#ede6e1' } },
       axisLabel: { color: '#6b5b63', fontSize: 12 },
       inverse: true
@@ -200,15 +236,105 @@ const initRankingChart = () => {
           { offset: 1, color: '#e8637a' }
         ])
       },
-      data: [326, 389, 432, 543, 618, 892, 1024]
+      data: rankingData.value.sales
     }]
   }
   chart.setOption(option)
   return chart
 }
 
+// 更新所有图表
+const refreshCharts = () => {
+  chartInstances.forEach((c) => {
+    if (c && !c.isDisposed()) c.dispose()
+  })
+  chartInstances.length = 0
+  chartInstances.push(
+    initRevenueChart(),
+    initCategoryChart(),
+    initWeekdayChart(),
+    initRankingChart(),
+  )
+}
+
+// 分类英文→中文映射
+const categoryNameMap = { cake: '蛋糕', bread: '面包', drink: '饮品', dessert: '甜点', icecream: '冰淇淋' }
+const cardColors = ['#e8637a', '#6b8cce', '#5cb88a', '#f0a35c']
+
+// 加载报表数据
+const loadReportData = async () => {
+  loadingStats.value = true
+  try {
+    const { begin, end } = dateParams.value
+    const [statsRes, revenueRes, categoryRes, weekdayRes, rankingRes] =
+      await Promise.allSettled([
+        queryReportStatsApi(begin, end),
+        queryReportRevenueApi(begin, end),
+        queryReportCategoryApi(begin, end),
+        queryReportWeekdayApi(begin, end),
+        queryReportRankingApi(begin, end, 7),
+      ])
+
+    // 统计卡片：后端 {title,value,prefix,suffix,trend,trendType,...} → 前端 {label,value,change,trend,color}
+    if (statsRes.status === 'fulfilled' && statsRes.value?.code === 1) {
+      const cards = statsRes.value.data
+      if (Array.isArray(cards) && cards.length) {
+        stats.value = cards.map((c, i) => ({
+          label: c.title || '',
+          value: `${c.prefix || ''}${Number(c.value || 0).toLocaleString()}${c.suffix || ''}`,
+          change: c.trend || '',
+          trend: c.trendType || 'up',
+          color: cardColors[i] || '#e8637a',
+        }))
+      }
+    }
+
+    // 营收趋势：后端 {xAxis,revenue,orders} ✓ 字段一致
+    if (revenueRes.status === 'fulfilled' && revenueRes.value?.code === 1) {
+      revenueData.value = revenueRes.value.data
+    }
+
+    // 分类占比：后端 {category(英文),count,itemStyle} → 前端 {value,name(中文),itemStyle}
+    if (categoryRes.status === 'fulfilled' && categoryRes.value?.code === 1) {
+      const list = categoryRes.value.data
+      if (Array.isArray(list) && list.length) {
+        categoryData.value = list.map(item => ({
+          value: item.count || item.value || 0,
+          name: categoryNameMap[item.category] || item.name || item.category || '未知',
+          itemStyle: item.itemStyle,
+        }))
+      }
+    }
+
+    // 工作日：后端 {xAxis,orders} ✓ 字段一致
+    if (weekdayRes.status === 'fulfilled' && weekdayRes.value?.code === 1) {
+      weekdayData.value = weekdayRes.value.data
+    }
+
+    // 排行：后端 [{name,sales},...] → 前端 {names:[],sales:[]}
+    if (rankingRes.status === 'fulfilled' && rankingRes.value?.code === 1) {
+      const list = rankingRes.value.data
+      if (Array.isArray(list) && list.length) {
+        rankingData.value = {
+          names: list.map(item => item.name),
+          sales: list.map(item => item.sales),
+        }
+      }
+    }
+
+    refreshCharts()
+  } catch {
+    // API fail — keep hardcoded fallback data
+  } finally {
+    loadingStats.value = false
+  }
+}
+
 const setQuickDate = (type) => {
   quickDate.value = type
+  dateRange.value = [] // 清除自定义日期
+  // quickDate changes handled via watch in template
+  loadReportData()
 }
 
 const handleExport = () => {
@@ -216,19 +342,20 @@ const handleExport = () => {
     { key: 'label', label: '指标' },
     { key: 'value', label: '当前值' },
     { key: 'change', label: '变化幅度' },
-    { key: 'trend', label: '趋势' }
+    { key: 'trend', label: '趋势' },
   ]
   exportCSV(stats.value, columns, '数据报表')
 }
 
+const handleRefresh = () => {
+  ElMessage.success('数据已刷新')
+  loadReportData()
+}
+
 onMounted(async () => {
   await nextTick()
-  chartInstances.push(
-    initRevenueChart(),
-    initCategoryChart(),
-    initWeekdayChart(),
-    initRankingChart()
-  )
+  refreshCharts()
+  loadReportData()
 })
 
 onBeforeUnmount(() => {
@@ -253,7 +380,12 @@ onBeforeUnmount(() => {
           end-placeholder="结束日期"
           value-format="YYYY-MM-DD"
           style="width: 260px"
+          @change="loadReportData"
         />
+        <el-button @click="handleRefresh">
+          <el-icon><Refresh /></el-icon>
+          刷新
+        </el-button>
         <el-button @click="handleExport">
           <el-icon><Download /></el-icon>
           导出报表
