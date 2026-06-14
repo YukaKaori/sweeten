@@ -173,7 +173,8 @@ const categoryColors = {
         :class="{ disabled: item.status === 0 }"
       >
         <div class="card-image">
-          <div class="image-placeholder" :style="{ background: `${categoryColors[item.category]}15` }">
+          <img v-if="item.image" :src="item.image" :alt="item.name" class="dessert-image" />
+          <div v-else class="image-placeholder" :style="{ background: `${categoryColors[item.category]}15` }">
             <span style="font-size: 32px">🧁</span>
           </div>
           <div class="card-badge" v-if="item.price < item.originalPrice">
@@ -354,6 +355,17 @@ const categoryColors = {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.dessert-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-spring);
+}
+
+.dessert-card:hover .dessert-image {
+  transform: scale(1.08);
 }
 
 .card-badge {
