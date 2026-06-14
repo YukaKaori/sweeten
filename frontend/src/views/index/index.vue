@@ -1876,4 +1876,138 @@ watch(chartRange, () => {
     box-shadow: 0 0 0 0 rgba(232, 99, 122, 0);
   }
 }
+
+/* ==========================================================================
+   5. 移动端响应式优化 (Mobile Responsive)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .dolce-dashboard-wrapper {
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .aurora-banner {
+    padding: 20px;
+
+    &__content-row {
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    &__brand-profile {
+      min-width: 0;
+    }
+
+    &__title {
+      font-size: 20px;
+    }
+
+    &__description {
+      font-size: 12px;
+    }
+
+    &__micro-kpis {
+      width: 100%;
+      padding: 12px 16px;
+      gap: 12px;
+      flex-wrap: wrap;
+      overflow-x: auto;
+    }
+  }
+
+  .micro-kpi-card {
+    &__value {
+      font-size: 16px;
+    }
+
+    &__currency {
+      font-size: 12px;
+    }
+
+    &__divider {
+      height: 28px;
+    }
+  }
+
+  .bento-card {
+    padding: 18px;
+
+    &__header {
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    &__title {
+      font-size: 16px;
+    }
+  }
+
+  .chart-canvas-container {
+    height: 240px;
+  }
+
+  .chart-legend-stripe {
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .campaign-item-card .campaign-metrics-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 8px 10px;
+  }
+
+  .bento-layout-matrix {
+    gap: 16px;
+
+    &__main,
+    &__side {
+      gap: 16px;
+    }
+  }
+
+  .action-dock-card {
+    padding: 14px;
+    gap: 10px;
+
+    &__title {
+      font-size: 12px;
+    }
+
+    &__desc {
+      font-size: 10px;
+    }
+
+    &__icon-halo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .aurora-banner__micro-kpis {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .micro-kpi-card__divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .campaign-item-card .campaign-metrics-row {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .metric-stripe-card {
+    padding: 16px;
+
+    &__value {
+      font-size: 22px;
+    }
+  }
+}
 </style>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/modules/user'
@@ -27,7 +27,9 @@ import {
   Phone,
   OfficeBuilding,
   Male,
-  Female
+  Female,
+  Expand,
+  Fold
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -35,6 +37,41 @@ const route = useRoute()
 const userStore = useUserStore()
 const { theme, toggleTheme } = useTheme()
 const isCollapsed = ref(false)
+
+// ========== 移动端响应式 ==========
+const MOBILE_BREAKPOINT = 768
+const isMobile = ref(false)
+const mobileSidebarOpen = ref(false)
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < MOBILE_BREAKPOINT
+  // 切换回桌面时自动关闭移动端侧边栏
+  if (!isMobile.value) {
+    mobileSidebarOpen.value = false
+  }
+}
+
+const toggleMobileSidebar = () => {
+  mobileSidebarOpen.value = !mobileSidebarOpen.value
+}
+
+const closeMobileSidebar = () => {
+  mobileSidebarOpen.value = false
+}
+
+onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
+})
+
+// 路由切换时关闭移动端侧边栏
+watch(() => route.path, () => {
+  closeMobileSidebar()
+})
 
 const activeMenu = computed(() => route.path)
 
@@ -199,9 +236,14 @@ const submitPassword = async () => {
 </script>
 
 <template>
-  <div class="layout" :class="{ 'sidebar-collapsed': isCollapsed }">
+  <div class="layout" :class="{ 'sidebar-collapsed': isCollapsed, 'mobile-sidebar-open': mobileSidebarOpen, 'is-mobile': isMobile }">
+    <!-- 移动端侧边栏遮罩 -->
+    <transition name="fade">
+      <div v-if="isMobile && mobileSidebarOpen" class="mobile-sidebar-backdrop" @click="closeMobileSidebar"></div>
+    </transition>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ 'mobile-open': isMobile && mobileSidebarOpen }">
       <div class="sidebar-header">
         <div class="logo-area">
           <div class="logo-icon">
@@ -329,6 +371,13 @@ const submitPassword = async () => {
       <!-- Header -->
       <header class="header">
         <div class="header-left">
+          <!-- 移动端汉堡菜单按钮 -->
+          <div class="mobile-hamburger" @click="toggleMobileSidebar">
+            <el-icon :size="20">
+              <Expand v-if="!mobileSidebarOpen" />
+              <Fold v-else />
+            </el-icon>
+          </div>
           <Breadcrumb />
         </div>
         <div class="header-right">
@@ -1008,20 +1057,119 @@ const submitPassword = async () => {
   padding-top: 8px;
 }
 
+/* ---- Mobile Hamburger ---- */
+.mobile-hamburger {
+  display: none;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-right: 4px;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--color-text-primary);
+  }
+}
+
+/* ---- Mobile Sidebar Backdrop ---- */
+.mobile-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: calc(var(--z-sidebar) - 1);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
+  .mobile-hamburger {
+    display: flex;
+  }
+
+  .mobile-sidebar-backdrop {
+    display: block;
+  }
+
+  /* 桌面端折叠按钮在移动端隐藏 */
+  .collapse-btn {
+    display: none;
+  }
+
   .sidebar {
-    width: 72px;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: calc(var(--z-sidebar) + 10);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(48px) saturate(180%);
+    -webkit-backdrop-filter: blur(48px) saturate(180%);
+    box-shadow: 8px 0 40px rgba(45, 35, 39, 0.12);
+
+    &.mobile-open {
+      transform: translateX(0);
+    }
+  }
+
+  .sidebar-header {
+    padding: 20px 16px;
   }
 
   .main-area {
-    margin-left: 72px;
+    margin-left: 0 !important;
   }
 
+  .content {
+    padding: 16px;
+  }
+
+  .header {
+    padding: 0 16px;
+  }
+
+  .header-right {
+    gap: 8px;
+  }
+
+  /* 移动端显示侧边栏文字 */
   .nav-group-title,
   .nav-label,
   .logo-text {
-    display: none;
+    display: initial;
+  }
+
+  /* 移动端暗色模式侧边栏 */
+  :global([data-theme="dark"]) .sidebar {
+    background: rgba(24, 18, 21, 0.92);
+    backdrop-filter: blur(48px) saturate(160%);
+    -webkit-backdrop-filter: blur(48px) saturate(160%);
+    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* 小屏手机进一步优化 */
+@media (max-width: 480px) {
+  .sidebar {
+    width: 85vw;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .header {
+    padding: 0 12px;
+  }
+
+  .header-right {
+    gap: 4px;
   }
 }
 

@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => {
           secure: false,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+        '^/mobile/': {
+          target: env.VITE_API_PROXY_TARGET || 'http://localhost:8080',
+          secure: false,
+          changeOrigin: true,
         }
       }
     },
