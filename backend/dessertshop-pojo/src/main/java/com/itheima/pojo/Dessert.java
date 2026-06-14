@@ -14,7 +14,7 @@ public class Dessert {
     private String name;
 
     @NotBlank(message = "分类不能为空")
-    @Pattern(regexp = "^(cake|bread|drink|dessert|icecream)$", message = "分类值无效")
+    @Pattern(regexp = "^(cake|bread|drink|dessert|icecream|snack|gift)$", message = "分类值无效")
     private String category;
 
     @NotNull(message = "价格不能为空")
@@ -25,6 +25,12 @@ public class Dessert {
     private Double originalPrice;
 
     private String image;
+
+    @Size(max = 200, message = "描述长度不能超过200个字符")
+    private String description;
+
+    @Size(max = 10, message = "图标长度不能超过10个字符")
+    private String icon;
 
     @Min(value = 0, message = "销量不能为负数")
     private Integer sales;

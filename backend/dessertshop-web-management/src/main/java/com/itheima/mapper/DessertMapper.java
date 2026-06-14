@@ -22,8 +22,8 @@ public interface DessertMapper {
 
     //新增甜品
     @Options(useGeneratedKeys = true, keyProperty = "id")
-    @Insert("insert into dessert(name, category, price, original_price, image, sales, stock, status, create_time, update_time) " +
-            "values(#{name}, #{category}, #{price}, #{originalPrice}, #{image}, #{sales}, #{stock}, #{status}, #{createTime}, #{updateTime})")
+    @Insert("insert into dessert(name, category, price, original_price, image, description, icon, sales, stock, status, create_time, update_time) " +
+            "values(#{name}, #{category}, #{price}, #{originalPrice}, #{image}, #{description}, #{icon}, #{sales}, #{stock}, #{status}, #{createTime}, #{updateTime})")
     void insert(Dessert dessert);
 
     //修改甜品

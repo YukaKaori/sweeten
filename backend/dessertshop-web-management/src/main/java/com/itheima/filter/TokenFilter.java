@@ -39,9 +39,17 @@ public class TokenFilter implements Filter {
         //2. 获取请求路径
         String uri = request.getRequestURI();
 
-        //3. 判断是否为登录请求（精确匹配 /login 路径）
-        if ("/login".equals(uri)) {
-            log.info("登录请求，直接放行");
+        //3. 判断是否为公开资源，直接放行（登录、移动端API、静态文件）
+        if ("/login".equals(uri)
+                || uri.startsWith("/mobile")
+                || uri.equals("/")
+                || uri.endsWith(".html")
+                || uri.endsWith(".css")
+                || uri.endsWith(".js")
+                || uri.endsWith(".ico")
+                || uri.endsWith(".png")
+                || uri.endsWith(".svg")) {
+            log.info("公开接口/资源，直接放行: {}", uri);
             filterChain.doFilter(request, response);
             return;
         }
