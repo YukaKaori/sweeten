@@ -1,4 +1,5 @@
 import { staticRoutes } from './static'
+import { mobileRoutes } from './mobile'
 import { dashboardRoutes } from './modules/dashboard'
 import { systemRoutes } from './modules/system'
 import { businessRoutes } from './modules/business'
@@ -23,5 +24,5 @@ export const dynamicRoutes = [
   },
 ]
 
-/** 所有路由 = 静态路由 + 动态路由 */
-export const allRoutes = [...dynamicRoutes, ...staticRoutes]
+/** 所有路由 = 静态路由 + 动态路由 + 移动端路由 */
+export const allRoutes = [...dynamicRoutes, ...mobileRoutes, ...staticRoutes]

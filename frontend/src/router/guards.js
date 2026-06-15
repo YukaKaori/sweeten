@@ -20,8 +20,9 @@ export function setupRouterGuards(router) {
     const userStore = useUserStore()
     userStore.initFromStorage()
 
-    // 未登录 → 只允许访问 /login
-    if (!userStore.isLoggedIn && to.path !== '/login') {
+    // 未登录 → 只允许访问公开页面（/login 和 /m/* 移动端点餐页）
+    const isPublic = to.meta?.public || to.path === '/login' || to.path.startsWith('/m')
+    if (!userStore.isLoggedIn && !isPublic) {
       next('/login')
       return
     }
