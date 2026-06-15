@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/modules/user'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
+import { useGlassSpotlight, useGlassRipple } from '@/composables/useLiquidGlass'
 
 const loginForm = ref({ username: '', password: '' })
 const router = useRouter()
@@ -38,12 +39,74 @@ const clear = () => {
 const handleKeyup = (e) => {
   if (e.key === 'Enter') login()
 }
+
+// ========== Liquid Glass Effects ==========
+const leftPanelRef = ref(null)
+const formWrapperRef = ref(null)
+const loginBtnRef = ref(null)
+
+// Cursor-follow spotlight on the login form glass card
+useGlassSpotlight(formWrapperRef, { selector: ':self', smoothing: 0.1 })
+
+// Glass ripple on login button
+useGlassRipple(loginBtnRef, { selector: ':self', color: 'rgba(255, 255, 255, 0.4)', maxSize: 300 })
+
+// Parallax floating orbs in left panel
+const orbStyle = ref({})
+let orbRafId = null
+let targetX = 0, targetY = 0, currentX = 0, currentY = 0
+
+const onLeftMove = (e) => {
+  if (!leftPanelRef.value) return
+  const rect = leftPanelRef.value.getBoundingClientRect()
+  targetX = (e.clientX - rect.left) / rect.width - 0.5
+  targetY = (e.clientY - rect.top) / rect.height - 0.5
+  if (!orbRafId) {
+    orbRafId = requestAnimationFrame(animateLoginOrbs)
+  }
+}
+
+const onLeftLeave = () => {
+  targetX = 0
+  targetY = 0
+}
+
+const animateLoginOrbs = () => {
+  currentX += (targetX - currentX) * 0.04
+  currentY += (targetY - currentY) * 0.04
+
+  if (Math.abs(targetX - currentX) < 0.0005 && Math.abs(targetY - currentY) < 0.0005 && targetX === 0 && targetY === 0) {
+    orbRafId = null
+    return
+  }
+
+  orbStyle.value = {
+    '--orb-offset-x': currentX * 60 + 'px',
+    '--orb-offset-y': currentY * 40 + 'px',
+  }
+  orbRafId = requestAnimationFrame(animateLoginOrbs)
+}
+
+onMounted(() => {
+  if (leftPanelRef.value) {
+    leftPanelRef.value.addEventListener('mousemove', onLeftMove, { passive: true })
+    leftPanelRef.value.addEventListener('mouseleave', onLeftLeave)
+  }
+})
+
+onUnmounted(() => {
+  if (orbRafId) cancelAnimationFrame(orbRafId)
+  if (leftPanelRef.value) {
+    leftPanelRef.value.removeEventListener('mousemove', onLeftMove)
+    leftPanelRef.value.removeEventListener('mouseleave', onLeftLeave)
+  }
+})
 </script>
 
 <template>
   <div class="login-page">
     <!-- Left decorative panel -->
-    <div class="login-left">
+    <div ref="leftPanelRef" class="login-left">
       <div class="left-content">
         <div class="brand-area">
           <div class="brand-icon">
@@ -75,15 +138,15 @@ const handleKeyup = (e) => {
         </div>
       </div>
       <!-- Floating decorative elements -->
-      <div class="float-circle c1"></div>
-      <div class="float-circle c2"></div>
-      <div class="float-circle c3"></div>
-      <div class="float-circle c4"></div>
+      <div class="float-circle c1" :style="orbStyle"></div>
+      <div class="float-circle c2" :style="orbStyle"></div>
+      <div class="float-circle c3" :style="orbStyle"></div>
+      <div class="float-circle c4" :style="orbStyle"></div>
     </div>
 
     <!-- Right login form -->
     <div class="login-right">
-      <div class="login-form-wrapper glass-panel">
+      <div ref="formWrapperRef" class="login-form-wrapper glass-panel glass-spotlight">
         <div class="form-header">
           <h2>欢迎回来</h2>
           <p>请登录您的账户以继续</p>
@@ -111,7 +174,8 @@ const handleKeyup = (e) => {
           </el-form-item>
           <el-form-item>
             <el-button
-              class="login-btn"
+              ref="loginBtnRef"
+              class="login-btn glass-ripple"
               type="primary"
               size="large"
               :loading="loading"
@@ -211,12 +275,16 @@ const handleKeyup = (e) => {
   flex-shrink: 0;
 }
 
-/* Floating circles */
+/* Floating circles — with parallax cursor follow */
 .float-circle {
   position: absolute;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
   animation: float 6s ease-in-out infinite;
+  /* Parallax via CSS vars from JS */
+  transform: translate(var(--orb-offset-x, 0px), var(--orb-offset-y, 0px));
+  transition: transform 0.5s ease-out;
+  will-change: transform;
 }
 
 .c1 {
@@ -328,6 +396,8 @@ const handleKeyup = (e) => {
   box-shadow: 0 4px 16px rgba(232, 99, 122, 0.3) !important;
   transition: all var(--transition-base) !important;
   letter-spacing: 0.1em;
+  position: relative;
+  overflow: hidden;
 }
 
 .login-btn:hover {

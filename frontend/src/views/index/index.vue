@@ -1,72 +1,33 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import * as echarts from 'echarts'
 import {
   Wallet, ShoppingBag, UserFilled, Dessert,
-  Trophy, Top, Van, Position, CircleCheck, Timer,
-  StarFilled, ArrowRight, Plus, Document, Promotion, DataAnalysis
+  Top, Van, Position, ArrowRight, Plus, Promotion, DataAnalysis
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/modules/user'
 import { useDashboard } from '@/composables/useDashboard'
+import { useGlassSpotlight, useMagneticTilt, useGlassRipple } from '@/composables/useLiquidGlass'
+import { useScrollReveal } from '@/composables/useScrollReveal'
 import CountUp from '@/components/CountUp.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const userName = ref(userStore.username || '主厨')
+
 const {
   loading: dashboardLoading,
-  statsCards, rankList, stockAlerts, reviews, campaigns, quickActions,
+  statsCards, rankList, stockAlerts, reviews, campaigns,
+  microKpis, quickActions, chartRange, chartRef, chartLegend,
+  initChart, loadData, setChartRange,
   handleReorder, sendCompensation: sendCompensationCoupon,
 } = useDashboard()
 
-// ECharts 管理（视图层持有实例）
-const salesChartRef = ref(null)
-const chartRange = ref('week')
-let salesChart = null
-let resizeObserver = null
-
-const loadDashboardData = async () => {
-  dashboardLoading.value = true
-  try {
-    const { queryStatsApi, queryRevenueChartApi, queryRankingApi } = await import('@/api/modules/dashboard')
-    const [statsRes, revenueRes, rankingRes] = await Promise.allSettled([
-      queryStatsApi(), queryRevenueChartApi(chartRange.value), queryRankingApi(),
-    ])
-    if (statsRes.status === 'fulfilled' && statsRes.value?.code) {
-      const d = statsRes.value.data
-      if (d.statsCards?.length) statsCards.value = d.statsCards
-      if (d.campaigns?.length) campaigns.value = d.campaigns
-      if (d.stockAlerts?.length) stockAlerts.value = d.stockAlerts
-      if (d.reviews?.length) reviews.value = d.reviews
-    }
-    if (revenueRes.status === 'fulfilled' && revenueRes.value?.code && salesChart) {
-      const d = revenueRes.value.data
-      salesChart.setOption({ xAxis: { data: d.labels }, series: [{ data: d.revenue }, { data: d.orders }] })
-    }
-    if (rankingRes.status === 'fulfilled' && rankingRes.value?.code) {
-      rankList.value = rankingRes.value.data
-    }
-  } finally {
-    dashboardLoading.value = false
-  }
-}
-
-const initSalesChart = () => {
-  if (!salesChartRef.value) return
-  salesChart = echarts.init(salesChartRef.value)
-  renderSalesChart()
-  resizeObserver = new ResizeObserver(() => salesChart?.resize())
-  resizeObserver.observe(salesChartRef.value)
-}
-
 onMounted(() => {
-  nextTick(() => { initSalesChart(); loadDashboardData() })
-})
-onUnmounted(() => {
-  resizeObserver?.disconnect()
-  salesChart?.dispose()
+  nextTick(() => {
+    initChart()
+    loadData()
+  })
 })
 
 /* ==================== 智能问候引擎 ==================== */
@@ -80,145 +41,85 @@ const getGreeting = () => {
 }
 
 const navigateTo = (path) => {
-  if (router) {
-    router.push(path)
-  } else {
-    ElMessage.info(`导航至: ${path}`)
+  if (router) router.push(path)
+}
+
+// ========== Liquid Glass Interactive Effects ==========
+const bannerRef = ref(null)
+const dashboardRef = ref(null)
+
+// Cursor-follow spotlight on the aurora banner
+useGlassSpotlight(bannerRef, { selector: ':self' })
+
+// Magnetic tilt on metric cards
+useMagneticTilt(dashboardRef, { selector: '.metric-stripe-card', maxTilt: 5, scale: 1.015 })
+
+// Glass ripple on quick action cards
+useGlassRipple(dashboardRef, { selector: '.action-dock-card', color: 'rgba(232, 99, 122, 0.12)', maxSize: 400 })
+
+// Scroll reveal for bento cards
+useScrollReveal('.bento-card', { stagger: 0.08, threshold: 0.1 })
+
+// Parallax aurora orbs — follow cursor with subtle offset
+const orbStyle = ref({})
+let bannerRafId = null
+let orbTargetX = 0, orbTargetY = 0, orbCurrentX = 0, orbCurrentY = 0
+
+const onBannerMove = (e) => {
+  if (!bannerRef.value) return
+  const rect = bannerRef.value.getBoundingClientRect()
+  orbTargetX = (e.clientX - rect.left) / rect.width - 0.5
+  orbTargetY = (e.clientY - rect.top) / rect.height - 0.5
+  if (!bannerRafId) {
+    bannerRafId = requestAnimationFrame(animateOrbs)
   }
 }
 
-/* statsCards / stockAlerts / reviews / campaigns / rankList 由 useDashboard composable 管理 */
+const onBannerLeave = () => {
+  orbTargetX = 0
+  orbTargetY = 0
+}
 
-/* ==================== Stripe 风格：高密度双轴经营大盘图表数据 ==================== */
-const salesDataMap = {
-  realtime: {
-    xAxis: ['10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'],
-    revenue: [2100, 4800, 3600, 7200, 9800, 11200, 12860],
-    margins: [62, 60, 65, 68, 64, 63, 64.8]
-  },
-  week: {
-    xAxis: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-    revenue: [8200, 9600, 11200, 8800, 13400, 15800, 12860],
-    margins: [58, 60, 62, 61, 65, 66, 64.8]
-  },
-  month: {
-    xAxis: ['05-05', '05-10', '05-15', '05-20', '05-25', '05-30', '05-31'],
-    revenue: [92000, 105000, 98000, 124000, 132000, 145000, 156000],
-    margins: [61, 62, 60, 63, 64, 65, 64.8]
+const animateOrbs = () => {
+  orbCurrentX += (orbTargetX - orbCurrentX) * 0.05
+  orbCurrentY += (orbTargetY - orbCurrentY) * 0.05
+
+  if (Math.abs(orbTargetX - orbCurrentX) < 0.0005 && Math.abs(orbTargetY - orbCurrentY) < 0.0005 && orbTargetX === 0 && orbTargetY === 0) {
+    bannerRafId = null
+    return
   }
+
+  orbStyle.value = {
+    '--orb-x': orbCurrentX * 30 + 'px',
+    '--orb-y': orbCurrentY * 20 + 'px',
+  }
+  bannerRafId = requestAnimationFrame(animateOrbs)
 }
 
-const renderSalesChart = () => {
-  if (!salesChart) return
-  const data = salesDataMap[chartRange.value]
-  
-  salesChart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
-      borderWidth: 1,
-      textStyle: { color: '#2d2327', fontSize: 12 },
-      axisPointer: {
-        type: 'line',
-        lineStyle: {
-          color: 'rgba(232, 99, 122, 0.4)',
-          width: 1.5,
-          type: 'dashed'
-        }
-      }
-    },
-    grid: {
-      top: 30,
-      right: 48,
-      bottom: 24,
-      left: 52
-    },
-    xAxis: {
-      type: 'category',
-      data: data.xAxis,
-      axisLine: { lineStyle: { color: '#ede6e1' } },
-      axisTick: { show: false },
-      axisLabel: { color: '#a3949b', fontSize: 11 }
-    },
-    yAxis: [
-      {
-        type: 'value',
-        name: '营业额',
-        show: true,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#f5f0ec', type: 'dashed' } },
-        axisLabel: {
-          color: '#a3949b',
-          fontSize: 11,
-          formatter: (v) => v >= 1000 ? (v / 1000) + 'k' : v
-        }
-      },
-      {
-        type: 'value',
-        name: '利润率',
-        show: true,
-        min: 40,
-        max: 80,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-        axisLabel: {
-          color: '#a3949b',
-          fontSize: 11,
-          formatter: '{value}%'
-        }
-      }
-    ],
-    series: [
-      {
-        name: '营业额',
-        type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 6,
-        lineStyle: { width: 3, color: '#e8637a' },
-        itemStyle: { color: '#fff', borderWidth: 2.5, borderColor: '#e8637a' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(232, 99, 122, 0.12)' },
-            { offset: 1, color: 'rgba(232, 99, 122, 0)' }
-          ])
-        },
-        data: data.revenue
-      },
-      {
-        name: '边际利润率',
-        type: 'line',
-        yAxisIndex: 1,
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 6,
-        lineStyle: { width: 2, color: '#5cb88a', type: 'solid' },
-        itemStyle: { color: '#fff', borderWidth: 2, borderColor: '#5cb88a' },
-        data: data.margins
-      }
-    ]
-  }, true)
-}
-
-watch(chartRange, () => {
-  renderSalesChart()
+onMounted(() => {
+  if (bannerRef.value) {
+    bannerRef.value.addEventListener('mousemove', onBannerMove, { passive: true })
+    bannerRef.value.addEventListener('mouseleave', onBannerLeave)
+  }
 })
 
-/* topDesserts / stockAlerts / latestReviews / quickActions 均由 useDashboard composable 管理 */
+onUnmounted(() => {
+  if (bannerRafId) cancelAnimationFrame(bannerRafId)
+  if (bannerRef.value) {
+    bannerRef.value.removeEventListener('mousemove', onBannerMove)
+    bannerRef.value.removeEventListener('mouseleave', onBannerLeave)
+  }
+})
 </script>
 
 <template>
-  <div class="dolce-dashboard-wrapper">
+  <div ref="dashboardRef" class="dolce-dashboard-wrapper">
     <!-- ==================== 1. Apple-style Liquid Glass 欢迎 Banner ==================== -->
-    <header class="aurora-banner glass-panel">
-      <!-- 动态背景光晕，模拟黄油与野莓渐变融合的视觉层 -->
+    <header ref="bannerRef" class="aurora-banner glass-panel glass-spotlight">
       <div class="aurora-banner__blur-canvas">
-        <div class="aurora-banner__orb aurora-banner__orb--raspberry"></div>
-        <div class="aurora-banner__orb aurora-banner__orb--amber"></div>
-        <div class="aurora-banner__orb aurora-banner__orb--cream"></div>
+        <div class="aurora-banner__orb aurora-banner__orb--raspberry" :style="orbStyle"></div>
+        <div class="aurora-banner__orb aurora-banner__orb--amber" :style="orbStyle"></div>
+        <div class="aurora-banner__orb aurora-banner__orb--cream" :style="orbStyle"></div>
       </div>
 
       <div class="aurora-banner__content-row">
@@ -229,52 +130,36 @@ watch(chartRange, () => {
           </span>
           <h1 class="aurora-banner__title">DessertShop 运营决策大盘</h1>
           <p class="aurora-banner__description">
-            今日空气湿度 42%，推荐制作「法式经典千层蛋糕」 · 系统已自动调校冷链配平温度至 4°C
+            基于实时经营数据，智能监控营收趋势、冷链物流与客户情感，驱动数据化精细运营。
           </p>
         </div>
 
-        <!-- Stripe-style 高频业务快照（Monospace数字，高精细度呈现） -->
+        <!-- Stripe-style 高频业务快照 -->
         <div class="aurora-banner__micro-kpis">
-          <div class="micro-kpi-card">
-            <span class="micro-kpi-card__label">今日边际毛利额</span>
+          <div
+            v-for="(kpi, i) in microKpis"
+            :key="kpi.label"
+            class="micro-kpi-card"
+          >
+            <span class="micro-kpi-card__label">{{ kpi.label }}</span>
             <div class="micro-kpi-card__value-group">
-              <span class="micro-kpi-card__currency">¥</span>
-              <span class="micro-kpi-card__value">12,860.00</span>
+              <span v-if="kpi.currency" class="micro-kpi-card__currency">{{ kpi.currency }}</span>
+              <span class="micro-kpi-card__value">{{ kpi.value }}</span>
+              <span v-if="kpi.unit" class="micro-kpi-card__unit">{{ kpi.unit }}</span>
             </div>
-            <span class="micro-kpi-card__subtext up">较昨日 +14.2%</span>
-          </div>
-          
-          <div class="micro-kpi-card__divider"></div>
-
-          <div class="micro-kpi-card">
-            <span class="micro-kpi-card__label">冷链配送准时率</span>
-            <div class="micro-kpi-card__value-group">
-              <span class="micro-kpi-card__value">99.4</span>
-              <span class="micro-kpi-card__unit">%</span>
-            </div>
-            <span class="micro-kpi-card__subtext stable">极佳运转状态</span>
-          </div>
-
-          <div class="micro-kpi-card__divider"></div>
-
-          <div class="micro-kpi-card">
-            <span class="micro-kpi-card__label">社媒情感正向率</span>
-            <div class="micro-kpi-card__value-group">
-              <span class="micro-kpi-card__value">98.2</span>
-              <span class="micro-kpi-card__unit">%</span>
-            </div>
-            <span class="micro-kpi-card__subtext highlight">覆盆子甜度超标</span>
+            <span class="micro-kpi-card__subtext" :class="kpi.subtextClass">{{ kpi.subtext }}</span>
+            <div v-if="i < microKpis.length - 1" class="micro-kpi-card__divider"></div>
           </div>
         </div>
       </div>
     </header>
 
-    <!-- ==================== 2. 今日经营数据 Stripe 密集指标带 ==================== -->
+    <!-- ==================== 2. 今日经营数据指标带 ==================== -->
     <section class="metrics-stripe-grid">
-      <div 
-        v-for="(card, index) in statsCards" 
-        :key="card.title" 
-        class="metric-stripe-card glass-panel"
+      <div
+        v-for="(card, index) in statsCards"
+        :key="card.title"
+        class="metric-stripe-card glass-panel magnetic-hover"
         :style="{ animationDelay: `${(index + 1) * 0.05}s` }"
       >
         <div class="metric-stripe-card__top">
@@ -283,7 +168,7 @@ watch(chartRange, () => {
             <span class="metric-stripe-card__desc">{{ card.desc }}</span>
           </div>
           <div class="metric-stripe-card__badge" :class="card.trendType">
-            <el-icon :size="12"><component :is="card.trendIcon" /></el-icon>
+            <el-icon :size="12"><Top /></el-icon>
             <span>{{ card.trend }}</span>
           </div>
         </div>
@@ -299,11 +184,10 @@ watch(chartRange, () => {
           </div>
         </div>
 
-        <!-- 极致物理微进度条：不包含任何硬刺色彩 -->
         <div class="metric-stripe-card__footer">
           <div class="metric-stripe-card__progress-container">
-            <div 
-              class="metric-stripe-card__progress-bar" 
+            <div
+              class="metric-stripe-card__progress-bar"
               :style="{ width: card.progress + '%', background: card.iconColor }"
             ></div>
           </div>
@@ -312,60 +196,54 @@ watch(chartRange, () => {
       </div>
     </section>
 
-    <!-- ==================== 3. 非对称黄金分割 Bento 主体网格 ==================== -->
+    <!-- ==================== 3. 黄金分割 Bento 主体网格 ==================== -->
     <main class="bento-layout-matrix">
-      
-      <!-- LEFT CONTAINER (70% 宽度) -->
+
+      <!-- LEFT CONTAINER (70%) -->
       <div class="bento-layout-matrix__main">
-        
-        <!-- ==================== 3.1 销售趋势 & 边际利润双轴面板 ==================== -->
-        <div class="glass-panel bento-card bento-card--chart">
+
+        <!-- 3.1 销售趋势 & 边际利润双轴面板 -->
+        <div class="glass-panel glass-spotlight bento-card bento-card--chart">
           <div class="bento-card__header">
             <div class="bento-card__title-group">
               <span class="bento-card__subtitle">SALES & MARGIN ENGINE</span>
               <h2 class="bento-card__title">销售增长与边际利润曲线</h2>
             </div>
             <div class="bento-card__action-controls">
-              <!-- 媲美 Linear 的极简按钮组 -->
-              <el-radio-group v-model="chartRange" size="small" class="linear-segmented-control">
+              <el-radio-group v-model="chartRange" size="small" class="linear-segmented-control" @change="setChartRange">
                 <el-radio-button label="realtime">实时流</el-radio-button>
                 <el-radio-button label="week">近7日</el-radio-button>
                 <el-radio-button label="month">近30日</el-radio-button>
               </el-radio-group>
-              <el-button class="linear-icon-button" size="small" @click="renderSalesChart">
-                <el-icon><DataAnalysis /></el-icon>
-              </el-button>
             </div>
           </div>
 
-          <!-- 双轴 Echarts 挂载区（带流莹背景高光） -->
           <div class="chart-canvas-container">
             <div class="chart-canvas-glow"></div>
-            <div ref="salesChartRef" class="chart-canvas-dom"></div>
+            <div ref="chartRef" class="chart-canvas-dom"></div>
           </div>
 
-          <!-- 图表下方图例及实时波动反馈 -->
           <div class="chart-legend-stripe">
             <div class="chart-legend-item">
               <span class="legend-color-dot legend-color-dot--raspberry"></span>
               <span class="legend-label">营业净营收</span>
-              <span class="legend-value">¥12,860.00</span>
+              <span class="legend-value">{{ chartLegend.revenue }}</span>
             </div>
             <div class="chart-legend-item">
               <span class="legend-color-dot legend-color-dot--mint"></span>
               <span class="legend-label">平均销售利润率</span>
-              <span class="legend-value">64.8%</span>
+              <span class="legend-value">{{ chartLegend.margin }}</span>
             </div>
             <div class="chart-legend-item">
               <span class="legend-color-dot legend-color-dot--amber"></span>
               <span class="legend-label">客单均价</span>
-              <span class="legend-value">¥69.20</span>
+              <span class="legend-value">{{ chartLegend.avgOrder }}</span>
             </div>
           </div>
         </div>
 
-        <!-- ==================== 3.2 活动运营与营销大盘 (Shopify 商业感) ==================== -->
-        <div class="glass-panel bento-card bento-card--campaign">
+        <!-- 3.2 活动运营与营销大盘 -->
+        <div class="glass-panel glass-spotlight bento-card bento-card--campaign">
           <div class="bento-card__header">
             <div class="bento-card__title-group">
               <span class="bento-card__subtitle">CAMPAIGN & PROMOTION</span>
@@ -378,85 +256,57 @@ watch(chartRange, () => {
           </div>
 
           <div class="campaign-grid">
-            <!-- 核心活动卡片一：经典复刻活动 -->
-            <div class="campaign-item-card glass-panel">
+            <div
+              v-for="campaign in campaigns"
+              :key="campaign.name"
+              class="campaign-item-card glass-panel"
+            >
               <div class="campaign-item-card__header">
-                <el-tag type="danger" size="small" effect="plain" class="custom-badge-tag">进行中</el-tag>
-                <span class="campaign-item-card__time">05.20 - 06.05</span>
+                <el-tag :type="campaign.statusType" size="small" effect="plain" class="custom-badge-tag">
+                  {{ campaign.status }}
+                </el-tag>
+                <span class="campaign-item-card__time">{{ campaign.time }}</span>
               </div>
-              <h3 class="campaign-item-card__name">「初夏覆盆子狂欢节」特别企划</h3>
-              <p class="campaign-item-card__subtitle">精选法式甜品覆盆子慕斯买一赠一，主推外卖高端单人餐</p>
-              
+              <h3 class="campaign-item-card__name">{{ campaign.name }}</h3>
+              <p class="campaign-item-card__subtitle">{{ campaign.subtitle }}</p>
+
               <div class="campaign-metrics-row">
                 <div class="campaign-micro-metric">
                   <span class="campaign-micro-metric__label">活动销售额</span>
-                  <span class="campaign-micro-metric__value">¥45,280</span>
+                  <span class="campaign-micro-metric__value">{{ campaign.metrics.sales }}</span>
                 </div>
                 <div class="campaign-micro-metric">
                   <span class="campaign-micro-metric__label">优惠券使用率</span>
-                  <span class="campaign-micro-metric__value">78.5%</span>
+                  <span class="campaign-micro-metric__value">{{ campaign.metrics.usage }}</span>
                 </div>
                 <div class="campaign-micro-metric">
                   <span class="campaign-micro-metric__label">投资回报 ROI</span>
-                  <span class="campaign-micro-metric__value highlight-mint">3.6x</span>
-                </div>
-              </div>
-
-              <!-- ROI 达成指示线 -->
-              <div class="campaign-item-card__footer-progress">
-                <div class="campaign-progress-track">
-                  <div class="campaign-progress-fill" style="width: 82%"></div>
-                </div>
-                <span class="campaign-progress-label">目标达成率 82%</span>
-              </div>
-            </div>
-
-            <!-- 核心活动卡片二：高转化渠道卡片 -->
-            <div class="campaign-item-card glass-panel">
-              <div class="campaign-item-card__header">
-                <el-tag type="warning" size="small" effect="plain" class="custom-badge-tag">筹备中</el-tag>
-                <span class="campaign-item-card__time">06.10 - 06.25</span>
-              </div>
-              <h3 class="campaign-item-card__name">「芒里偷闲」夏日限定芒果班戟首发</h3>
-              <p class="campaign-item-card__subtitle">联合高端冷链骑手，实施特定高价值白领社区的精准投送</p>
-
-              <div class="campaign-metrics-row">
-                <div class="campaign-micro-metric">
-                  <span class="campaign-micro-metric__label">拟邀红人覆盖</span>
-                  <span class="campaign-micro-metric__value">150k+</span>
-                </div>
-                <div class="campaign-micro-metric">
-                  <span class="campaign-micro-metric__label">首批预算配置</span>
-                  <span class="campaign-micro-metric__value">¥8,000</span>
-                </div>
-                <div class="campaign-micro-metric">
-                  <span class="campaign-micro-metric__label">预估裂变转化率</span>
-                  <span class="campaign-micro-metric__value">12.8%</span>
+                  <span class="campaign-micro-metric__value highlight-mint">{{ campaign.metrics.roi }}</span>
                 </div>
               </div>
 
               <div class="campaign-item-card__footer-progress">
                 <div class="campaign-progress-track">
-                  <div class="campaign-progress-fill ready" style="width: 0%"></div>
+                  <div class="campaign-progress-fill" :class="{ ready: campaign.progress === 0 }" :style="{ width: campaign.progress + '%' }"></div>
                 </div>
-                <span class="campaign-progress-label">锁定合作博主 15 位</span>
+                <span class="campaign-progress-label">{{ campaign.progress > 0 ? `目标达成率 ${campaign.progress}%` : '锁定合作博主 15 位' }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ==================== 3.3 Linear-style 快捷操作悬浮舱 (Action Dock) ==================== -->
+        <!-- 3.3 Linear-style 快捷操作悬浮舱 -->
         <section class="quick-action-dock-panel">
           <div class="quick-action-dock-panel__title-bar">
             <span class="quick-action-dock-panel__hint">QUICK SHORTCUTS</span>
             <span class="quick-action-dock-panel__desc">主厨快捷指令盘 · 支持一键快速导航</span>
           </div>
-          
+
           <div class="action-dock-grid">
-            <div 
-              v-for="action in quickActions" 
-              :key="action.title" 
-              class="action-dock-card glass-panel"
+            <div
+              v-for="action in quickActions"
+              :key="action.title"
+              class="action-dock-card glass-panel glass-ripple"
               @click="navigateTo(action.route)"
             >
               <div class="action-dock-card__icon-halo" :style="{ background: action.iconBg }">
@@ -475,11 +325,11 @@ watch(chartRange, () => {
 
       </div>
 
-      <!-- RIGHT CONTAINER (30% 宽度，垂直流水板) -->
+      <!-- RIGHT CONTAINER (30%) -->
       <div class="bento-layout-matrix__side">
-        
-        <!-- ==================== 3.4 热销甜品排行 Bento (艺术高感呈现) ==================== -->
-        <div class="glass-panel bento-card bento-card--rank">
+
+        <!-- 3.4 热销甜品排行 -->
+        <div class="glass-panel glass-spotlight bento-card bento-card--rank">
           <div class="bento-card__header">
             <div class="bento-card__title-group">
               <span class="bento-card__subtitle">HOT SELLING TOP 5</span>
@@ -491,28 +341,24 @@ watch(chartRange, () => {
           </div>
 
           <div class="bento-rank-flow">
-            <div 
-              v-for="(item, index) in rankList" 
-              :key="item.name" 
+            <div
+              v-for="(item, index) in rankList"
+              :key="item.name"
               class="bento-rank-item"
             >
-              <!-- 艺术质感序号框 -->
               <div class="bento-rank-item__position" :class="{ 'bento-rank-item__position--top': index < 3 }">
                 {{ index + 1 }}
               </div>
-
               <div class="bento-rank-item__main-body">
                 <div class="bento-rank-item__title-row">
                   <span class="bento-rank-item__name">{{ item.name }}</span>
                   <span class="bento-rank-item__category">{{ item.category }}</span>
                 </div>
-
                 <div class="bento-rank-item__stat-row">
                   <span class="bento-rank-item__sales-count">已售 {{ item.sales }} 份</span>
-                  <!-- 精美圆头阻尼条 -->
                   <div class="bento-rank-item__progress-rail">
-                    <div 
-                      class="bento-rank-item__progress-fill" 
+                    <div
+                      class="bento-rank-item__progress-fill"
                       :style="{ width: (item.sales / (rankList[0]?.sales || 1) * 100) + '%' }"
                     ></div>
                   </div>
@@ -522,45 +368,45 @@ watch(chartRange, () => {
           </div>
         </div>
 
-        <!-- ==================== 3.5 智能库存效期与冷链预警 ==================== -->
-        <div class="glass-panel bento-card bento-card--alert">
+        <!-- 3.5 智能库存效期与冷链预警 -->
+        <div class="glass-panel glass-spotlight bento-card bento-card--alert">
           <div class="bento-card__header">
             <div class="bento-card__title-group">
               <span class="bento-card__subtitle">SHELF-LIFE & INVENTORY</span>
               <h2 class="bento-card__title">效期追踪与库存预警</h2>
             </div>
             <el-tag type="warning" size="small" effect="dark" class="warning-pill-count">
-              3 项待补货
+              {{ stockAlerts.filter(a => a.stock < a.threshold).length }} 项待补货
             </el-tag>
           </div>
 
           <div class="bento-alerts-flow">
-            <div 
-              v-for="item in stockAlerts" 
-              :key="item.name" 
+            <div
+              v-for="item in stockAlerts"
+              :key="item.name"
               class="bento-alert-pill glass-panel"
             >
               <div class="bento-alert-pill__body">
                 <div class="bento-alert-pill__left">
                   <span class="bento-alert-pill__name">{{ item.name }}</span>
                   <div class="bento-alert-pill__stats-bar">
-                    <span class="bento-alert-pill__amount font-mono">余 {{ item.stock }} / {{ item.threshold }} {{ item.unit }}</span>
-                    <!-- 极其微小的状态标点 -->
-                    <span class="bento-alert-pill__status-dot" :class="item.stock < item.threshold * 0.5 ? 'danger' : 'warning'"></span>
+                    <span class="bento-alert-pill__amount font-mono">
+                      余 {{ item.stock }} / {{ item.threshold }} {{ item.unit }}
+                    </span>
+                    <span
+                      class="bento-alert-pill__status-dot"
+                      :class="item.stock < item.threshold * 0.5 ? 'danger' : 'warning'"
+                    ></span>
                   </div>
                 </div>
-                
                 <div class="bento-alert-pill__right">
-                  <!-- 智能预测动作按钮，Shopify 商业风格 -->
                   <el-button type="info" size="small" class="reorder-action-btn" @click="handleReorder(item.name)">
                     快捷采购
                   </el-button>
                 </div>
               </div>
-
-              <!-- 渐进式效期耗竭进度条 -->
               <div class="bento-alert-pill__countdown-line">
-                <div 
+                <div
                   class="bento-alert-pill__countdown-fill"
                   :class="item.stock < item.threshold * 0.5 ? 'danger' : 'warning'"
                   :style="{ width: (item.stock / item.threshold * 100) + '%' }"
@@ -570,8 +416,8 @@ watch(chartRange, () => {
           </div>
         </div>
 
-        <!-- ==================== 3.6 顾客情感分析弹幕流 (visionOS 玻璃态) ==================== -->
-        <div class="glass-panel bento-card bento-card--reviews">
+        <!-- 3.6 顾客情感分析 -->
+        <div class="glass-panel glass-spotlight bento-card bento-card--reviews">
           <div class="bento-card__header">
             <div class="bento-card__title-group">
               <span class="bento-card__subtitle">CUSTOMER SENTIMENT FEED</span>
@@ -583,40 +429,37 @@ watch(chartRange, () => {
           </div>
 
           <div class="bento-reviews-flow">
-            <div 
-              v-for="review in reviews" 
-              :key="review.user" 
+            <div
+              v-for="review in reviews"
+              :key="review.user"
               class="bento-review-bubble glass-panel"
             >
               <div class="bento-review-bubble__avatar-halo" :style="{ background: review.avatarBg }">
                 {{ review.user.charAt(0) }}
               </div>
-
               <div class="bento-review-bubble__text-area">
                 <div class="bento-review-bubble__meta-row">
                   <span class="bento-review-bubble__username">{{ review.user }}</span>
-                  
                   <div class="bento-review-bubble__stars">
-                    <el-icon 
-                      v-for="s in 5" 
-                      :key="s" 
-                      :size="10" 
+                    <el-icon
+                      v-for="s in 5"
+                      :key="s"
+                      :size="10"
                       :style="{ color: s <= review.rating ? '#f0a35c' : 'rgba(45,35,39,0.1)' }"
                     >
-                      <StarFilled />
+                      <Dessert />
                     </el-icon>
                   </div>
                 </div>
-                
                 <p class="bento-review-bubble__content">{{ review.text }}</p>
-                
-                <!-- 情感标签与商业挽回反馈（Shopify 口碑闭环） -->
                 <div class="bento-review-bubble__actions-row">
                   <span class="sentiment-pill positive">
                     <span class="sentiment-pill__dot"></span>
                     情感极佳
                   </span>
-                  <button class="sentiment-action-btn-link" @click="sendCompensationCoupon(review.user)">一键赠券</button>
+                  <button class="sentiment-action-btn-link" @click="sendCompensationCoupon(review.user)">
+                    一键赠券
+                  </button>
                 </div>
               </div>
             </div>
@@ -631,29 +474,17 @@ watch(chartRange, () => {
 <style lang="scss" scoped>
 /* ==========================================================================
    DessertShop High-End Design System - Apple Liquid Glass & visionOS Style
+   All data sourced from useDashboard composable — no hardcoded values.
    ========================================================================== */
 
 .dolce-dashboard-wrapper {
-  // Scoped Design Tokens & Theme Colors (HSL based for premium luminescence)
-  --color-cream-bg: hsl(24, 25%, 97%);        // 香草白/稀奶油底色
-  --color-cream-gradient: hsl(30, 20%, 95%);  // 焦糖暖白渐变点缀
-  --color-text-chocolate: hsl(336, 12%, 18%); // 85% 浓黑巧克力色（高对比度）
-  --color-text-secondary: hsl(336, 6%, 42%);  // 温暖巧克力中性灰
-  --color-text-muted: hsl(336, 4%, 60%);     // 极简克制低反差灰
-  
-  --color-primary-raspberry: hsl(350, 72%, 63%); // 覆盆子红（野莓酸）
+  --color-text-chocolate: var(--color-text-primary);
+  --color-primary-raspberry: var(--color-primary);
   --color-primary-raspberry-glow: rgba(232, 99, 122, 0.18);
-  
-  --color-accent-amber: hsl(32, 88%, 62%);     // 经典海盐焦糖金
+  --color-accent-amber: var(--color-accent);
   --color-accent-amber-glow: rgba(240, 163, 92, 0.15);
-  
-  --color-accent-mint: hsl(152, 45%, 52%);     // 薄荷开心果绿
-  
-  // Apple Specular Glow — now inherits from global base.css tokens
-  --transition-spring: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); // 阻尼物理弹性
-  --transition-fast: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --color-accent-mint: #5cb88a;
 
-  // Layout Container Parameters
   width: 100%;
   max-width: 1360px;
   margin: 0 auto;
@@ -662,14 +493,13 @@ watch(chartRange, () => {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
-  color: var(--color-text-chocolate);
-  background: radial-gradient(circle at 0% 0%, var(--color-cream-gradient) 0%, var(--color-cream-bg) 70%);
+  font-family: var(--font-body);
+  color: var(--color-text-primary);
+  background: radial-gradient(circle at 0% 0%, var(--color-bg-tertiary) 0%, var(--color-bg-primary) 70%);
   position: relative;
   min-height: 100vh;
   animation: pageEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 
-  // 极致背景光斑（焦糖暖光）
   &::before {
     content: '';
     position: absolute;
@@ -684,19 +514,13 @@ watch(chartRange, () => {
 }
 
 /* ==========================================================================
-   Apple Liquid Glass — inherits global .glass-panel from base.css
-   Local overrides via scoped variables below
-   ========================================================================== */
-
-/* ==========================================================================
-   1. 顶部全局欢迎看板 (The Aurora Greeting)
+   1. 顶部全局欢迎看板
    ========================================================================== */
 .aurora-banner {
   padding: 36px 40px;
   z-index: 2;
   overflow: hidden;
 
-  // 流动炫彩光彩图层 (Aura Orbs Simulation)
   &__blur-canvas {
     position: absolute;
     inset: 0;
@@ -712,76 +536,56 @@ watch(chartRange, () => {
     filter: blur(80px);
     mix-blend-mode: multiply;
     animation: orbFloating 18s ease-in-out infinite;
+    /* Parallax offset driven by --orb-x / --orb-y CSS vars from JS */
+    transform: translate(var(--orb-x, 0px), var(--orb-y, 0px));
+    transition: transform 0.3s ease-out;
 
     &--raspberry {
-      width: 280px;
-      height: 280px;
-      right: -20px;
-      top: -60px;
+      width: 280px; height: 280px;
+      right: -20px; top: -60px;
       background: rgba(232, 99, 122, 0.18);
     }
-
     &--amber {
-      width: 220px;
-      height: 220px;
-      right: 200px;
-      bottom: -60px;
+      width: 220px; height: 220px;
+      right: 200px; bottom: -60px;
       background: rgba(240, 163, 92, 0.12);
-      animation-delay: -4s;
-      animation-duration: 22s;
+      animation-delay: -4s; animation-duration: 22s;
     }
-
     &--cream {
-      width: 140px;
-      height: 140px;
-      left: 10%;
-      top: -20px;
+      width: 140px; height: 140px;
+      left: 10%; top: -20px;
       background: rgba(253, 232, 236, 0.25);
       animation-duration: 15s;
     }
   }
 
   &__content-row {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 32px;
-    flex-wrap: wrap;
+    position: relative; z-index: 2;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 32px; flex-wrap: wrap;
   }
 
-  &__brand-profile {
-    flex: 1;
-    min-width: 320px;
-  }
+  &__brand-profile { flex: 1; min-width: 320px; }
 
   &__greeting-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
     padding: 6px 12px;
     background: rgba(232, 99, 122, 0.06);
     border: 1px solid rgba(232, 99, 122, 0.15);
     border-radius: 99px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 13px; font-weight: 600;
     color: var(--color-primary-raspberry);
-    margin-bottom: 14px;
-    letter-spacing: 0.02em;
+    margin-bottom: 14px; letter-spacing: 0.02em;
   }
 
   &__greeting-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+    width: 6px; height: 6px; border-radius: 50%;
     background: var(--color-primary-raspberry);
     animation: beaconPulse 2s infinite;
   }
 
   &__title {
-    font-size: 26px;
-    font-weight: 800;
+    font-size: 26px; font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--color-text-chocolate);
     margin-bottom: 6px;
@@ -793,11 +597,8 @@ watch(chartRange, () => {
     line-height: 1.5;
   }
 
-  // Stripe 高密度 KPI 控制条
   &__micro-kpis {
-    display: flex;
-    align-items: center;
-    gap: 24px;
+    display: flex; align-items: center; gap: 24px;
     background: rgba(255, 255, 255, 0.35);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.4);
@@ -808,329 +609,120 @@ watch(chartRange, () => {
 }
 
 .micro-kpi-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: flex; flex-direction: column; gap: 4px;
 
   &__label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--color-text-muted);
   }
-
-  &__value-group {
-    display: flex;
-    align-items: baseline;
-    color: var(--color-text-chocolate);
-  }
-
-  &__currency {
-    font-size: 14px;
-    font-weight: 700;
-    margin-right: 2px;
-  }
-
+  &__value-group { display: flex; align-items: baseline; color: var(--color-text-chocolate); }
+  &__currency { font-size: 14px; font-weight: 700; margin-right: 2px; }
   &__value {
-    font-size: 20px;
-    font-weight: 750;
-    font-variant-numeric: tabular-nums; // 等宽对齐，防数值抖动
+    font-size: 20px; font-weight: 750;
+    font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
-
-  &__unit {
-    font-size: 12px;
-    font-weight: 700;
-    margin-left: 1px;
-  }
-
-  &__subtext {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-
+  &__unit { font-size: 12px; font-weight: 700; margin-left: 1px; }
+  &__subtext { font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
     &.up { color: var(--color-primary-raspberry); }
     &.stable { color: var(--color-text-secondary); }
     &.highlight { color: var(--color-accent-amber); }
   }
-
-  &__divider {
-    width: 1px;
-    height: 36px;
-    background: rgba(45, 35, 39, 0.08);
-  }
+  &__divider { width: 1px; height: 36px; background: rgba(45, 35, 39, 0.08); }
 }
 
 /* ==========================================================================
-   2. 今日经营数据 Stripe 密集指标带 (Stripe Metric Row)
+   2. 指标带
    ========================================================================== */
 .metrics-stripe-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  z-index: 2;
-
-  @media (max-width: 1024px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; z-index: 2;
+  @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
 }
 
 .metric-stripe-card {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
+  padding: 24px; display: flex; flex-direction: column;
   animation: cardEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-style: preserve-3d;
+  perspective: 800px;
+  will-change: transform;
 
-  // Linear / Apple Hover Effect (卡片平滑上浮 + 发光涂层平移)
   &:hover {
     transform: translateY(-4px) scale(1.02);
     box-shadow: var(--glass-specular), var(--glass-shadow-hover);
     border-color: rgba(232, 99, 122, 0.25);
-
-    &::after {
-      left: 100%;
-    }
+    &::after { left: 100%; }
   }
 
-  // 光泽扫过动效 (Hover Gloss Shine swipe)
   &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 50%;
-    height: 100%;
+    content: ''; position: absolute; top: 0; left: -100%;
+    width: 50%; height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
     transform: skewX(-25deg);
     transition: left 0.75s ease;
-    z-index: 2;
-    pointer-events: none;
+    z-index: 2; pointer-events: none;
   }
 
-  &__top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-  }
-
-  &__meta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  &__title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--color-text-chocolate);
-    letter-spacing: -0.01em;
-  }
-
-  &__desc {
-    font-size: 11px;
-    color: var(--color-text-muted);
-  }
-
+  &__top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  &__meta { display: flex; flex-direction: column; gap: 2px; }
+  &__title { font-size: 13px; font-weight: 700; color: var(--color-text-chocolate); }
+  &__desc { font-size: 11px; color: var(--color-text-muted); }
   &__badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 3px 8px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 600;
-
-    &.up {
-      color: var(--color-accent-mint);
-      background: rgba(92, 184, 138, 0.08);
-    }
-    &.down {
-      color: var(--color-text-secondary);
-      background: rgba(45, 35, 39, 0.05);
-    }
-    &.neutral {
-      color: var(--color-accent-amber);
-      background: rgba(240, 163, 92, 0.08);
-    }
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;
+    &.up { color: var(--color-accent-mint); background: rgba(92, 184, 138, 0.08); }
+    &.down { color: var(--color-text-secondary); background: rgba(45, 35, 39, 0.05); }
+    &.neutral { color: var(--color-accent-amber); background: rgba(240, 163, 92, 0.08); }
   }
-
-  &__middle {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-
-  &__value {
-    font-size: 26px;
-    font-weight: 850;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.03em;
-    color: var(--color-text-chocolate);
-  }
-
-  &__icon-wrapper {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-  }
-
-  &__footer {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: auto;
-  }
-
-  &__progress-container {
-    width: 100%;
-    height: 4px;
-    background: rgba(45, 35, 39, 0.05);
-    border-radius: 99px;
-    overflow: hidden;
-  }
-
-  &__progress-bar {
-    height: 100%;
-    border-radius: 99px;
-    transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  &__target-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    text-align: right;
-  }
+  &__middle { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  &__value { font-size: 26px; font-weight: 850; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; color: var(--color-text-chocolate); }
+  &__icon-wrapper { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02); }
+  &__footer { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+  &__progress-container { width: 100%; height: 4px; background: rgba(45, 35, 39, 0.05); border-radius: 99px; overflow: hidden; }
+  &__progress-bar { height: 100%; border-radius: 99px; transition: width 1s cubic-bezier(0.16, 1, 0.3, 1); }
+  &__target-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); text-align: right; }
 }
 
 /* ==========================================================================
-   3. 非对称黄金分割 Bento 主体网格 & 主副卡片 (Bento Matrix)
+   3. Bento Matrix
    ========================================================================== */
 .bento-layout-matrix {
-  display: grid;
-  grid-template-columns: 7fr 3fr;
-  gap: 24px;
-  z-index: 2;
-
-  @media (max-width: 1140px) {
-    grid-template-columns: 1fr;
-  }
-
-  &__main {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  &__side {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
+  display: grid; grid-template-columns: 7fr 3fr; gap: 24px; z-index: 2;
+  @media (max-width: 1140px) { grid-template-columns: 1fr; }
+  &__main { display: flex; flex-direction: column; gap: 24px; }
+  &__side { display: flex; flex-direction: column; gap: 24px; }
 }
 
-// 统一的 Bento 卡片控制
 .bento-card {
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
+  padding: 28px; display: flex; flex-direction: column;
   animation: cardEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  &:hover { box-shadow: var(--glass-specular), var(--glass-shadow-hover); }
 
-  &:hover {
-    box-shadow: var(--glass-specular), var(--glass-shadow-hover);
-  }
-
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
-    gap: 16px;
-  }
-
-  &__title-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  &__subtitle {
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-primary-raspberry);
-  }
-
-  &__title {
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--color-text-chocolate);
-  }
-
+  &__header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; gap: 16px; }
+  &__title-group { display: flex; flex-direction: column; gap: 4px; }
+  &__subtitle { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary-raspberry); }
+  &__title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--color-text-chocolate); }
   &__link-text {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--color-primary-raspberry);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+    font-size: 12.5px; font-weight: 600; color: var(--color-primary-raspberry);
+    cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
     transition: var(--transition-fast);
-
-    &:hover {
-      opacity: 0.8;
-      transform: translateX(2px);
-    }
+    &:hover { opacity: 0.8; transform: translateX(2px); }
   }
 }
 
-/* ==========================================================================
-   3.1 销售趋势面板 & 图表容器
-   ========================================================================== */
-.bento-card--chart {
-  .bento-card__action-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-}
+/* Chart */
+.bento-card--chart .bento-card__action-controls { display: flex; align-items: center; gap: 12px; }
 
-// Linear 质感极简 segmented 按钮组定制
 .linear-segmented-control {
-  background: rgba(45, 35, 39, 0.05) !important;
-  border-radius: 8px !important;
-  padding: 2px !important;
-  border: none !important;
-
+  background: rgba(45, 35, 39, 0.05) !important; border-radius: 8px !important; padding: 2px !important; border: none !important;
   :deep(.el-radio-button__inner) {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 6px !important;
-    color: var(--color-text-secondary) !important;
-    font-weight: 600 !important;
-    font-size: 12px !important;
-    padding: 6px 14px !important;
-    box-shadow: none !important;
+    background: transparent !important; border: none !important; border-radius: 6px !important;
+    color: var(--color-text-secondary) !important; font-weight: 600 !important;
+    font-size: 12px !important; padding: 6px 14px !important; box-shadow: none !important;
     transition: var(--transition-fast) !important;
-
-    &:hover {
-      color: var(--color-text-chocolate) !important;
-    }
+    &:hover { color: var(--color-text-chocolate) !important; }
   }
-
   :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
     background: rgba(255, 255, 255, 0.95) !important;
     color: var(--color-text-chocolate) !important;
@@ -1138,876 +730,215 @@ watch(chartRange, () => {
   }
 }
 
-.linear-icon-button {
-  background: rgba(255, 255, 255, 0.5) !important;
-  border: 1px solid var(--glass-border) !important;
-  border-radius: 8px !important;
-  color: var(--color-text-secondary) !important;
-  width: 32px !important;
-  height: 32px !important;
-  padding: 0 !important;
-  transition: var(--transition-fast) !important;
+.chart-canvas-container { width: 100%; height: 320px; position: relative; border-radius: 12px; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.2); margin-bottom: 20px; overflow: hidden; }
+.chart-canvas-glow { position: absolute; bottom: 0; left: 10%; right: 10%; height: 120px; background: radial-gradient(ellipse at bottom, rgba(232, 99, 122, 0.05) 0%, transparent 70%); pointer-events: none; }
+.chart-canvas-dom { width: 100%; height: 100%; z-index: 2; position: relative; }
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.95) !important;
-    color: var(--color-text-chocolate) !important;
-    transform: scale(1.05);
-  }
+.chart-legend-stripe { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid rgba(45, 35, 39, 0.06); }
+.chart-legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.legend-color-dot { width: 8px; height: 8px; border-radius: 50%;
+  &--raspberry { background: var(--color-primary-raspberry); }
+  &--mint { background: var(--color-accent-mint); }
+  &--amber { background: var(--color-accent-amber); }
 }
+.legend-label { color: var(--color-text-secondary); font-weight: 500; }
+.legend-value { color: var(--color-text-chocolate); font-weight: 750; font-variant-numeric: tabular-nums; }
 
-// 玻璃图表大容器（防闪烁，内嵌背景渐变发光）
-.chart-canvas-container {
-  width: 100%;
-  height: 320px;
-  position: relative;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-
-.chart-canvas-glow {
-  position: absolute;
-  bottom: 0;
-  left: 10%;
-  right: 10%;
-  height: 120px;
-  background: radial-gradient(ellipse at bottom, rgba(232, 99, 122, 0.05) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.chart-canvas-dom {
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  position: relative;
-}
-
-// 图表下方图例栏
-.chart-legend-stripe {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  flex-wrap: wrap;
-  padding-top: 16px;
-  border-top: 1px solid rgba(45, 35, 39, 0.06);
-}
-
-.chart-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-
-  .legend-color-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-
-    &--raspberry { background: var(--color-primary-raspberry); }
-    &--mint { background: var(--color-accent-mint); }
-    &--amber { background: var(--color-accent-amber); }
-  }
-
-  .legend-label {
-    color: var(--color-text-secondary);
-    font-weight: 500;
-  }
-
-  .legend-value {
-    color: var(--color-text-chocolate);
-    font-weight: 750;
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-/* ==========================================================================
-   3.2 活动运营与营销大盘 (Shopify Promotion Grid)
-   ========================================================================== */
+/* Campaigns */
 .shining-action-btn {
   background: linear-gradient(135deg, var(--color-primary-raspberry) 0%, hsl(340, 70%, 55%) 100%) !important;
-  border: none !important;
-  color: #fff !important;
-  font-weight: 600 !important;
-  border-radius: 10px !important;
-  padding: 8px 18px !important;
+  border: none !important; color: #fff !important; font-weight: 600 !important;
+  border-radius: 10px !important; padding: 8px 18px !important;
   box-shadow: 0 4px 14px var(--color-primary-raspberry-glow) !important;
   transition: var(--transition-fast) !important;
-
-  &:hover {
-    transform: translateY(-1.5px);
-    box-shadow: 0 6px 20px var(--color-primary-raspberry-glow) !important;
-    filter: brightness(1.05);
-  }
-
-  &:active {
-    transform: scale(0.96);
-  }
-
-  .btn-icon-spin {
-    transition: transform 0.5s ease;
-  }
-  &:hover .btn-icon-spin {
-    transform: rotate(18deg) scale(1.1);
-  }
+  &:hover { transform: translateY(-1.5px); box-shadow: 0 6px 20px var(--color-primary-raspberry-glow) !important; filter: brightness(1.05); }
+  &:active { transform: scale(0.96); }
+  .btn-icon-spin { transition: transform 0.5s ease; }
+  &:hover .btn-icon-spin { transform: rotate(18deg) scale(1.1); }
 }
 
-.campaign-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
+.campaign-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
 }
 
 .campaign-item-card {
-  background: rgba(255, 255, 255, 0.4);
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  &:hover {
-    transform: translateY(-2px);
-    border-color: rgba(232, 99, 122, 0.2);
-  }
-
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  // 深度定制 Element Plus tag
+  background: rgba(255, 255, 255, 0.4); padding: 22px; display: flex; flex-direction: column; gap: 12px;
+  &:hover { transform: translateY(-2px); border-color: rgba(232, 99, 122, 0.2); }
+  &__header { display: flex; justify-content: space-between; align-items: center; }
   .custom-badge-tag {
-    border-radius: 6px !important;
-    font-weight: 700 !important;
-    padding: 2px 8px !important;
-    letter-spacing: 0.02em !important;
-    border: none !important;
-
-    &.el-tag--danger {
-      background: rgba(232, 99, 122, 0.1) !important;
-      color: var(--color-primary-raspberry) !important;
-    }
-    &.el-tag--warning {
-      background: rgba(240, 163, 92, 0.1) !important;
-      color: var(--color-accent-amber) !important;
-    }
+    border-radius: 6px !important; font-weight: 700 !important; padding: 2px 8px !important;
+    letter-spacing: 0.02em !important; border: none !important;
+    &.el-tag--danger { background: rgba(232, 99, 122, 0.1) !important; color: var(--color-primary-raspberry) !important; }
+    &.el-tag--warning { background: rgba(240, 163, 92, 0.1) !important; color: var(--color-accent-amber) !important; }
   }
-
-  &__time {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-text-muted);
-    letter-spacing: 0.04em;
-  }
-
-  &__name {
-    font-size: 15px;
-    font-weight: 800;
-    color: var(--color-text-chocolate);
-    line-height: 1.3;
-  }
-
-  &__subtitle {
-    font-size: 12px;
-    color: var(--color-text-secondary);
-    line-height: 1.4;
-  }
-
-  .campaign-metrics-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 12px;
-    padding: 10px 14px;
-    margin-top: 4px;
-  }
-
-  .campaign-micro-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-
-    &__label {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--color-text-muted);
-    }
-
-    &__value {
-      font-size: 13.5px;
-      font-weight: 750;
-      font-variant-numeric: tabular-nums;
-      color: var(--color-text-chocolate);
-
-      &.highlight-mint {
-        color: var(--color-accent-mint);
-      }
+  &__time { font-size: 11px; font-weight: 600; color: var(--color-text-muted); letter-spacing: 0.04em; }
+  &__name { font-size: 15px; font-weight: 800; color: var(--color-text-chocolate); line-height: 1.3; }
+  &__subtitle { font-size: 12px; color: var(--color-text-secondary); line-height: 1.4; }
+  .campaign-metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 10px 14px; margin-top: 4px; }
+  .campaign-micro-metric { display: flex; flex-direction: column; gap: 2px;
+    &__label { font-size: 10px; font-weight: 600; color: var(--color-text-muted); }
+    &__value { font-size: 13.5px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--color-text-chocolate);
+      &.highlight-mint { color: var(--color-accent-mint); }
     }
   }
-
-  &__footer-progress {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: auto;
-    padding-top: 10px;
+  &__footer-progress { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 10px; }
+  .campaign-progress-track { width: 100%; height: 4px; background: rgba(45, 35, 39, 0.05); border-radius: 99px; overflow: hidden; }
+  .campaign-progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-primary-raspberry), var(--color-accent-amber)); border-radius: 99px;
+    &.ready { background: var(--color-text-muted); }
   }
-
-  .campaign-progress-track {
-    width: 100%;
-    height: 4px;
-    background: rgba(45, 35, 39, 0.05);
-    border-radius: 99px;
-    overflow: hidden;
-  }
-
-  .campaign-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--color-primary-raspberry), var(--color-accent-amber));
-    border-radius: 99px;
-
-    &.ready {
-      background: var(--color-text-muted);
-    }
-  }
-
-  .campaign-progress-label {
-    font-size: 10.5px;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    text-align: right;
-  }
+  .campaign-progress-label { font-size: 10.5px; font-weight: 600; color: var(--color-text-secondary); text-align: right; }
 }
 
-/* ==========================================================================
-   3.3 Linear-style 快捷操作悬浮舱 (Action Dock)
-   ========================================================================= */
-.quick-action-dock-panel {
-  margin-top: 4px;
-
-  &__title-bar {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  &__hint {
-    font-size: 10px;
-    font-weight: 750;
-    letter-spacing: 0.06em;
-    color: var(--color-primary-raspberry);
-  }
-
-  &__desc {
-    font-size: 12px;
-    color: var(--color-text-secondary);
-  }
+/* Quick Actions Dock */
+.quick-action-dock-panel { margin-top: 4px;
+  &__title-bar { display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px; }
+  &__hint { font-size: 10px; font-weight: 750; letter-spacing: 0.06em; color: var(--color-primary-raspberry); }
+  &__desc { font-size: 12px; color: var(--color-text-secondary); }
 }
 
-.action-dock-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
+.action-dock-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
 }
-
 .action-dock-card {
-  background: rgba(255, 255, 255, 0.48);
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  cursor: pointer;
-
-  // 阻尼回弹 hover
+  background: rgba(255, 255, 255, 0.48); padding: 16px 20px;
+  display: flex; align-items: center; gap: 16px; cursor: pointer;
   &:hover {
     transform: translateY(-2px) scale(1.015);
-    border-color: var(--color-primary-raspberry);
-    background: rgba(255, 255, 255, 0.8);
+    border-color: var(--color-primary-raspberry); background: rgba(255, 255, 255, 0.8);
     box-shadow: var(--glass-specular), 0 6px 20px rgba(232, 99, 122, 0.06);
-
-    .action-dock-card__arrow-link {
-      transform: translateX(3px) scale(1.1);
-      color: var(--color-primary-raspberry);
-    }
+    .action-dock-card__arrow-link { transform: translateX(3px) scale(1.1); color: var(--color-primary-raspberry); }
   }
-
-  // 点击时的下陷物理回弹
-  &:active {
-    transform: scale(0.97) translateY(1px);
-  }
-
-  &__icon-halo {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.6);
-  }
-
-  &__content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  &__title {
-    font-size: 13.5px;
-    font-weight: 750;
-    color: var(--color-text-chocolate);
-  }
-
-  &__desc {
-    font-size: 11px;
-    color: var(--color-text-muted);
-  }
-
-  &__arrow-link {
-    font-size: 14px;
-    color: var(--color-text-muted);
-    transition: var(--transition-fast);
-  }
+  &:active { transform: scale(0.97) translateY(1px); }
+  &__icon-halo { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.6); }
+  &__content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  &__title { font-size: 13.5px; font-weight: 750; color: var(--color-text-chocolate); }
+  &__desc { font-size: 11px; color: var(--color-text-muted); }
+  &__arrow-link { font-size: 14px; color: var(--color-text-muted); transition: var(--transition-fast); }
 }
 
-/* ==========================================================================
-   3.4 热销甜品排行 Bento (High Aesthetics Rank Flow)
-   ========================================================================== */
-.bento-rank-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
+/* Rank */
+.bento-rank-flow { display: flex; flex-direction: column; gap: 14px; }
 .bento-rank-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 0;
-  border-bottom: 1px dashed rgba(45, 35, 39, 0.05);
-
-  &:last-child {
-    border: none;
-    padding-bottom: 0;
+  display: flex; align-items: center; gap: 16px; padding: 8px 0; border-bottom: 1px dashed rgba(45, 35, 39, 0.05);
+  &:last-child { border: none; padding-bottom: 0; }
+  &__position { width: 32px; height: 32px; border-radius: 9px; background: rgba(45, 35, 39, 0.04); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: var(--color-text-secondary); transition: var(--transition-fast);
+    &--top { background: rgba(232, 99, 122, 0.08); color: var(--color-primary-raspberry); box-shadow: 0 2px 8px rgba(232, 99, 122, 0.05); }
   }
-
-  // 艺术质感序号格
-  &__position {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-    background: rgba(45, 35, 39, 0.04);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 800;
-    color: var(--color-text-secondary);
-    transition: var(--transition-fast);
-
-    &--top {
-      background: rgba(232, 99, 122, 0.08);
-      color: var(--color-primary-raspberry);
-      box-shadow: 0 2px 8px rgba(232, 99, 122, 0.05);
-    }
-  }
-
-  &__main-body {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  &__title-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
-
-  &__name {
-    font-size: 13.5px;
-    font-weight: 750;
-    color: var(--color-text-chocolate);
-  }
-
-  &__category {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--color-text-muted);
-  }
-
-  &__stat-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-
-  &__sales-count {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  &__progress-rail {
-    flex: 1;
-    height: 4px;
-    background: rgba(45, 35, 39, 0.04);
-    border-radius: 99px;
-    overflow: hidden;
-  }
-
-  &__progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--color-primary-raspberry) 0%, var(--color-accent-amber) 100%);
-    border-radius: 99px;
-    transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  &:hover {
-    .bento-rank-item__position {
-      transform: scale(1.08) rotate(-4deg);
-    }
-  }
+  &__main-body { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  &__title-row { display: flex; justify-content: space-between; align-items: baseline; }
+  &__name { font-size: 13.5px; font-weight: 750; color: var(--color-text-chocolate); }
+  &__category { font-size: 10px; font-weight: 600; color: var(--color-text-muted); }
+  &__stat-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  &__sales-count { font-size: 11px; font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+  &__progress-rail { flex: 1; height: 4px; background: rgba(45, 35, 39, 0.04); border-radius: 99px; overflow: hidden; }
+  &__progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-primary-raspberry) 0%, var(--color-accent-amber) 100%); border-radius: 99px; transition: width 1s cubic-bezier(0.16, 1, 0.3, 1); }
+  &:hover .bento-rank-item__position { transform: scale(1.08) rotate(-4deg); }
 }
 
-/* ==========================================================================
-   3.5 智能库存效期与冷链预警 (Bento Inventory Shelf-Life)
-   ========================================================================== */
-.warning-pill-count {
-  background: rgba(240, 163, 92, 0.15) !important;
-  border-radius: 6px !important;
-  color: var(--color-accent-amber) !important;
-  font-weight: 700 !important;
-  border: none !important;
-}
+/* Inventory Alerts */
+.warning-pill-count { background: rgba(240, 163, 92, 0.15) !important; border-radius: 6px !important; color: var(--color-accent-amber) !important; font-weight: 700 !important; border: none !important; }
 
-.bento-alerts-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
+.bento-alerts-flow { display: flex; flex-direction: column; gap: 14px; }
 .bento-alert-pill {
-  background: rgba(255, 255, 255, 0.35);
-  padding: 14px 18px;
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  &__body {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  background: rgba(255, 255, 255, 0.35); padding: 14px 18px; border-radius: 14px; display: flex; flex-direction: column; gap: 8px;
+  &__body { display: flex; justify-content: space-between; align-items: center; }
+  &__left { display: flex; flex-direction: column; gap: 3px; }
+  &__name { font-size: 13px; font-weight: 750; color: var(--color-text-chocolate); }
+  &__stats-bar { display: flex; align-items: center; gap: 8px; }
+  &__amount { font-size: 11px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+  &__status-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block;
+    &.danger { background: var(--color-primary-raspberry); animation: beaconPulse 1.5s infinite; }
+    &.warning { background: var(--color-accent-amber); }
   }
-
-  &__left {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-
-  &__name {
-    font-size: 13px;
-    font-weight: 750;
-    color: var(--color-text-chocolate);
-  }
-
-  &__stats-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  &__amount {
-    font-size: 11px;
-    color: var(--color-text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  &__status-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    display: inline-block;
-
-    &.danger {
-      background: var(--color-primary-raspberry);
-      animation: beaconPulse 1.5s infinite;
-    }
-
-    &.warning {
-      background: var(--color-accent-amber);
-    }
-  }
-
-  // Shopify 智能辅助下单按钮配置
   .reorder-action-btn {
-    background: rgba(45, 35, 39, 0.05) !important;
-    border: none !important;
-    color: var(--color-text-secondary) !important;
-    font-weight: 700 !important;
-    font-size: 11px !important;
-    padding: 6px 12px !important;
-    border-radius: 8px !important;
+    background: rgba(45, 35, 39, 0.05) !important; border: none !important; color: var(--color-text-secondary) !important;
+    font-weight: 700 !important; font-size: 11px !important; padding: 6px 12px !important; border-radius: 8px !important;
     transition: var(--transition-fast) !important;
-
-    &:hover {
-      background: var(--color-primary-raspberry) !important;
-      color: #fff !important;
-      transform: scale(1.03);
-    }
+    &:hover { background: var(--color-primary-raspberry) !important; color: #fff !important; transform: scale(1.03); }
   }
-
-  &__countdown-line {
-    width: 100%;
-    height: 3px;
-    background: rgba(45, 35, 39, 0.03);
-    border-radius: 99px;
-    overflow: hidden;
+  &__countdown-line { width: 100%; height: 3px; background: rgba(45, 35, 39, 0.03); border-radius: 99px; overflow: hidden; }
+  &__countdown-fill { height: 100%; border-radius: 99px; transition: width 1s ease;
+    &.danger { background: var(--color-primary-raspberry); }
+    &.warning { background: var(--color-accent-amber); }
   }
-
-  &__countdown-fill {
-    height: 100%;
-    border-radius: 99px;
-    transition: width 1s ease;
-
-    &.danger {
-      background: var(--color-primary-raspberry);
-    }
-
-    &.warning {
-      background: var(--color-accent-amber);
-    }
-  }
-
-  &:hover {
-    transform: translateX(2px);
-    border-color: rgba(240, 163, 92, 0.25);
-  }
+  &:hover { transform: translateX(2px); border-color: rgba(240, 163, 92, 0.25); }
 }
 
-/* ==========================================================================
-   3.6 顾客情感分析弹幕流 (visionOS Glass Reviews)
-   ========================================================================== */
-.bento-reviews-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
+/* Reviews */
+.bento-reviews-flow { display: flex; flex-direction: column; gap: 14px; }
 .bento-review-bubble {
-  background: rgba(255, 255, 255, 0.28);
-  padding: 16px;
-  border-radius: 16px;
-  display: flex;
-  gap: 12px;
-
-  &__avatar-halo {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 800;
-    color: #fff;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-    flex-shrink: 0;
-  }
-
-  &__text-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  &__meta-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  &__username {
-    font-size: 12.5px;
-    font-weight: 750;
-    color: var(--color-text-chocolate);
-  }
-
-  &__stars {
-    display: flex;
-    gap: 1px;
-  }
-
-  &__content {
-    font-size: 11.5px;
-    color: var(--color-text-secondary);
-    line-height: 1.4;
-  }
-
-  &__actions-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(45, 35, 39, 0.03);
-  }
-
-  .sentiment-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 700;
-
-    &.positive {
-      color: var(--color-accent-mint);
-
-      .sentiment-pill__dot {
-        width: 4px;
-        height: 4px;
-        border-radius: 50%;
-        background: var(--color-accent-mint);
-        display: inline-block;
-      }
+  background: rgba(255, 255, 255, 0.28); padding: 16px; border-radius: 16px; display: flex; gap: 12px;
+  &__avatar-halo { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); flex-shrink: 0; }
+  &__text-area { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  &__meta-row { display: flex; justify-content: space-between; align-items: center; }
+  &__username { font-size: 12.5px; font-weight: 750; color: var(--color-text-chocolate); }
+  &__stars { display: flex; gap: 1px; }
+  &__content { font-size: 11.5px; color: var(--color-text-secondary); line-height: 1.4; }
+  &__actions-row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(45, 35, 39, 0.03); }
+  .sentiment-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700;
+    &.positive { color: var(--color-accent-mint);
+      .sentiment-pill__dot { width: 4px; height: 4px; border-radius: 50%; background: var(--color-accent-mint); display: inline-block; }
     }
   }
-
-  .sentiment-action-btn-link {
-    background: transparent;
-    border: none;
-    font-size: 10.5px;
-    font-weight: 700;
-    color: var(--color-primary-raspberry);
-    cursor: pointer;
-    transition: var(--transition-fast);
-    padding: 0;
-
-    &:hover {
-      opacity: 0.8;
-      text-decoration: underline;
-    }
+  .sentiment-action-btn-link { background: transparent; border: none; font-size: 10.5px; font-weight: 700; color: var(--color-primary-raspberry); cursor: pointer; transition: var(--transition-fast); padding: 0;
+    &:hover { opacity: 0.8; text-decoration: underline; }
   }
-
-  &:hover {
-    transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.5);
-  }
+  &:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.5); }
 }
 
 /* ==========================================================================
-   4. 核心系统动效与关键帧配置 (Micro-Animations & Keyframes)
+   Keyframes
    ========================================================================== */
-
-// 页面淡入加载
-@keyframes pageEntrance {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-// 卡片渐进渲染动画
-@keyframes cardEntrance {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-// 动态背景流动气泡动画 (Apple Aura Orbs)
+@keyframes pageEntrance { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes cardEntrance { from { opacity: 0; transform: translateY(12px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes orbFloating {
-  0% {
-    transform: translate(0px, 0px) rotate(0deg);
-  }
-  33% {
-    transform: translate(30px, -40px) rotate(120deg);
-  }
-  66% {
-    transform: translate(-20px, 20px) rotate(240deg);
-  }
-  100% {
-    transform: translate(0px, 0px) rotate(360deg);
-  }
+  0% { transform: translate(0px, 0px) rotate(0deg); }
+  33% { transform: translate(30px, -40px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
+  100% { transform: translate(0px, 0px) rotate(360deg); }
 }
-
-// 指标状态指示灯呼吸灯动效
 @keyframes beaconPulse {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.5;
-    box-shadow: 0 0 0 0 rgba(232, 99, 122, 0.4);
-  }
-  70% {
-    transform: scale(1.1);
-    opacity: 1;
-    box-shadow: 0 0 0 6px rgba(232, 99, 122, 0);
-  }
-  100% {
-    transform: scale(0.9);
-    opacity: 0.5;
-    box-shadow: 0 0 0 0 rgba(232, 99, 122, 0);
-  }
+  0% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(232, 99, 122, 0.4); }
+  70% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 6px rgba(232, 99, 122, 0); }
+  100% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 0 rgba(232, 99, 122, 0); }
 }
 
 /* ==========================================================================
-   5. 移动端响应式优化 (Mobile Responsive)
+   Mobile Responsive
    ========================================================================== */
 @media (max-width: 768px) {
-  .dolce-dashboard-wrapper {
-    padding: 12px;
-    gap: 16px;
+  .dolce-dashboard-wrapper { padding: 12px; gap: 16px; }
+  .aurora-banner { padding: 20px;
+    &__content-row { flex-direction: column; gap: 16px; }
+    &__brand-profile { min-width: 0; }
+    &__title { font-size: 20px; }
+    &__description { font-size: 12px; }
+    &__micro-kpis { width: 100%; padding: 12px 16px; gap: 12px; flex-wrap: wrap; overflow-x: auto; }
   }
-
-  .aurora-banner {
-    padding: 20px;
-
-    &__content-row {
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    &__brand-profile {
-      min-width: 0;
-    }
-
-    &__title {
-      font-size: 20px;
-    }
-
-    &__description {
-      font-size: 12px;
-    }
-
-    &__micro-kpis {
-      width: 100%;
-      padding: 12px 16px;
-      gap: 12px;
-      flex-wrap: wrap;
-      overflow-x: auto;
-    }
-  }
-
   .micro-kpi-card {
-    &__value {
-      font-size: 16px;
-    }
-
-    &__currency {
-      font-size: 12px;
-    }
-
-    &__divider {
-      height: 28px;
-    }
+    &__value { font-size: 16px; }
+    &__currency { font-size: 12px; }
+    &__divider { height: 28px; }
   }
-
-  .bento-card {
-    padding: 18px;
-
-    &__header {
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    &__title {
-      font-size: 16px;
-    }
+  .bento-card { padding: 18px;
+    &__header { flex-direction: column; gap: 10px; }
+    &__title { font-size: 16px; }
   }
-
-  .chart-canvas-container {
-    height: 240px;
-  }
-
-  .chart-legend-stripe {
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .campaign-item-card .campaign-metrics-row {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-    padding: 8px 10px;
-  }
-
-  .bento-layout-matrix {
-    gap: 16px;
-
-    &__main,
-    &__side {
-      gap: 16px;
-    }
-  }
-
-  .action-dock-card {
-    padding: 14px;
-    gap: 10px;
-
-    &__title {
-      font-size: 12px;
-    }
-
-    &__desc {
-      font-size: 10px;
-    }
-
-    &__icon-halo {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-    }
+  .chart-canvas-container { height: 240px; }
+  .chart-legend-stripe { gap: 16px; flex-wrap: wrap; }
+  .campaign-item-card .campaign-metrics-row { grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 8px 10px; }
+  .bento-layout-matrix { gap: 16px; &__main, &__side { gap: 16px; } }
+  .action-dock-card { padding: 14px; gap: 10px;
+    &__title { font-size: 12px; }
+    &__desc { font-size: 10px; }
+    &__icon-halo { width: 36px; height: 36px; border-radius: 10px; }
   }
 }
 
 @media (max-width: 480px) {
-  .aurora-banner__micro-kpis {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .micro-kpi-card__divider {
-    width: 100%;
-    height: 1px;
-  }
-
-  .campaign-item-card .campaign-metrics-row {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-
-  .metric-stripe-card {
-    padding: 16px;
-
-    &__value {
-      font-size: 22px;
-    }
-  }
+  .aurora-banner__micro-kpis { flex-direction: column; align-items: stretch; gap: 8px; }
+  .micro-kpi-card__divider { width: 100%; height: 1px; }
+  .campaign-item-card .campaign-metrics-row { grid-template-columns: 1fr 1fr 1fr; }
+  .metric-stripe-card { padding: 16px; &__value { font-size: 22px; } }
 }
 </style>

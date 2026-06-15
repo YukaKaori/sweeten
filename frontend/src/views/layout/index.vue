@@ -4,6 +4,7 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/modules/user'
 import { useTheme } from '@/composables/useTheme'
+import { useGlassSpotlight } from '@/composables/useLiquidGlass'
 import { getProfileApi, updatePasswordApi } from '@/api/modules/emp'
 import Breadcrumb from '@/components/Breadcrumb.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
@@ -67,6 +68,27 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
 })
+
+// ========== 滚动感知液态玻璃 Header ==========
+const scrollY = ref(0)
+const headerBlurAmount = computed(() => {
+  // Blur increases from 0 to 40px as user scrolls 0→120px
+  return Math.min(scrollY.value / 120, 1) * 40
+})
+const headerOpacity = computed(() => {
+  // Background goes from 0.6 to 0.85 as user scrolls
+  return 0.6 + Math.min(scrollY.value / 120, 1) * 0.25
+})
+
+const headerBg = computed(() => {
+  const isDark = theme.value === 'dark'
+  const base = isDark ? '37, 28, 32' : '255, 255, 255'
+  return `rgba(${base}, ${headerOpacity.value})`
+})
+
+const onContentScroll = (e) => {
+  scrollY.value = e.target.scrollTop
+}
 
 // 路由切换时关闭移动端侧边栏
 watch(() => route.path, () => {
@@ -368,8 +390,15 @@ const submitPassword = async () => {
 
     <!-- Main Area -->
     <div class="main-area">
-      <!-- Header -->
-      <header class="header">
+      <!-- Header — scroll-aware liquid glass -->
+      <header
+        class="header"
+        :style="{
+          backdropFilter: `blur(${headerBlurAmount}px) saturate(180%)`,
+          WebkitBackdropFilter: `blur(${headerBlurAmount}px) saturate(180%)`,
+          background: headerBg
+        }"
+      >
         <div class="header-left">
           <!-- 移动端汉堡菜单按钮 -->
           <div class="mobile-hamburger" @click="toggleMobileSidebar">
@@ -393,8 +422,8 @@ const submitPassword = async () => {
         </div>
       </header>
 
-      <!-- Content -->
-      <main class="content">
+      <!-- Content — scroll-aware -->
+      <main class="content" @scroll="onContentScroll">
         <router-view v-slot="{ Component }">
           <transition name="page" mode="out-in">
             <component :is="Component" />
@@ -842,7 +871,8 @@ const submitPassword = async () => {
   margin-left: 240px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   transition: margin-left var(--transition-base);
 }
 
@@ -850,7 +880,7 @@ const submitPassword = async () => {
   margin-left: 72px;
 }
 
-/* ---- Header — Frosted Glass ---- */
+/* ---- Header — Scroll-Aware Liquid Glass ---- */
 .header {
   height: 64px;
   display: flex;
@@ -860,12 +890,12 @@ const submitPassword = async () => {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
+  flex-shrink: 0;
 
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  /* Dynamic values set via :style binding for scroll-aware blur */
   border-bottom: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 1px 3px rgba(45, 35, 39, 0.04);
+  transition: background 0.2s ease;
 
   &::after {
     content: '';
@@ -925,11 +955,16 @@ const submitPassword = async () => {
   background: var(--color-border);
 }
 
-/* ---- Content ---- */
+/* ---- Content — scrollable for scroll-aware header ---- */
 .content {
   flex: 1;
   padding: 24px 28px;
+  overflow-y: auto;
+  overflow-x: hidden;
   animation: fadeIn 0.3s ease;
+  /* Subtle inner shadow at top when scrolled */
+  mask-image: linear-gradient(to bottom, transparent 0%, black 8px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8px);
 }
 
 /* ---- Page Transition ---- */
@@ -1279,7 +1314,6 @@ const submitPassword = async () => {
 }
 
 :global([data-theme="dark"]) .header {
-  background: rgba(37, 28, 32, 0.65);
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 

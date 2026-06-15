@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { config } from '@/config'
+import { resolveMockData } from '@/mock'
 
 const http = axios.create({
   baseURL: config.apiBaseUrl,
@@ -45,6 +46,14 @@ http.interceptors.response.use(
         window.location.href = '/login'
       }
     } else {
+      // 网络不可达时尝试 mock 降级
+      const mockData = resolveMockData(error.config?.url || '')
+      if (mockData) {
+        if (config.isDev) {
+          console.info(`[Mock] ${error.config?.url} → 使用本地 mock 数据`)
+        }
+        return mockData
+      }
       ElMessage.error('网络连接异常，请检查网络')
     }
     return Promise.reject(error)

@@ -77,6 +77,16 @@
   --glass-shadow-hover: 0 12px 40px rgba(45, 35, 39, 0.12);
   --glass-blur: blur(24px) saturate(190%);
   --transition-spring: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Liquid glass interactive tokens */
+  --glass-highlight: rgba(255, 255, 255, 0.45);
+  --glass-edge-glow: rgba(232, 99, 122, 0.1);
+  --glass-ripple-color: rgba(255, 255, 255, 0.6);
+  --transition-magnetic: 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-ripple: 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  --depth-1: 0 2px 10px rgba(45, 35, 39, 0.04);
+  --depth-2: 0 8px 30px rgba(45, 35, 39, 0.08);
+  --depth-3: 0 20px 60px rgba(45, 35, 39, 0.15);
 }
 
 /* ============================================
@@ -124,6 +134,14 @@
   --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
   --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.3);
   --glass-blur: blur(24px) saturate(160%);
+
+  /* Liquid glass — dark mode */
+  --glass-highlight: rgba(255, 255, 255, 0.12);
+  --glass-edge-glow: rgba(240, 140, 158, 0.12);
+  --glass-ripple-color: rgba(255, 255, 255, 0.15);
+  --depth-1: 0 2px 10px rgba(0, 0, 0, 0.15);
+  --depth-2: 0 8px 30px rgba(0, 0, 0, 0.25);
+  --depth-3: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 
 /* Smooth theme transition */
@@ -244,6 +262,64 @@ img {
   100% { background-position: 0% 50%; }
 }
 
+/* Liquid glass ripple — expands from center like a droplet */
+@keyframes liquidRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(4);
+    opacity: 0;
+  }
+}
+
+/* Diagonal light sweep across glass surface */
+@keyframes glassSheen {
+  0% { left: -100%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 200%; opacity: 0; }
+}
+
+/* Magnetic return — snap-back when cursor leaves */
+@keyframes magneticReturn {
+  from {
+    transform: perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  }
+  to {
+    transform: perspective(800px) rotateX(0deg) rotateY(0deg);
+  }
+}
+
+/* Scroll reveal variants */
+@keyframes revealFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes revealSlideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes revealScaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Smooth aurora/ambient drift */
+@keyframes auroraDrift {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(8px, -12px) rotate(1deg); }
+  50% { transform: translate(-4px, 6px) rotate(-0.5deg); }
+  75% { transform: translate(-10px, -4px) rotate(0.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
 /* ============================================
    Utility Classes
    ============================================ */
@@ -261,6 +337,50 @@ img {
 .delay-3 { animation-delay: 0.3s; opacity: 0; }
 .delay-4 { animation-delay: 0.4s; opacity: 0; }
 .delay-5 { animation-delay: 0.5s; opacity: 0; }
+
+/* Scroll reveal — hidden until scrolled into view */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Magnetic hover — 3D tilt container */
+.magnetic-hover {
+  transform-style: preserve-3d;
+  perspective: 800px;
+  transition: transform var(--transition-magnetic);
+}
+
+.magnetic-hover:hover {
+  transform: perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+}
+
+/* Apple-style reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .magnetic-hover:hover {
+    transform: none;
+  }
+}
 
 /* ============================================
    Element Plus Overrides (Global)
@@ -501,6 +621,7 @@ img {
   overflow: hidden;
 }
 
+/* Static diagonal sheen */
 .glass-panel::before {
   content: '';
   position: absolute;
@@ -509,6 +630,36 @@ img {
   pointer-events: none;
   z-index: 1;
   border-radius: inherit;
+}
+
+/* Cursor-follow specular highlight */
+.glass-panel::after {
+  content: '';
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.1) 30%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  left: calc(var(--mx, 50%) - 90px);
+  top: calc(var(--my, 50%) - 90px);
+}
+
+/* Show spotlight on panels that opt in via data attribute or class */
+.glass-panel.glass-spotlight::after {
+  opacity: 1;
+}
+
+.glass-panel.glass-spotlight:hover::after {
+  opacity: 1;
 }
 
 .glass-panel--hover:hover {
@@ -526,6 +677,22 @@ img {
   background: var(--glass-bg-light);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+
+/* Glass ripple container — for click ripple effects */
+.glass-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-ripple__wave {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--glass-ripple-color);
+  transform: translate(-50%, -50%) scale(0);
+  animation: liquidRipple var(--transition-ripple) ease-out forwards;
+  pointer-events: none;
+  z-index: 3;
 }
 
 /* ============================================

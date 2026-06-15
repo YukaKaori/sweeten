@@ -25,6 +25,12 @@ export const mobileRoutes = [
         component: () => import('@/views/mobile/success/index.vue'),
         meta: { title: '下单成功', public: true },
       },
+      {
+        path: 'profile',
+        name: 'mobileProfile',
+        component: () => import('@/views/mobile/profile/index.vue'),
+        meta: { title: '会员中心', public: true },
+      },
     ],
   },
 ]

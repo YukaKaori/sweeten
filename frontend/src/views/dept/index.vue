@@ -1,8 +1,10 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { EditPen, Delete, Plus, Search } from '@element-plus/icons-vue'
+import { EditPen, Delete, Plus } from '@element-plus/icons-vue'
 import { queryAllApi, addApi, queryByIdApi, updateApi, deleteByIdApi } from '@/api/modules/dept'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import PageHeader from '@/components/PageHeader.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 
 const deptList = ref([])
@@ -108,20 +110,14 @@ const deleteById = async (id) => {
 <template>
   <div class="page-container">
     <!-- Page Header -->
-    <div class="page-header animate-fade-in-up">
-      <div class="page-header-left">
-        <h1 class="page-title">部门管理</h1>
-        <p class="page-desc">管理公司组织架构中的部门信息</p>
-      </div>
-    </div>
-
-    <!-- Action Bar -->
-    <div class="action-bar animate-fade-in-up delay-1">
-      <el-button type="primary" @click="addDept">
-        <el-icon><Plus /></el-icon>
-        新增部门
-      </el-button>
-    </div>
+    <PageHeader title="部门管理" description="管理公司组织架构中的部门信息">
+      <template #actions>
+        <el-button type="primary" @click="addDept">
+          <el-icon><Plus /></el-icon>
+          新增部门
+        </el-button>
+      </template>
+    </PageHeader>
 
     <!-- Table Card -->
     <div class="table-card glass-panel animate-fade-in-up delay-2">
@@ -159,16 +155,18 @@ const deleteById = async (id) => {
       </el-table>
 
       <!-- Empty State -->
-      <div v-if="!loading && deptList.length === 0" class="empty-state">
-        <div class="empty-icon">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <circle cx="32" cy="32" r="28" stroke="#ede6e1" stroke-width="2" fill="none"/>
-            <path d="M24 28h16M24 36h10" stroke="#a3949b" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <p class="empty-text">暂无部门数据</p>
-        <p class="empty-desc">点击"新增部门"按钮创建第一个部门</p>
-      </div>
+      <EmptyState
+        v-if="!loading && deptList.length === 0"
+        title="暂无部门数据"
+        description='点击"新增部门"按钮创建第一个部门'
+      >
+        <template #action>
+          <el-button type="primary" @click="addDept">
+            <el-icon><Plus /></el-icon>
+            新增部门
+          </el-button>
+        </template>
+      </EmptyState>
     </div>
 
     <!-- Dialog -->
@@ -190,30 +188,8 @@ const deleteById = async (id) => {
 
 <style scoped>
 .page-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
-}
-
-.page-desc {
-  font-size: 14px;
-  color: var(--color-text-muted);
-}
-
-.action-bar {
-  margin-bottom: 20px;
-  display: flex;
-  gap: 12px;
 }
 
 .table-card {
@@ -246,31 +222,5 @@ const deleteById = async (id) => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-
-/* Empty State */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-}
-
-.empty-icon {
-  margin-bottom: 16px;
-  opacity: 0.6;
-}
-
-.empty-text {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
-}
-
-.empty-desc {
-  font-size: 13px;
-  color: var(--color-text-muted);
 }
 </style>
