@@ -1,10 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+
 import { useRouter } from 'vue-router'
 import {
   HomeFilled, Goods, Wallet, UserFilled, Avatar,
   DataAnalysis, Document, Search, Position
 } from '@element-plus/icons-vue'
+
+const RECENT_KEY = 'dessertshop-recent-pages'
+const MAX_RECENT = 4
 
 const router = useRouter()
 const visible = ref(false)
@@ -15,13 +19,38 @@ const activeIndex = ref(0)
 // 命令列表
 const commands = [
   { label: '首页', desc: '返回仪表盘', icon: HomeFilled, path: '/index', keywords: 'home 首页 仪表盘 dashboard' },
+  { label: '甜品管理', desc: '管理甜品商品', icon: Goods, path: '/dessert', keywords: 'dessert 甜品 商品 蛋糕 面包' },
   { label: '价格管理', desc: '管理甜品价格和上下架', icon: Wallet, path: '/price', keywords: 'price 价格 甜品 dessert' },
   { label: '订单管理', desc: '查看和管理订单', icon: Goods, path: '/order', keywords: 'order 订单' },
-  { label: '部门管理', desc: '管理组织架构', icon: UserFilled, path: '/dept', keywords: 'dept 部门' },
-  { label: '员工管理', desc: '管理人员信息', icon: Avatar, path: '/emp', keywords: 'emp 员工' },
-  { label: '数据报表', desc: '查看营业数据统计', icon: DataAnalysis, path: '/report', keywords: 'report 报表 数据 统计' },
-  { label: '操作日志', desc: '查看系统操作记录', icon: Document, path: '/log', keywords: 'log 日志' }
+  { label: '库存管理', desc: '管理原材料库存', icon: Document, path: '/inventory', keywords: 'inventory 库存 原料' },
+  { label: '客户管理', desc: '管理客户信息', icon: UserFilled, path: '/customer', keywords: 'customer 客户 会员' },
+  { label: '部门管理', desc: '管理组织架构', icon: UserFilled, path: '/dept', keywords: 'dept 部门 组织' },
+  { label: '员工管理', desc: '管理人员信息', icon: Avatar, path: '/emp', keywords: 'emp 员工 人事' },
+  { label: '数据报表', desc: '查看营业数据统计', icon: DataAnalysis, path: '/report', keywords: 'report 报表 数据 统计 分析' },
+  { label: '操作日志', desc: '查看系统操作记录', icon: Document, path: '/log', keywords: 'log 日志 审计' },
 ]
+
+// 最近访问页面
+const recents = ref([])
+const loadRecents = () => {
+  try {
+    recents.value = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
+  } catch { recents.value = [] }
+}
+const saveRecent = (path) => {
+  const filtered = recents.value.filter(p => p !== path)
+  recents.value = [path, ...filtered].slice(0, MAX_RECENT)
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recents.value))
+}
+loadRecents()
+
+// 获取最近访问的命令对象
+const recentCommands = computed(() => {
+  return recents.value
+    .map(path => commands.find(c => c.path === path))
+    .filter(Boolean)
+    .slice(0, 3)
+})
 
 // 过滤结果
 const filtered = computed(() => {
@@ -33,6 +62,9 @@ const filtered = computed(() => {
     cmd.keywords.toLowerCase().includes(q)
   )
 })
+
+// 是否显示最近访问（搜索为空时）
+const showRecents = computed(() => !searchText.value.trim() && recentCommands.value.length > 0)
 
 // 打开/关闭
 const open = () => {
@@ -77,6 +109,7 @@ const handleInputKeydown = (e) => {
 
 // 执行命令
 const execute = (cmd) => {
+  saveRecent(cmd.path)
   router.push(cmd.path)
   close()
 }
@@ -114,6 +147,29 @@ onUnmounted(() => {
 
           <!-- 结果列表 -->
           <div class="command-results">
+            <!-- 最近访问（无搜索时显示）-->
+            <div v-if="showRecents" class="command-section">
+              <div class="command-section__title">最近访问</div>
+              <div
+                v-for="(cmd, index) in recentCommands"
+                :key="'recent-' + cmd.path"
+                class="command-item"
+                :class="{ active: index === activeIndex }"
+                @click="execute(cmd)"
+                @mouseenter="activeIndex = index"
+              >
+                <div class="command-item__icon">
+                  <el-icon :size="18"><component :is="cmd.icon" /></el-icon>
+                </div>
+                <div class="command-item__text">
+                  <span class="command-item__label">{{ cmd.label }}</span>
+                  <span class="command-item__desc">{{ cmd.desc }}</span>
+                </div>
+                <el-icon :size="14" class="command-item__arrow"><Position /></el-icon>
+              </div>
+            </div>
+
+            <!-- 搜索结果 -->
             <div
               v-for="(cmd, index) in filtered"
               :key="cmd.path"
@@ -132,7 +188,7 @@ onUnmounted(() => {
               <el-icon :size="14" class="command-item__arrow"><Position /></el-icon>
             </div>
 
-            <div v-if="filtered.length === 0" class="command-empty">
+            <div v-if="filtered.length === 0 && !showRecents" class="command-empty">
               没有找到匹配的结果
             </div>
           </div>
@@ -226,6 +282,19 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
+}
+
+.command-section {
+  margin-bottom: 4px;
+}
+
+.command-section__title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  padding: 6px 12px 4px;
 }
 
 .command-item {

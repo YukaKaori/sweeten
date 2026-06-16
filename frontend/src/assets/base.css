@@ -153,6 +153,152 @@ html.theme-transitioning *::after {
 }
 
 /* ============================================
+   Multi-Theme Preset System
+   Each theme overrides primary/accent/background tokens.
+   Dark variant is nested under [data-theme="dark"].
+   ============================================ */
+
+/* ── 🍵 Matcha Theme ── */
+[data-theme-preset="matcha"] {
+  --color-primary: #6b8e4e;
+  --color-primary-light: #8ba86a;
+  --color-primary-lighter: #e8f0df;
+  --color-primary-dark: #4e6b35;
+  --color-accent: #c4a35a;
+  --color-accent-light: #f5efdf;
+  --color-bg-primary: #f7faf3;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #eef5e6;
+  --color-text-primary: #2c3328;
+  --color-text-secondary: #5a6852;
+  --color-text-muted: #8a9880;
+  --glass-edge-glow: rgba(107, 142, 78, 0.1);
+  --shadow-glow: 0 0 24px rgba(107, 142, 78, 0.15);
+}
+
+[data-theme-preset="matcha"][data-theme="dark"] {
+  --color-primary: #8ba86a;
+  --color-primary-light: #a8c48d;
+  --color-primary-lighter: rgba(107, 142, 78, 0.15);
+  --color-primary-dark: #6b8e4e;
+  --color-accent: #d4b86a;
+  --color-accent-light: rgba(196, 163, 90, 0.2);
+  --color-bg-primary: #1a1f16;
+  --color-bg-secondary: #22291d;
+  --color-bg-tertiary: #2b3324;
+  --color-text-primary: #edf0e8;
+  --color-text-secondary: #b0b8a5;
+  --color-text-muted: #788068;
+  --glass-edge-glow: rgba(139, 168, 106, 0.12);
+  --shadow-glow: 0 0 24px rgba(139, 168, 106, 0.2);
+}
+
+/* ── 🍫 Chocolate Theme ── */
+[data-theme-preset="chocolate"] {
+  --color-primary: #b8754f;
+  --color-primary-light: #d4956e;
+  --color-primary-lighter: #f5e8dc;
+  --color-primary-dark: #8b5535;
+  --color-accent: #d4a574;
+  --color-accent-light: #faf0e5;
+  --color-bg-primary: #faf6f1;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f5ede3;
+  --color-text-primary: #2d2218;
+  --color-text-secondary: #5c4a3a;
+  --color-text-muted: #8c7a68;
+  --glass-edge-glow: rgba(184, 117, 79, 0.1);
+  --shadow-glow: 0 0 24px rgba(184, 117, 79, 0.15);
+}
+
+[data-theme-preset="chocolate"][data-theme="dark"] {
+  --color-primary: #d4956e;
+  --color-primary-light: #e0af8c;
+  --color-primary-lighter: rgba(184, 117, 79, 0.15);
+  --color-primary-dark: #b8754f;
+  --color-accent: #e0bc8c;
+  --color-accent-light: rgba(212, 167, 116, 0.2);
+  --color-bg-primary: #1c1610;
+  --color-bg-secondary: #261f18;
+  --color-bg-tertiary: #302820;
+  --color-text-primary: #f0e8e0;
+  --color-text-secondary: #b5a898;
+  --color-text-muted: #807060;
+  --glass-edge-glow: rgba(212, 149, 110, 0.12);
+  --shadow-glow: 0 0 24px rgba(212, 149, 110, 0.2);
+}
+
+/* ── 🫐 Blueberry Theme ── */
+[data-theme-preset="blueberry"] {
+  --color-primary: #5a7ab4;
+  --color-primary-light: #7d9ad0;
+  --color-primary-lighter: #e6ecf5;
+  --color-primary-dark: #425d8b;
+  --color-accent: #7a9ec0;
+  --color-accent-light: #e8f0f7;
+  --color-bg-primary: #f5f7fa;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #e8edf5;
+  --color-text-primary: #1e2530;
+  --color-text-secondary: #4a5568;
+  --color-text-muted: #7a8698;
+  --glass-edge-glow: rgba(90, 122, 180, 0.1);
+  --shadow-glow: 0 0 24px rgba(90, 122, 180, 0.15);
+}
+
+[data-theme-preset="blueberry"][data-theme="dark"] {
+  --color-primary: #7d9ad0;
+  --color-primary-light: #9ab5e0;
+  --color-primary-lighter: rgba(90, 122, 180, 0.15);
+  --color-primary-dark: #5a7ab4;
+  --color-accent: #9abde0;
+  --color-accent-light: rgba(122, 158, 192, 0.2);
+  --color-bg-primary: #151a24;
+  --color-bg-secondary: #1e2430;
+  --color-bg-tertiary: #262e3d;
+  --color-text-primary: #e8ecf2;
+  --color-text-secondary: #a0aab8;
+  --color-text-muted: #6a7488;
+  --glass-edge-glow: rgba(125, 154, 208, 0.12);
+  --shadow-glow: 0 0 24px rgba(125, 154, 208, 0.2);
+}
+
+/* ── 🌸 Sakura Theme ── */
+[data-theme-preset="sakura"] {
+  --color-primary: #e8a0b4;
+  --color-primary-light: #f0c0ce;
+  --color-primary-lighter: #fdf0f4;
+  --color-primary-dark: #d4889c;
+  --color-accent: #f0c5a0;
+  --color-accent-light: #fdf5ee;
+  --color-bg-primary: #fefafb;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #fdf2f5;
+  --color-text-primary: #2d1e22;
+  --color-text-secondary: #5c4048;
+  --color-text-muted: #8c7078;
+  --glass-edge-glow: rgba(232, 160, 180, 0.1);
+  --shadow-glow: 0 0 24px rgba(232, 160, 180, 0.12);
+}
+
+[data-theme-preset="sakura"][data-theme="dark"] {
+  --color-primary: #f0c0ce;
+  --color-primary-light: #f5d5df;
+  --color-primary-lighter: rgba(232, 160, 180, 0.15);
+  --color-primary-dark: #e8a0b4;
+  --color-accent: #f5d5be;
+  --color-accent-light: rgba(240, 197, 160, 0.2);
+  --color-bg-primary: #1c1618;
+  --color-bg-secondary: #241e20;
+  --color-bg-tertiary: #302528;
+  --color-text-primary: #f0e8ea;
+  --color-text-secondary: #b5a0a5;
+  --color-text-muted: #807075;
+  --glass-edge-glow: rgba(240, 192, 206, 0.12);
+  --shadow-glow: 0 0 24px rgba(240, 192, 206, 0.18);
+}
+
+/* ============================================
    Reset & Base
    ============================================ */
 
@@ -349,6 +495,55 @@ img {
 .scroll-reveal.is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Stagger animation for list children */
+.stagger-list > * {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: staggerItemIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-list > *:nth-child(1) { animation-delay: 0.03s; }
+.stagger-list > *:nth-child(2) { animation-delay: 0.08s; }
+.stagger-list > *:nth-child(3) { animation-delay: 0.13s; }
+.stagger-list > *:nth-child(4) { animation-delay: 0.18s; }
+.stagger-list > *:nth-child(5) { animation-delay: 0.23s; }
+.stagger-list > *:nth-child(6) { animation-delay: 0.28s; }
+.stagger-list > *:nth-child(7) { animation-delay: 0.33s; }
+.stagger-list > *:nth-child(8) { animation-delay: 0.38s; }
+.stagger-list > *:nth-child(9) { animation-delay: 0.43s; }
+.stagger-list > *:nth-child(10) { animation-delay: 0.48s; }
+
+@keyframes staggerItemIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Skeleton shimmer enhancement */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Elastic hover for interactive elements */
+.elastic-hover {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.elastic-hover:hover {
+  transform: scale(1.04);
+}
+
+.elastic-hover:active {
+  transform: scale(0.96);
 }
 
 /* Magnetic hover — 3D tilt container */

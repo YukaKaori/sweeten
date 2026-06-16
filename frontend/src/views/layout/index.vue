@@ -36,13 +36,14 @@ import {
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const { theme, toggleTheme } = useTheme()
+const { theme, toggleTheme, preset, presets, setPreset } = useTheme()
 const isCollapsed = ref(false)
 
 // ========== 移动端响应式 ==========
 const MOBILE_BREAKPOINT = 768
 const isMobile = ref(false)
 const mobileSidebarOpen = ref(false)
+const themeSwitcherOpen = ref(false)
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth < MOBILE_BREAKPOINT
@@ -63,11 +64,21 @@ const closeMobileSidebar = () => {
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  document.addEventListener('click', onDocClick)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  document.removeEventListener('click', onDocClick)
 })
+
+const onDocClick = (e) => {
+  // Close theme switcher when clicking outside
+  if (themeSwitcherOpen.value) {
+    const el = e.target.closest('.theme-switcher')
+    if (!el) themeSwitcherOpen.value = false
+  }
+}
 
 // ========== 滚动感知液态玻璃 Header ==========
 const scrollY = ref(0)
@@ -410,11 +421,51 @@ const submitPassword = async () => {
           <Breadcrumb />
         </div>
         <div class="header-right">
-          <div class="header-action" @click="toggleTheme" :title="theme === 'dark' ? '切换亮色' : '切换暗色'">
-            <el-icon :size="18">
-              <Moon v-if="theme === 'light'" />
-              <Sunny v-else />
-            </el-icon>
+          <!-- 主题选择器 -->
+          <div class="theme-switcher" @click.stop="themeSwitcherOpen = !themeSwitcherOpen">
+            <div class="theme-switcher__trigger" :title="'主题：' + presets[preset].name">
+              <span class="theme-switcher__emoji">{{ presets[preset].icon }}</span>
+            </div>
+            <transition name="fade">
+              <div v-if="themeSwitcherOpen" class="theme-switcher__dropdown glass-panel">
+                <div class="theme-switcher__section">
+                  <span class="theme-switcher__label">配色方案</span>
+                  <div class="theme-swatches">
+                    <button
+                      v-for="(p, key) in presets"
+                      :key="key"
+                      class="theme-swatch"
+                      :class="{ active: preset === key }"
+                      :title="p.name"
+                      @click.stop="setPreset(key)"
+                    >
+                      <span class="theme-swatch__emoji">{{ p.icon }}</span>
+                      <span class="theme-swatch__name">{{ p.name }}</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="theme-switcher__divider"></div>
+                <div class="theme-switcher__section">
+                  <span class="theme-switcher__label">外观模式</span>
+                  <button
+                    class="theme-mode-btn"
+                    :class="{ active: theme === 'light' }"
+                    @click.stop="theme === 'dark' && toggleTheme()"
+                  >
+                    <el-icon :size="14"><Sunny /></el-icon>
+                    <span>浅色</span>
+                  </button>
+                  <button
+                    class="theme-mode-btn"
+                    :class="{ active: theme === 'dark' }"
+                    @click.stop="theme === 'light' && toggleTheme()"
+                  >
+                    <el-icon :size="14"><Moon /></el-icon>
+                    <span>深色</span>
+                  </button>
+                </div>
+              </div>
+            </transition>
           </div>
           <NotificationPanel />
           <div class="header-divider"></div>
@@ -1319,5 +1370,173 @@ const submitPassword = async () => {
 
 :global([data-theme="dark"]) .notification-dot {
   border-color: rgba(37, 28, 32, 0.8);
+}
+
+/* ---- Theme Switcher ---- */
+.theme-switcher {
+  position: relative;
+  z-index: var(--z-dropdown);
+}
+
+.theme-switcher__trigger {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 18px;
+  transition: all var(--transition-fast);
+  user-select: none;
+
+  &:hover {
+    background: rgba(45, 35, 39, 0.06);
+    transform: scale(1.08);
+  }
+  &:active { transform: scale(0.94); }
+}
+
+.theme-switcher__emoji {
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.theme-switcher__dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  padding: 16px;
+  z-index: calc(var(--z-dropdown) + 1);
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    right: 16px;
+    width: 12px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-right: none;
+    border-bottom: none;
+    transform: rotate(45deg);
+  }
+}
+
+.theme-switcher__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-switcher__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.theme-swatches {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-swatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid transparent;
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+
+  &:hover {
+    border-color: var(--color-primary-light);
+    background: var(--color-bg-secondary);
+    transform: translateX(2px);
+  }
+
+  &.active {
+    border-color: var(--color-primary);
+    background: linear-gradient(135deg, var(--color-primary-lighter), var(--color-bg-secondary));
+    color: var(--color-primary-dark);
+    font-weight: 600;
+    box-shadow: 0 2px 8px var(--shadow-glow);
+  }
+}
+
+.theme-swatch__emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.theme-swatch__name {
+  font-size: 13px;
+}
+
+.theme-switcher__divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 12px 0;
+}
+
+.theme-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid transparent;
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+
+  &:last-child { margin-bottom: 0; }
+
+  &:hover {
+    border-color: var(--color-primary-light);
+    background: var(--color-bg-secondary);
+  }
+
+  &.active {
+    border-color: var(--color-primary);
+    background: linear-gradient(135deg, var(--color-primary-lighter), var(--color-bg-secondary));
+    color: var(--color-primary-dark);
+    font-weight: 600;
+  }
+}
+
+/* Dark mode adjustments for theme switcher dropdown */
+:global([data-theme="dark"]) .theme-switcher__dropdown {
+  background: rgba(37, 28, 32, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+
+  &::before {
+    background: rgba(37, 28, 32, 0.9);
+    border-color: rgba(255, 255, 255, 0.1);
+    border-right: none;
+    border-bottom: none;
+  }
+}
+
+:global([data-theme="dark"]) .theme-switcher__trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 </style>

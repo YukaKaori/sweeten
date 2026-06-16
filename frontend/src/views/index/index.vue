@@ -10,6 +10,7 @@ import { useDashboard } from '@/composables/useDashboard'
 import { useGlassSpotlight, useMagneticTilt, useGlassRipple } from '@/composables/useLiquidGlass'
 import { useScrollReveal } from '@/composables/useScrollReveal'
 import CountUp from '@/components/CountUp.vue'
+import FloatingParticles from '@/components/FloatingParticles.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -19,13 +20,16 @@ const {
   loading: dashboardLoading,
   statsCards, rankList, stockAlerts, reviews, campaigns,
   microKpis, quickActions, chartRange, chartRef, chartLegend,
-  initChart, loadData, setChartRange,
+  roseChartRef, heatmapChartRef, orderFlow, orderFlowVisible,
+  initChart, initRoseChart, initHeatmapChart, loadData, setChartRange,
   handleReorder, sendCompensation: sendCompensationCoupon,
 } = useDashboard()
 
 onMounted(() => {
   nextTick(() => {
     initChart()
+    initRoseChart()
+    initHeatmapChart()
     loadData()
   })
 })
@@ -114,6 +118,8 @@ onUnmounted(() => {
 
 <template>
   <div ref="dashboardRef" class="dolce-dashboard-wrapper">
+    <FloatingParticles :count="12" color="primary" :speed="0.8" />
+
     <!-- ==================== 1. Apple-style Liquid Glass 欢迎 Banner ==================== -->
     <header ref="bannerRef" class="aurora-banner glass-panel glass-spotlight">
       <div class="aurora-banner__blur-canvas">
@@ -328,44 +334,15 @@ onUnmounted(() => {
       <!-- RIGHT CONTAINER (30%) -->
       <div class="bento-layout-matrix__side">
 
-        <!-- 3.4 热销甜品排行 -->
-        <div class="glass-panel glass-spotlight bento-card bento-card--rank">
+        <!-- 3.4 品类销售玫瑰图 -->
+        <div class="glass-panel glass-spotlight bento-card bento-card--rose">
           <div class="bento-card__header">
             <div class="bento-card__title-group">
-              <span class="bento-card__subtitle">HOT SELLING TOP 5</span>
-              <h2 class="bento-card__title">热销甜品排行大盘</h2>
-            </div>
-            <span class="bento-card__link-text" @click="navigateTo('/price')">
-              分析全部 <el-icon><ArrowRight /></el-icon>
-            </span>
-          </div>
-
-          <div class="bento-rank-flow">
-            <div
-              v-for="(item, index) in rankList"
-              :key="item.name"
-              class="bento-rank-item"
-            >
-              <div class="bento-rank-item__position" :class="{ 'bento-rank-item__position--top': index < 3 }">
-                {{ index + 1 }}
-              </div>
-              <div class="bento-rank-item__main-body">
-                <div class="bento-rank-item__title-row">
-                  <span class="bento-rank-item__name">{{ item.name }}</span>
-                  <span class="bento-rank-item__category">{{ item.category }}</span>
-                </div>
-                <div class="bento-rank-item__stat-row">
-                  <span class="bento-rank-item__sales-count">已售 {{ item.sales }} 份</span>
-                  <div class="bento-rank-item__progress-rail">
-                    <div
-                      class="bento-rank-item__progress-fill"
-                      :style="{ width: (item.sales / (rankList[0]?.sales || 1) * 100) + '%' }"
-                    ></div>
-                  </div>
-                </div>
-              </div>
+              <span class="bento-card__subtitle">CATEGORY DISTRIBUTION</span>
+              <h2 class="bento-card__title">品类销售占比</h2>
             </div>
           </div>
+          <div ref="roseChartRef" class="rose-chart-canvas"></div>
         </div>
 
         <!-- 3.5 智能库存效期与冷链预警 -->
@@ -468,6 +445,96 @@ onUnmounted(() => {
 
       </div>
     </main>
+
+    <!-- ==================== 4. 第二行面板：热力图 + 热销排行 + 实时订单流 ==================== -->
+    <section class="dashboard-row-2">
+      <!-- 4.1 销售热度日历 -->
+      <div class="glass-panel glass-spotlight bento-card bento-card--heatmap">
+        <div class="bento-card__header">
+          <div class="bento-card__title-group">
+            <span class="bento-card__subtitle">SALES HEATMAP · MAY 2026</span>
+            <h2 class="bento-card__title">月度销售热度日历</h2>
+          </div>
+          <span class="heatmap-highlight-tag">🔥 峰值 ¥10,600</span>
+        </div>
+        <div ref="heatmapChartRef" class="heatmap-chart-canvas"></div>
+      </div>
+
+      <!-- 4.2 热销排行 -->
+      <div class="glass-panel glass-spotlight bento-card bento-card--rank">
+        <div class="bento-card__header">
+          <div class="bento-card__title-group">
+            <span class="bento-card__subtitle">HOT SELLING TOP 5</span>
+            <h2 class="bento-card__title">热销排行</h2>
+          </div>
+          <span class="bento-card__link-text" @click="navigateTo('/price')">
+            全部 <el-icon :size="12"><ArrowRight /></el-icon>
+          </span>
+        </div>
+
+        <div class="bento-rank-flow">
+          <div
+            v-for="(item, index) in rankList"
+            :key="item.name"
+            class="bento-rank-item"
+          >
+            <div class="bento-rank-item__position" :class="{ 'bento-rank-item__position--top': index < 3 }">
+              {{ index + 1 }}
+            </div>
+            <div class="bento-rank-item__main-body">
+              <div class="bento-rank-item__title-row">
+                <span class="bento-rank-item__name">{{ item.name }}</span>
+                <span class="bento-rank-item__category">{{ item.category }}</span>
+              </div>
+              <div class="bento-rank-item__stat-row">
+                <span class="bento-rank-item__sales-count">已售 {{ item.sales }} 份</span>
+                <div class="bento-rank-item__progress-rail">
+                  <div
+                    class="bento-rank-item__progress-fill"
+                    :style="{ width: (item.sales / (rankList[0]?.sales || 1) * 100) + '%' }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4.3 实时订单流 -->
+      <div class="glass-panel glass-spotlight bento-card bento-card--orderflow">
+        <div class="bento-card__header">
+          <div class="bento-card__title-group">
+            <span class="bento-card__subtitle">LIVE ORDER STREAM</span>
+            <h2 class="bento-card__title">实时订单流</h2>
+          </div>
+          <div class="orderflow-header-right">
+            <span class="orderflow-live-dot"></span>
+            <span class="orderflow-live-text">LIVE</span>
+          </div>
+        </div>
+
+        <div class="orderflow-list">
+          <div
+            v-for="order in orderFlow"
+            :key="order.id"
+            class="orderflow-item"
+          >
+            <div class="orderflow-item__time">{{ order.time }}</div>
+            <div class="orderflow-item__body">
+              <div class="orderflow-item__info">
+                <span class="orderflow-item__id">#{{ order.id.slice(-4) }}</span>
+                <span class="orderflow-item__customer">{{ order.customer }}</span>
+              </div>
+              <div class="orderflow-item__items">{{ order.items }}</div>
+            </div>
+            <div class="orderflow-item__amount">¥{{ order.amount }}</div>
+            <el-tag :type="order.statusColor" size="small" effect="plain" round>
+              {{ order.status }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -884,6 +951,195 @@ onUnmounted(() => {
     &:hover { opacity: 0.8; text-decoration: underline; }
   }
   &:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.5); }
+}
+
+/* ==========================================================================
+   4. Row 2: Heatmap + Rank + Order Flow
+   ========================================================================== */
+.dashboard-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 0.55fr 0.7fr;
+  gap: 24px;
+  z-index: 2;
+  @media (max-width: 1140px) { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+/* ---- Rose Chart ---- */
+.rose-chart-canvas {
+  width: 100%;
+  height: 240px;
+  margin-top: 8px;
+}
+
+/* ---- Heatmap ---- */
+.heatmap-highlight-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-accent);
+  background: rgba(240, 163, 92, 0.1);
+  padding: 2px 10px;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+}
+
+.heatmap-chart-canvas {
+  width: 100%;
+  height: 260px;
+  margin-top: 8px;
+}
+
+/* ---- Order Flow ---- */
+.orderflow-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.orderflow-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: beaconPulse 1.5s infinite;
+}
+
+.orderflow-live-text {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #ef4444;
+  text-transform: uppercase;
+}
+
+.orderflow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.orderflow-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all var(--transition-fast);
+  animation: flowItemSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.55);
+    transform: translateX(4px);
+    border-color: rgba(232, 99, 122, 0.15);
+  }
+
+  &:first-child {
+    border-left: 3px solid var(--color-primary);
+    background: rgba(232, 99, 122, 0.04);
+    animation-delay: 0s;
+  }
+
+  &:nth-child(2) { animation-delay: 0.05s; }
+  &:nth-child(3) { animation-delay: 0.1s; }
+  &:nth-child(4) { animation-delay: 0.15s; }
+  &:nth-child(5) { animation-delay: 0.2s; }
+}
+
+.orderflow-item__time {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  flex-shrink: 0;
+}
+
+.orderflow-item__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.orderflow-item__info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.orderflow-item__id {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.orderflow-item__customer {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.orderflow-item__items {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orderflow-item__amount {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+@keyframes flowItemSlideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ---- Rank card (in row 2) ---- */
+.bento-card--rank {
+  .bento-rank-item {
+    padding: 6px 0;
+  }
+}
+
+/* ---- Responsive overrides for row 2 ---- */
+@media (max-width: 1140px) {
+  .dashboard-row-2 {
+    grid-template-columns: 1fr 1fr;
+    .bento-card--orderflow {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-row-2 {
+    grid-template-columns: 1fr;
+    .bento-card--orderflow {
+      grid-column: auto;
+    }
+  }
+  .orderflow-item {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .rose-chart-canvas {
+    height: 200px;
+  }
+  .heatmap-chart-canvas {
+    height: 220px;
+  }
 }
 
 /* ==========================================================================

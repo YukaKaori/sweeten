@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, View, Delete, Download } from '@element-plus/icons-vue'
+import { Search, View, Delete, Download, List, Grid } from '@element-plus/icons-vue'
 import { ORDER_STATUS, getLabelByValue, getTypeByValue } from '@/utils/constants'
 import { queryPageApi, queryByIdApi, deleteByIdApi, updateApi } from '@/api/modules/order'
 import { exportCSV } from '@/composables/useExport'
@@ -29,6 +29,17 @@ const total = ref(0)
 // 详情抽屉
 const drawerVisible = ref(false)
 const currentOrder = ref(null)
+
+// 视图模式：'table' | 'kanban'
+const viewMode = ref('table')
+
+// Kanban 列定义
+const kanbanColumns = computed(() => {
+  return ORDER_STATUS.map(status => ({
+    ...status,
+    orders: orderList.value.filter(o => o.status === status.value),
+  }))
+})
 
 onMounted(() => {
   search()
@@ -141,6 +152,34 @@ const getFlowActions = (status) => {
   return targets.map(val => ORDER_STATUS.find(s => s.value === val)).filter(Boolean)
 }
 
+// Kanban 拖拽状态变更（带确认提示）
+const kanbanStatusChange = async (order, newStatus) => {
+  const targets = statusFlow[order.status] || []
+  if (!targets.includes(newStatus) && order.status !== newStatus) {
+    ElMessage.warning('不允许此状态变更')
+    return
+  }
+  if (order.status === newStatus) return
+
+  const statusLabel = ORDER_STATUS.find(s => s.value === newStatus)?.label || newStatus
+  try {
+    await ElMessageBox.confirm(
+      `将订单 #${order.orderNo?.slice(-6)} 从「${getLabelByValue(ORDER_STATUS, order.status)}」移至「${statusLabel}」？`,
+      '看板流转',
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'info' }
+    )
+    const result = await updateApi({ ...order, status: newStatus })
+    if (result.code) {
+      ElMessage.success(`已移至「${statusLabel}」`)
+      search()
+    } else {
+      ElMessage.error(result.msg || '操作失败')
+    }
+  } catch {
+    // 取消
+  }
+}
+
 const updateOrderStatus = async (order, newStatus) => {
   const statusLabel = ORDER_STATUS.find(s => s.value === newStatus)?.label || newStatus
   try {
@@ -198,20 +237,89 @@ const updateOrderStatus = async (order, newStatus) => {
       </el-form>
     </div>
 
-    <!-- 状态标签 -->
+    <!-- 状态标签 + 视图切换 -->
     <div class="status-tabs animate-fade-in-up delay-1">
-      <el-check-tag
-        v-for="s in [{ label: '全部', value: '' }, ...ORDER_STATUS]"
-        :key="s.value"
-        :checked="searchForm.status === s.value"
-        @change="searchForm.status = s.value; currentPage = 1; search()"
+      <div class="status-tabs__left">
+        <el-check-tag
+          v-for="s in [{ label: '全部', value: '' }, ...ORDER_STATUS]"
+          :key="s.value"
+          :checked="searchForm.status === s.value"
+          @change="searchForm.status = s.value; currentPage = 1; search()"
+        >
+          {{ s.label }}
+        </el-check-tag>
+      </div>
+      <div class="status-tabs__right">
+        <el-radio-group v-model="viewMode" size="small">
+          <el-radio-button value="table">
+            <el-icon :size="14"><List /></el-icon>
+            <span class="view-mode-label">表格</span>
+          </el-radio-button>
+          <el-radio-button value="kanban">
+            <el-icon :size="14"><Grid /></el-icon>
+            <span class="view-mode-label">看板</span>
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+    </div>
+
+    <!-- ========== Kanban 看板视图 ========== -->
+    <div v-if="viewMode === 'kanban'" class="kanban-container animate-fade-in-up delay-2">
+      <div
+        v-for="col in kanbanColumns"
+        :key="col.value"
+        class="kanban-column"
+        :class="`kanban-column--${col.value}`"
       >
-        {{ s.label }}
-      </el-check-tag>
+        <div class="kanban-column__header">
+          <div class="kanban-column__title-row">
+            <span class="kanban-column__dot" :class="`dot--${col.value}`"></span>
+            <span class="kanban-column__title">{{ col.label }}</span>
+          </div>
+          <span class="kanban-column__count">{{ col.orders.length }}</span>
+        </div>
+
+        <div class="kanban-column__body">
+          <div
+            v-for="order in col.orders"
+            :key="order.id"
+            class="kanban-card glass-panel"
+            draggable="true"
+            @click="viewDetail(order)"
+          >
+            <div class="kanban-card__top">
+              <span class="kanban-card__no">#{{ order.orderNo?.slice(-6) }}</span>
+              <span class="kanban-card__amount">¥{{ (order.amount || 0).toFixed(0) }}</span>
+            </div>
+            <div class="kanban-card__customer">{{ order.customerName }}</div>
+            <div class="kanban-card__items">{{ order.items }}</div>
+            <div class="kanban-card__time">{{ order.createTime?.slice(5) || '' }}</div>
+
+            <!-- 快捷流转按钮 -->
+            <div class="kanban-card__actions" @click.stop>
+              <el-button
+                v-for="action in getFlowActions(order.status)"
+                :key="action.value"
+                :type="action.value === 5 ? 'danger' : 'primary'"
+                size="small"
+                plain
+                class="kanban-action-btn"
+                @click="kanbanStatusChange(order, action.value)"
+              >
+                → {{ action.label }}
+              </el-button>
+            </div>
+          </div>
+
+          <div v-if="col.orders.length === 0" class="kanban-column__empty">
+            暂无订单
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 表格 -->
-    <div class="table-card glass-panel animate-fade-in-up delay-2">
+    <div v-else class="table-card glass-panel animate-fade-in-up delay-2">
       <SkeletonTable v-if="loading" :rows="8" :columns="6" />
       <el-table v-else :data="orderList" style="width: 100%">
         <el-table-column type="index" label="#" width="60" align="center">
@@ -476,5 +584,235 @@ const updateOrderStatus = async (order, newStatus) => {
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 4px;
+}
+
+/* ============================================
+   Kanban Board Styles
+   ============================================ */
+.kanban-container {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  min-height: 60vh;
+  overflow-x: auto;
+  padding-bottom: 16px;
+
+  @media (max-width: 1400px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kanban-column {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  min-width: 200px;
+  max-height: calc(100vh - 280px);
+  overflow: hidden;
+}
+
+.kanban-column__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.kanban-column__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kanban-column__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  &.dot--0 { background: #f0a35c; }
+  &.dot--1 { background: #6b8cce; }
+  &.dot--2 { background: #e8637a; }
+  &.dot--3 { background: #a78bfa; }
+  &.dot--4 { background: #5cb88a; }
+  &.dot--5 { background: #a3949b; }
+}
+
+.kanban-column__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.kanban-column__count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.4);
+  padding: 2px 8px;
+  border-radius: 99px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.kanban-column__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kanban-column__empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.kanban-card {
+  padding: 14px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  transition: all var(--transition-fast);
+  animation: kanbanCardIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glass-shadow-hover);
+    border-color: rgba(232, 99, 122, 0.2);
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.kanban-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.kanban-card__no {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.kanban-card__amount {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.kanban-card__customer {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 3px;
+}
+
+.kanban-card__items {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+
+.kanban-card__time {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+
+.kanban-card__actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(45, 35, 39, 0.06);
+
+  .kanban-action-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+}
+
+@keyframes kanbanCardIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Status tabs layout */
+.status-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-tabs__left {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.status-tabs__right {
+  flex-shrink: 0;
+}
+
+.view-mode-label {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+/* Dark mode kanban adjustments */
+:global([data-theme="dark"]) .kanban-column {
+  background: rgba(37, 28, 32, 0.45);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+:global([data-theme="dark"]) .kanban-card {
+  background: rgba(37, 28, 32, 0.65);
+  border-color: rgba(255, 255, 255, 0.08);
+
+  &:hover {
+    background: rgba(37, 28, 32, 0.85);
+    border-color: rgba(240, 140, 158, 0.2);
+  }
+}
+
+:global([data-theme="dark"]) .kanban-column__header {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+:global([data-theme="dark"]) .kanban-card__actions {
+  border-top-color: rgba(255, 255, 255, 0.06);
 }
 </style>
