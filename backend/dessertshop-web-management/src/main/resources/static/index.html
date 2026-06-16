@@ -74,40 +74,55 @@
 
         /* ---- Hero ---- */
         .hero {
-            margin: 0 0 20px;
-            border-radius: 0 0 28px 28px;
-            height: 200px;
+            margin: 0 18px 20px;
+            border-radius: 22px;
+            height: 220px;
             position: relative;
             overflow: hidden;
             background: #1d1d1f;
-            box-shadow: none;
         }
-        .hero-slides { display: flex; height: 100%; transition: transform 0.45s cubic-bezier(0.25, 0.1, 0.25, 1); }
+        .hero-slides { display: flex; height: 100%; transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
         .hero-slide {
             min-width: 100%; height: 100%;
-            padding: 36px 28px;
+            padding: 40px 32px;
             display: flex; align-items: flex-end;
             color: #fff;
+            position: relative;
         }
-        .hero-slide h2 { font-size: 28px; font-weight: 640; margin-bottom: 6px; letter-spacing: -0.5px; line-height: 1.1; }
-        .hero-slide p  { font-size: 13px; opacity: 0.55; font-weight: 400; }
-        .hero-slide .tag {
-            display: inline-block; margin-top: 12px;
-            padding: 4px 12px; border-radius: 12px;
-            font-size: 11px; font-weight: 520;
-            background: rgba(255,255,255,0.12);
+        .hero-slide.s1 { background: linear-gradient(160deg, #c94d63 0%, #2d181e 100%); }
+        .hero-slide.s2 { background: linear-gradient(160deg, #d4a35c 0%, #2d2016 100%); }
+        .hero-slide.s3 { background: linear-gradient(160deg, #5b9e8a 0%, #182c26 100%); }
+        .hero-slide h2 {
+            font-size: 32px;
+            font-weight: 640;
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+            margin: 0;
+        }
+        .hero-kicker {
+            display: block;
+            font-size: 11px;
+            font-weight: 520;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            opacity: 0.55;
+            margin-bottom: 6px;
         }
         .hero .dot-bar {
             position: absolute;
-            bottom: 18px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 5px;
+            bottom: 16px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 6px;
         }
         .hero .dot-bar .dot {
-            width: 5px; height: 5px; border-radius: 3px;
-            background: rgba(255,255,255,0.3);
-            transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+            width: 6px; height: 6px; border-radius: 3px;
+            background: rgba(255,255,255,0.25);
+            transition: all 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            cursor: pointer;
         }
-        .hero .dot-bar .dot.on { width: 18px; background: rgba(255,255,255,0.9); }
+        .hero .dot-bar .dot.on {
+            width: 22px;
+            background: rgba(255,255,255,0.85);
+        }
 
         /* ---- 分类 ---- */
         .categories {
@@ -430,25 +445,22 @@
     <!-- ==================== Hero ==================== -->
     <div class="hero" id="hero">
         <div class="hero-slides" id="heroSlides">
-            <div class="hero-slide">
+            <div class="hero-slide s1">
                 <div>
+                    <span class="hero-kicker">New Collection</span>
                     <h2>夏日新品</h2>
-                    <p>草莓慕斯 · 芒果班戟 · 杨枝甘露</p>
-                    <span class="tag">🔥 限时 8 折</span>
                 </div>
             </div>
-            <div class="hero-slide">
+            <div class="hero-slide s2">
                 <div>
+                    <span class="hero-kicker">Bespoke</span>
                     <h2>生日蛋糕定制</h2>
-                    <p>提前 24h 预定，免费配送上门</p>
-                    <span class="tag">满199减30</span>
                 </div>
             </div>
-            <div class="hero-slide">
+            <div class="hero-slide s3">
                 <div>
+                    <span class="hero-kicker">Seasonal</span>
                     <h2>冰淇淋季</h2>
-                    <p>第二份半价，全家共享装</p>
-                    <span class="tag">夏日特惠</span>
                 </div>
             </div>
         </div>

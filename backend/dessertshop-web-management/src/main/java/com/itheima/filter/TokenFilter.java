@@ -42,6 +42,10 @@ public class TokenFilter implements Filter {
         //3. 判断是否为公开资源，直接放行（登录、移动端API、静态文件）
         if ("/login".equals(uri)
                 || uri.startsWith("/mobile")
+                || uri.startsWith("/doc.html")
+                || uri.startsWith("/swagger-ui")
+                || uri.startsWith("/v3/api-docs")
+                || uri.startsWith("/webjars")
                 || uri.equals("/")
                 || uri.endsWith(".html")
                 || uri.endsWith(".css")

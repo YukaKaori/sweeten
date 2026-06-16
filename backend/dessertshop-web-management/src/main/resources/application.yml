@@ -39,6 +39,20 @@ logging:
   level:
     org.springframework.jdbc.support.JdbcTransactionManager: debug
 
+# Knife4j / SpringDoc API 文档配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    enable-swagger-models: true
+    enable-footer: false
+
 #阿里云OSS
 aliyun:
   oss:

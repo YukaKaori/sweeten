@@ -2,9 +2,11 @@ package com.itheima;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,14 +17,16 @@ public class JwtTest {
 
     @Test
     public void testGenJwt() {
+        SecretKey key = Keys.hmacShaKeyFor(SIGN_KEY.getBytes(StandardCharsets.UTF_8));
+
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", 10);
         claims.put("username", "itheima");
 
         String jwt = Jwts.builder()
-                .addClaims(claims)
-                .signWith(SignatureAlgorithm.HS256, SIGN_KEY)
-                .setExpiration(new Date(System.currentTimeMillis() + 12 * 3600 * 1000))
+                .claims(claims)
+                .signWith(key)
+                .expiration(new Date(System.currentTimeMillis() + 12 * 3600 * 1000))
                 .compact();
 
         System.out.println("生成的JWT: " + jwt);
@@ -30,20 +34,23 @@ public class JwtTest {
 
     @Test
     public void testParseJwt() {
+        SecretKey key = Keys.hmacShaKeyFor(SIGN_KEY.getBytes(StandardCharsets.UTF_8));
+
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", 10);
         claims.put("username", "itheima");
 
         String jwt = Jwts.builder()
-                .addClaims(claims)
-                .signWith(SignatureAlgorithm.HS256, SIGN_KEY)
-                .setExpiration(new Date(System.currentTimeMillis() + 12 * 3600 * 1000))
+                .claims(claims)
+                .signWith(key)
+                .expiration(new Date(System.currentTimeMillis() + 12 * 3600 * 1000))
                 .compact();
 
         Claims parsedClaims = Jwts.parser()
-                .setSigningKey(SIGN_KEY)
-                .parseClaimsJws(jwt)
-                .getBody();
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(jwt)
+                .getPayload();
 
         System.out.println("解析结果: " + parsedClaims);
         System.out.println("ID: " + parsedClaims.get("id"));

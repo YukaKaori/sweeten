@@ -7,18 +7,31 @@ package com.itheima.exception;
 public class BusinessException extends RuntimeException {
 
     private Integer code;
+    private Integer httpStatus;
 
     public BusinessException(String message) {
         super(message);
         this.code = 400;
+        this.httpStatus = 400;
     }
 
     public BusinessException(Integer code, String message) {
         super(message);
         this.code = code;
+        this.httpStatus = 400;
+    }
+
+    public BusinessException(Integer code, Integer httpStatus, String message) {
+        super(message);
+        this.code = code;
+        this.httpStatus = httpStatus;
     }
 
     public Integer getCode() {
         return code;
+    }
+
+    public Integer getHttpStatus() {
+        return httpStatus;
     }
 }
