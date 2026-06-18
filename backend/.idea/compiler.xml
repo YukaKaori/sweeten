@@ -20,9 +20,6 @@
         <module name="dessertshop-web-management" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="22">
-      <module name="dessertshop-util" target="22" />
-    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">

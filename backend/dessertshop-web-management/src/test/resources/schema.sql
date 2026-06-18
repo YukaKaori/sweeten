@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS emp_expr (
     emp_id INT NOT NULL,
     company VARCHAR(100),
     job VARCHAR(50),
-    begin DATE,
-    end DATE
+    "begin" DATE,
+    "end" DATE
 );
 
 -- 甜品表

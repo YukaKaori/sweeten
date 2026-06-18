@@ -5,6 +5,9 @@ import com.itheima.pojo.MobileOrderRequest;
 import com.itheima.pojo.Result;
 import com.itheima.service.DessertService;
 import com.itheima.service.MobileOrderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,17 +25,15 @@ import java.util.stream.Collectors;
 @RestController
 @Validated
 @RequiredArgsConstructor
+@Tag(name = "13-移动端接口", description = "移动端H5/小程序公开接口，无需JWT认证")
 public class MobileController {
 
     private final DessertService dessertService;
     private final MobileOrderService mobileOrderService;
 
-    /**
-     * 商品列表 — 支持按分类筛选
-     * GET /mobile/products?category=all|cake|bread|drink|icecream|snack|gift
-     */
+    @Operation(summary = "商品列表", description = "获取移动端商品列表，支持按分类筛选（all/cake/bread/drink/icecream/snack/gift）")
     @GetMapping("/products")
-    public Result listProducts(@RequestParam(defaultValue = "all") String category) {
+    public Result listProducts(@Parameter(description = "商品分类") @RequestParam(defaultValue = "all") String category) {
         log.info("移动端查询商品, category={}", category);
 
         List<Dessert> list;
@@ -79,10 +80,7 @@ public class MobileController {
         return all;
     }
 
-    /**
-     * 分类列表
-     * GET /mobile/categories
-     */
+    @Operation(summary = "分类列表", description = "获取移动端商品分类列表及各分类商品数量")
     @GetMapping("/categories")
     public Result listCategories() {
         log.info("移动端查询分类");
@@ -110,10 +108,7 @@ public class MobileController {
         return Result.success(result);
     }
 
-    /**
-     * 移动端下单
-     * POST /mobile/orders
-     */
+    @Operation(summary = "移动端下单", description = "移动端用户提交订单，返回订单号")
     @PostMapping("/orders")
     public Result createOrder(@Valid @RequestBody MobileOrderRequest request) {
         log.info("移动端下单: customer={}, amount={}", request.getCustomerName(), request.getTotalAmount());

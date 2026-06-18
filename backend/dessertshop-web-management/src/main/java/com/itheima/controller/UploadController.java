@@ -2,6 +2,9 @@ package com.itheima.controller;
 
 import com.itheima.pojo.Result;
 import com.itheima.utils.AliyunOSSOperator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +16,7 @@ import java.util.Set;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "07-文件上传", description = "文件上传至阿里云OSS接口")
 public class UploadController {
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
@@ -22,8 +26,9 @@ public class UploadController {
 
     private final AliyunOSSOperator aliyunOSSOperator;
 
+    @Operation(summary = "上传文件", description = "上传图片文件至阿里云OSS，支持jpg/png/gif/webp格式，最大5MB")
     @PostMapping("/upload")
-    public Result upload(MultipartFile file) throws Exception {
+    public Result upload(@Parameter(description = "上传的图片文件") MultipartFile file) throws Exception {
         log.info("上传文件:{}", file.getOriginalFilename());
 
         // 1. 非空校验

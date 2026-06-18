@@ -3,6 +3,9 @@ package com.itheima.controller;
 import com.itheima.annotation.LogOperation;
 import com.itheima.pojo.*;
 import com.itheima.service.CustomerService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,11 +19,12 @@ import java.util.List;
 @RestController
 @Validated
 @RequiredArgsConstructor
+@Tag(name = "10-客户CRM", description = "客户关系管理的增删改查与订单历史查询接口")
 public class CustomerController {
 
     private final CustomerService customerService;
 
-    /** 分页查询客户 */
+    @Operation(summary = "分页查询客户", description = "支持按姓名、电话、等级等条件分页查询客户列表")
     @GetMapping
     public Result page(@Valid CustomerQueryParam queryParam) {
         log.info("分页查询客户:{}", queryParam);
@@ -28,19 +32,19 @@ public class CustomerController {
         return Result.success(pageResult);
     }
 
-    /** 根据ID查询客户 */
+    @Operation(summary = "根据ID查询客户", description = "查询单个客户的详细信息")
     @GetMapping("/{id}")
-    public Result getById(@PathVariable Integer id) {
+    public Result getById(@Parameter(description = "客户ID") @PathVariable Integer id) {
         log.info("查询客户详情,id:{}", id);
         Customer customer = customerService.getById(id);
         return Result.success(customer);
     }
 
-    /** 查询客户订单历史 */
+    @Operation(summary = "查询客户订单历史", description = "根据客户ID查询其历史订单记录，支持分页")
     @GetMapping("/{id}/orders")
-    public Result getOrders(@PathVariable Integer id,
-                            @RequestParam(defaultValue = "1") Integer page,
-                            @RequestParam(defaultValue = "10") Integer pageSize) {
+    public Result getOrders(@Parameter(description = "客户ID") @PathVariable Integer id,
+                            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
+                            @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Integer pageSize) {
         log.info("查询客户订单,id:{},page:{},pageSize:{}", id, page, pageSize);
         List<Order> orders = customerService.getCustomerOrders(id);
         // 手动分页
@@ -53,7 +57,7 @@ public class CustomerController {
         return Result.success(pr);
     }
 
-    /** 新增客户 */
+    @Operation(summary = "新增客户", description = "新增一个客户信息")
     @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Customer customer) {
@@ -62,7 +66,7 @@ public class CustomerController {
         return Result.success();
     }
 
-    /** 修改客户 */
+    @Operation(summary = "修改客户", description = "修改客户信息")
     @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Customer customer) {
@@ -71,10 +75,10 @@ public class CustomerController {
         return Result.success();
     }
 
-    /** 删除客户 */
+    @Operation(summary = "删除客户", description = "根据ID删除指定客户")
     @LogOperation
     @DeleteMapping("/{id}")
-    public Result delete(@PathVariable Integer id) {
+    public Result delete(@Parameter(description = "客户ID") @PathVariable Integer id) {
         log.info("删除客户,id:{}", id);
         customerService.deleteById(id);
         return Result.success();

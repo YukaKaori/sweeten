@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.7</version>
+        <version>3.3.7</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -28,7 +28,7 @@
 
 <!--        自定义属性-->
         <lombok.version>1.18.42</lombok.version>
-        <spring.boot.start.version>3.5.7</spring.boot.start.version>
+        <spring.boot.start.version>3.3.7</spring.boot.start.version>
         <aliyun.sdk.oss.version>3.17.4</aliyun.sdk.oss.version>
         <jaxb.api.version>2.3.1</jaxb.api.version>
         <activation.version>1.1.1</activation.version>
