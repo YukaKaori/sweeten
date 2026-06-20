@@ -4,6 +4,7 @@ import com.itheima.mapper.DessertMapper;
 import com.itheima.mapper.OrderMapper;
 import com.itheima.service.DashboardService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final DessertMapper dessertMapper;
 
     @Override
+    @Cacheable(value = "dashboard:stats", key = "'overview'")
     public Map<String, Object> getStats() {
         Map<String, Object> data = new HashMap<>();
 
@@ -49,6 +51,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
+    @Cacheable(value = "dashboard:stats", key = "'trend_' + #range")
     public Map<String, Object> getRevenueTrend(String range) {
         LocalDateTime end = LocalDateTime.now();
         LocalDateTime start;
