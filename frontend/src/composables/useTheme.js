@@ -12,7 +12,7 @@ export const THEME_PRESETS = {
     // CSS 变量通过 data-theme-preset 属性注入
   },
   matcha: {
-    name: '抹茶时光',
+    name: '抹茶风味',
     icon: '🍵',
     description: '日式极简 · 清新素雅',
   },
