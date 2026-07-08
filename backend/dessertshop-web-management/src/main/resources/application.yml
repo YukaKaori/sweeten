@@ -16,6 +16,20 @@ spring:
     migration:
       # 首次运行时设置为true，迁移完成后设置为false
       enabled: false
+  # Redis 缓存配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:123456}
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+          max-wait: 3000ms
 
 # JWT配置
 jwt:
@@ -52,21 +66,6 @@ knife4j:
     language: zh_cn
     enable-swagger-models: true
     enable-footer: false
-
-  # Redis 缓存配置
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: 0
-      timeout: 3000ms
-      lettuce:
-        pool:
-          max-active: 16
-          max-idle: 8
-          min-idle: 4
-          max-wait: 3000ms
 
 #阿里云OSS
 aliyun:
