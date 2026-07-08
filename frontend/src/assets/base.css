@@ -1,54 +1,57 @@
 /* ============================================
    DessertShop Design System
-   A warm, modern, portfolio-worthy design
+   Apple-grade neutral minimalism
+   — restraint · precision · whitespace · calm
    ============================================ */
 
 :root {
-  /* Primary palette — warm rose/coral tones */
-  --color-primary: #e8637a;
-  --color-primary-light: #f08c9e;
-  --color-primary-lighter: #fde8ec;
-  --color-primary-dark: #c94d63;
+  /* Single functional accent — used ONLY for interactive/selected states */
+  --color-primary: #0071e3;         /* Apple blue */
+  --color-primary-light: #3a91ea;
+  --color-primary-lighter: #e8f2fd; /* faint tint for selected backgrounds */
+  --color-primary-dark: #0058b8;
 
-  /* Accent — golden amber for highlights */
-  --color-accent: #f0a35c;
-  --color-accent-light: #fcdcc5;
+  /* Accent kept as an alias of primary — one accent, no second brand color */
+  --color-accent: #0071e3;
+  --color-accent-light: #e8f2fd;
 
-  /* Neutrals — warm grays */
-  --color-text-primary: #2d2327;
-  --color-text-secondary: #6b5b63;
-  --color-text-muted: #a3949b;
+  /* Neutrals — Apple gray scale */
+  --color-text-primary: #1d1d1f;    /* near-black, never pure #000 */
+  --color-text-secondary: #6e6e73;
+  --color-text-muted: #86868b;
   --color-text-inverse: #ffffff;
 
-  /* Backgrounds */
-  --color-bg-primary: #faf7f5;
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #f5f0ec;
-  --color-bg-sidebar: #2d2327;
-  --color-bg-sidebar-hover: #3d3138;
+  /* Backgrounds — gray page, white surfaces */
+  --color-bg-primary: #f5f5f7;      /* page background — Apple's signature light gray */
+  --color-bg-secondary: #ffffff;    /* cards / surfaces */
+  --color-bg-tertiary: #f5f5f7;     /* subtle fills, hover */
+  --color-bg-sidebar: #ffffff;
+  --color-bg-sidebar-hover: #f5f5f7;
 
-  /* Borders & Shadows */
-  --color-border: #ede6e1;
-  --color-border-light: #f5f0ec;
-  --shadow-xs: 0 1px 2px rgba(45, 35, 39, 0.04);
-  --shadow-sm: 0 2px 8px rgba(45, 35, 39, 0.06);
-  --shadow-md: 0 4px 16px rgba(45, 35, 39, 0.08);
-  --shadow-lg: 0 8px 32px rgba(45, 35, 39, 0.12);
-  --shadow-xl: 0 16px 48px rgba(45, 35, 39, 0.16);
-  --shadow-glow: 0 0 24px rgba(232, 99, 122, 0.15);
+  /* Borders — hairline, always low-contrast */
+  --color-border: #d2d2d7;
+  --color-border-light: #e8e8ed;
 
-  /* Radius */
+  /* Shadows — neutral, minimal, no color */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.10);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.14);
+  --shadow-glow: 0 0 0 transparent;  /* glow removed — kept as no-op for legacy refs */
+
+  /* Radius — collapsed to control / card family */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-md: 8px;    /* controls */
+  --radius-lg: 12px;   /* cards */
+  --radius-xl: 16px;   /* dialogs / large surfaces */
   --radius-full: 9999px;
 
-  /* Typography */
-  --font-display: 'Playfair Display', 'Georgia', serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Typography — San Francisco system stack, no serif */
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
 
-  /* Spacing */
+  /* Spacing — strict 8pt grid */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -56,10 +59,10 @@
   --space-xl: 32px;
   --space-2xl: 48px;
 
-  /* Transitions */
-  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Transitions — one Apple ease, no bounce */
+  --transition-fast: 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-base: 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-slow: 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 
   /* Z-index layers */
   --z-sidebar: 100;
@@ -68,80 +71,75 @@
   --z-modal: 400;
   --z-toast: 500;
 
-  /* Glass design tokens */
-  --glass-bg: rgba(255, 255, 255, 0.58);
-  --glass-bg-light: rgba(255, 255, 255, 0.35);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-specular: 0 1px 0 0 rgba(255, 255, 255, 0.4) inset;
-  --glass-shadow: 0 4px 30px rgba(45, 35, 39, 0.05);
-  --glass-shadow-hover: 0 12px 40px rgba(45, 35, 39, 0.12);
-  --glass-blur: blur(24px) saturate(190%);
-  --transition-spring: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Material tokens (frosted panels) — neutral, no tint / sheen / colored glow.
+     Names preserved so existing .glass-panel usages keep working. */
+  --glass-bg: rgba(255, 255, 255, 0.80);
+  --glass-bg-light: rgba(255, 255, 255, 0.60);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --glass-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --glass-blur: blur(20px) saturate(180%);
+  --transition-spring: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* Liquid glass interactive tokens */
-  --glass-highlight: rgba(255, 255, 255, 0.45);
-  --glass-edge-glow: rgba(232, 99, 122, 0.1);
-  --glass-ripple-color: rgba(255, 255, 255, 0.6);
-  --transition-magnetic: 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-  --transition-ripple: 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  --depth-1: 0 2px 10px rgba(45, 35, 39, 0.04);
-  --depth-2: 0 8px 30px rgba(45, 35, 39, 0.08);
-  --depth-3: 0 20px 60px rgba(45, 35, 39, 0.15);
+  /* Legacy interactive tokens — neutralized (no magnetism / ripple / edge glow) */
+  --glass-highlight: rgba(255, 255, 255, 0.5);
+  --glass-edge-glow: transparent;
+  --glass-ripple-color: rgba(0, 0, 0, 0.04);
+  --transition-magnetic: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-ripple: 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --depth-1: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --depth-2: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --depth-3: 0 20px 50px rgba(0, 0, 0, 0.14);
 }
 
 /* ============================================
-   Dark Mode Tokens
+   Dark Mode Tokens — neutral
    ============================================ */
 [data-theme="dark"] {
-  /* Primary palette — slightly brighter for dark */
-  --color-primary: #f08c9e;
-  --color-primary-light: #f5a8b8;
-  --color-primary-lighter: rgba(232, 99, 122, 0.15);
-  --color-primary-dark: #e8637a;
+  --color-primary: #2997ff;         /* Apple dark-mode blue */
+  --color-primary-light: #5aa9ff;
+  --color-primary-lighter: rgba(41, 151, 255, 0.16);
+  --color-primary-dark: #0071e3;
 
-  /* Accent */
-  --color-accent: #f5b87a;
-  --color-accent-light: rgba(240, 163, 92, 0.2);
+  --color-accent: #2997ff;
+  --color-accent-light: rgba(41, 151, 255, 0.16);
 
-  /* Neutrals — inverted */
-  --color-text-primary: #f0ebe8;
-  --color-text-secondary: #b5a8ae;
-  --color-text-muted: #7a6e74;
-  --color-text-inverse: #2d2327;
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #a1a1a6;
+  --color-text-muted: #6e6e73;
+  --color-text-inverse: #1d1d1f;
 
-  /* Backgrounds — deep warm darks */
-  --color-bg-primary: #1a1215;
-  --color-bg-secondary: #251c20;
-  --color-bg-tertiary: #302529;
-  --color-bg-sidebar: #150e11;
-  --color-bg-sidebar-hover: #2a1f23;
+  --color-bg-primary: #161617;      /* page */
+  --color-bg-secondary: #1d1d1f;    /* cards */
+  --color-bg-tertiary: #2c2c2e;
+  --color-bg-sidebar: #1d1d1f;
+  --color-bg-sidebar-hover: #2c2c2e;
 
-  /* Borders & Shadows */
-  --color-border: #3d3138;
-  --color-border-light: #302529;
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 24px rgba(232, 99, 122, 0.25);
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-light: rgba(255, 255, 255, 0.08);
 
-  /* Glass — darker translucent for dark mode */
-  --glass-bg: rgba(37, 28, 32, 0.65);
-  --glass-bg-light: rgba(37, 28, 32, 0.4);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 transparent;
+
+  --glass-bg: rgba(29, 29, 31, 0.72);
+  --glass-bg-light: rgba(29, 29, 31, 0.5);
   --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-specular: 0 1px 0 0 rgba(255, 255, 255, 0.08) inset;
-  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-  --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.3);
-  --glass-blur: blur(24px) saturate(160%);
+  --glass-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --glass-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --glass-blur: blur(20px) saturate(160%);
 
-  /* Liquid glass — dark mode */
-  --glass-highlight: rgba(255, 255, 255, 0.12);
-  --glass-edge-glow: rgba(240, 140, 158, 0.12);
-  --glass-ripple-color: rgba(255, 255, 255, 0.15);
-  --depth-1: 0 2px 10px rgba(0, 0, 0, 0.15);
-  --depth-2: 0 8px 30px rgba(0, 0, 0, 0.25);
-  --depth-3: 0 20px 60px rgba(0, 0, 0, 0.4);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-edge-glow: transparent;
+  --glass-ripple-color: rgba(255, 255, 255, 0.05);
+  --depth-1: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --depth-2: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --depth-3: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
 
 /* Smooth theme transition */
@@ -149,154 +147,11 @@ html.theme-transitioning,
 html.theme-transitioning *,
 html.theme-transitioning *::before,
 html.theme-transitioning *::after {
-  transition: background-color 0.4s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+  transition: background-color 0.35s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
 }
 
-/* ============================================
-   Multi-Theme Preset System
-   Each theme overrides primary/accent/background tokens.
-   Dark variant is nested under [data-theme="dark"].
-   ============================================ */
-
-/* ── 🍵 Matcha Theme ── */
-[data-theme-preset="matcha"] {
-  --color-primary: #6b8e4e;
-  --color-primary-light: #8ba86a;
-  --color-primary-lighter: #e8f0df;
-  --color-primary-dark: #4e6b35;
-  --color-accent: #c4a35a;
-  --color-accent-light: #f5efdf;
-  --color-bg-primary: #f7faf3;
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #eef5e6;
-  --color-text-primary: #2c3328;
-  --color-text-secondary: #5a6852;
-  --color-text-muted: #8a9880;
-  --glass-edge-glow: rgba(107, 142, 78, 0.1);
-  --shadow-glow: 0 0 24px rgba(107, 142, 78, 0.15);
-}
-
-[data-theme-preset="matcha"][data-theme="dark"] {
-  --color-primary: #8ba86a;
-  --color-primary-light: #a8c48d;
-  --color-primary-lighter: rgba(107, 142, 78, 0.15);
-  --color-primary-dark: #6b8e4e;
-  --color-accent: #d4b86a;
-  --color-accent-light: rgba(196, 163, 90, 0.2);
-  --color-bg-primary: #1a1f16;
-  --color-bg-secondary: #22291d;
-  --color-bg-tertiary: #2b3324;
-  --color-text-primary: #edf0e8;
-  --color-text-secondary: #b0b8a5;
-  --color-text-muted: #788068;
-  --glass-edge-glow: rgba(139, 168, 106, 0.12);
-  --shadow-glow: 0 0 24px rgba(139, 168, 106, 0.2);
-}
-
-/* ── 🍫 Chocolate Theme ── */
-[data-theme-preset="chocolate"] {
-  --color-primary: #b8754f;
-  --color-primary-light: #d4956e;
-  --color-primary-lighter: #f5e8dc;
-  --color-primary-dark: #8b5535;
-  --color-accent: #d4a574;
-  --color-accent-light: #faf0e5;
-  --color-bg-primary: #faf6f1;
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #f5ede3;
-  --color-text-primary: #2d2218;
-  --color-text-secondary: #5c4a3a;
-  --color-text-muted: #8c7a68;
-  --glass-edge-glow: rgba(184, 117, 79, 0.1);
-  --shadow-glow: 0 0 24px rgba(184, 117, 79, 0.15);
-}
-
-[data-theme-preset="chocolate"][data-theme="dark"] {
-  --color-primary: #d4956e;
-  --color-primary-light: #e0af8c;
-  --color-primary-lighter: rgba(184, 117, 79, 0.15);
-  --color-primary-dark: #b8754f;
-  --color-accent: #e0bc8c;
-  --color-accent-light: rgba(212, 167, 116, 0.2);
-  --color-bg-primary: #1c1610;
-  --color-bg-secondary: #261f18;
-  --color-bg-tertiary: #302820;
-  --color-text-primary: #f0e8e0;
-  --color-text-secondary: #b5a898;
-  --color-text-muted: #807060;
-  --glass-edge-glow: rgba(212, 149, 110, 0.12);
-  --shadow-glow: 0 0 24px rgba(212, 149, 110, 0.2);
-}
-
-/* ── 🫐 Blueberry Theme ── */
-[data-theme-preset="blueberry"] {
-  --color-primary: #5a7ab4;
-  --color-primary-light: #7d9ad0;
-  --color-primary-lighter: #e6ecf5;
-  --color-primary-dark: #425d8b;
-  --color-accent: #7a9ec0;
-  --color-accent-light: #e8f0f7;
-  --color-bg-primary: #f5f7fa;
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #e8edf5;
-  --color-text-primary: #1e2530;
-  --color-text-secondary: #4a5568;
-  --color-text-muted: #7a8698;
-  --glass-edge-glow: rgba(90, 122, 180, 0.1);
-  --shadow-glow: 0 0 24px rgba(90, 122, 180, 0.15);
-}
-
-[data-theme-preset="blueberry"][data-theme="dark"] {
-  --color-primary: #7d9ad0;
-  --color-primary-light: #9ab5e0;
-  --color-primary-lighter: rgba(90, 122, 180, 0.15);
-  --color-primary-dark: #5a7ab4;
-  --color-accent: #9abde0;
-  --color-accent-light: rgba(122, 158, 192, 0.2);
-  --color-bg-primary: #151a24;
-  --color-bg-secondary: #1e2430;
-  --color-bg-tertiary: #262e3d;
-  --color-text-primary: #e8ecf2;
-  --color-text-secondary: #a0aab8;
-  --color-text-muted: #6a7488;
-  --glass-edge-glow: rgba(125, 154, 208, 0.12);
-  --shadow-glow: 0 0 24px rgba(125, 154, 208, 0.2);
-}
-
-/* ── 🌸 Sakura Theme ── */
-[data-theme-preset="sakura"] {
-  --color-primary: #e8a0b4;
-  --color-primary-light: #f0c0ce;
-  --color-primary-lighter: #fdf0f4;
-  --color-primary-dark: #d4889c;
-  --color-accent: #f0c5a0;
-  --color-accent-light: #fdf5ee;
-  --color-bg-primary: #fefafb;
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #fdf2f5;
-  --color-text-primary: #2d1e22;
-  --color-text-secondary: #5c4048;
-  --color-text-muted: #8c7078;
-  --glass-edge-glow: rgba(232, 160, 180, 0.1);
-  --shadow-glow: 0 0 24px rgba(232, 160, 180, 0.12);
-}
-
-[data-theme-preset="sakura"][data-theme="dark"] {
-  --color-primary: #f0c0ce;
-  --color-primary-light: #f5d5df;
-  --color-primary-lighter: rgba(232, 160, 180, 0.15);
-  --color-primary-dark: #e8a0b4;
-  --color-accent: #f5d5be;
-  --color-accent-light: rgba(240, 197, 160, 0.2);
-  --color-bg-primary: #1c1618;
-  --color-bg-secondary: #241e20;
-  --color-bg-tertiary: #302528;
-  --color-text-primary: #f0e8ea;
-  --color-text-secondary: #b5a0a5;
-  --color-text-muted: #807075;
-  --glass-edge-glow: rgba(240, 192, 206, 0.12);
-  --shadow-glow: 0 0 24px rgba(240, 192, 206, 0.18);
-}
+/* Multi-theme presets removed — the system ships one light + one dark appearance.
+   Legacy [data-theme-preset="*"] values simply fall back to the neutral :root. */
 
 /* ============================================
    Reset & Base
@@ -320,7 +175,8 @@ body {
   min-height: 100vh;
   font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.47;               /* Apple body ratio */
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
   background: var(--color-bg-primary);
   overflow-x: hidden;
@@ -337,13 +193,14 @@ a:hover {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.2;
+  letter-spacing: -0.02em;         /* tighten tracking on large type */
   color: var(--color-text-primary);
 }
 
-h1 { font-size: 1.75rem; font-weight: 700; }
+h1 { font-size: 1.75rem; font-weight: 600; }
 h2 { font-size: 1.5rem; }
 h3 { font-size: 1.25rem; }
 h4 { font-size: 1.125rem; }
@@ -353,8 +210,14 @@ img {
   height: auto;
 }
 
+/* Consistent keyboard focus ring (accessibility baseline) */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* ============================================
-   Keyframe Animations
+   Keyframe Animations (functional set)
    ============================================ */
 
 @keyframes fadeIn {
@@ -363,27 +226,27 @@ img {
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInDown {
-  from { opacity: 0; transform: translateY(-20px); }
+  from { opacity: 0; transform: translateY(-12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-30px); }
+  from { opacity: 0; transform: translateX(-16px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(30px); }
+  from { opacity: 0; transform: translateX(16px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
 
@@ -392,89 +255,35 @@ img {
   100% { background-position: 200% 0; }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+@keyframes staggerItemIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Liquid glass ripple — expands from center like a droplet */
-@keyframes liquidRipple {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 0.15;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(4);
-    opacity: 0;
-  }
-}
-
-/* Diagonal light sweep across glass surface */
-@keyframes glassSheen {
-  0% { left: -100%; opacity: 0; }
-  15% { opacity: 1; }
-  85% { opacity: 1; }
-  100% { left: 200%; opacity: 0; }
-}
-
-/* Magnetic return — snap-back when cursor leaves */
-@keyframes magneticReturn {
-  from {
-    transform: perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
-  }
-  to {
-    transform: perspective(800px) rotateX(0deg) rotateY(0deg);
-  }
-}
-
-/* Scroll reveal variants */
 @keyframes revealFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes revealSlideUp {
-  from { opacity: 0; transform: translateY(30px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes revealScaleIn {
-  from { opacity: 0; transform: scale(0.92); }
+  from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
-}
-
-/* Smooth aurora/ambient drift */
-@keyframes auroraDrift {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(8px, -12px) rotate(1deg); }
-  50% { transform: translate(-4px, 6px) rotate(-0.5deg); }
-  75% { transform: translate(-10px, -4px) rotate(0.5deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
 }
 
 /* ============================================
    Utility Classes
    ============================================ */
 
-.animate-fade-in { animation: fadeIn 0.5s var(--transition-base) forwards; }
-.animate-fade-in-up { animation: fadeInUp 0.5s var(--transition-base) forwards; }
-.animate-fade-in-down { animation: fadeInDown 0.5s var(--transition-base) forwards; }
-.animate-slide-in-left { animation: slideInLeft 0.5s var(--transition-base) forwards; }
-.animate-slide-in-right { animation: slideInRight 0.5s var(--transition-base) forwards; }
+.animate-fade-in { animation: fadeIn 0.4s var(--transition-base) forwards; }
+.animate-fade-in-up { animation: fadeInUp 0.4s var(--transition-base) forwards; }
+.animate-fade-in-down { animation: fadeInDown 0.4s var(--transition-base) forwards; }
+.animate-slide-in-left { animation: slideInLeft 0.4s var(--transition-base) forwards; }
+.animate-slide-in-right { animation: slideInRight 0.4s var(--transition-base) forwards; }
 .animate-scale-in { animation: scaleIn 0.3s var(--transition-base) forwards; }
 
 /* Staggered animation delays */
@@ -487,9 +296,9 @@ img {
 /* Scroll reveal — hidden until scrolled into view */
 .scroll-reveal {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(16px);
+  transition: opacity 0.5s var(--transition-base),
+              transform 0.5s var(--transition-base);
 }
 
 .scroll-reveal.is-visible {
@@ -500,27 +309,22 @@ img {
 /* Stagger animation for list children */
 .stagger-list > * {
   opacity: 0;
-  transform: translateY(12px);
-  animation: staggerItemIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform: translateY(8px);
+  animation: staggerItemIn 0.35s var(--transition-base) forwards;
 }
 
 .stagger-list > *:nth-child(1) { animation-delay: 0.03s; }
-.stagger-list > *:nth-child(2) { animation-delay: 0.08s; }
-.stagger-list > *:nth-child(3) { animation-delay: 0.13s; }
-.stagger-list > *:nth-child(4) { animation-delay: 0.18s; }
-.stagger-list > *:nth-child(5) { animation-delay: 0.23s; }
-.stagger-list > *:nth-child(6) { animation-delay: 0.28s; }
-.stagger-list > *:nth-child(7) { animation-delay: 0.33s; }
-.stagger-list > *:nth-child(8) { animation-delay: 0.38s; }
-.stagger-list > *:nth-child(9) { animation-delay: 0.43s; }
-.stagger-list > *:nth-child(10) { animation-delay: 0.48s; }
+.stagger-list > *:nth-child(2) { animation-delay: 0.07s; }
+.stagger-list > *:nth-child(3) { animation-delay: 0.11s; }
+.stagger-list > *:nth-child(4) { animation-delay: 0.15s; }
+.stagger-list > *:nth-child(5) { animation-delay: 0.19s; }
+.stagger-list > *:nth-child(6) { animation-delay: 0.23s; }
+.stagger-list > *:nth-child(7) { animation-delay: 0.27s; }
+.stagger-list > *:nth-child(8) { animation-delay: 0.31s; }
+.stagger-list > *:nth-child(9) { animation-delay: 0.35s; }
+.stagger-list > *:nth-child(10) { animation-delay: 0.39s; }
 
-@keyframes staggerItemIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Skeleton shimmer enhancement */
+/* Skeleton shimmer — low-contrast neutral pulse */
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
@@ -529,32 +333,23 @@ img {
     var(--color-bg-tertiary) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.8s infinite;
+  animation: shimmer 1.6s infinite;
   border-radius: var(--radius-sm);
 }
 
-/* Elastic hover for interactive elements */
+/* Interaction helpers — restrained, no bounce / tilt.
+   Class names preserved for legacy markup; effects flattened. */
 .elastic-hover {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform var(--transition-base);
 }
+.elastic-hover:hover { transform: scale(1.02); }
+.elastic-hover:active { transform: scale(0.98); }
 
-.elastic-hover:hover {
-  transform: scale(1.04);
-}
-
-.elastic-hover:active {
-  transform: scale(0.96);
-}
-
-/* Magnetic hover — 3D tilt container */
 .magnetic-hover {
-  transform-style: preserve-3d;
-  perspective: 800px;
-  transition: transform var(--transition-magnetic);
+  transition: transform var(--transition-base);
 }
-
 .magnetic-hover:hover {
-  transform: perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transform: none;   /* 3D tilt disabled — Apple keeps surfaces flat */
 }
 
 /* Apple-style reduced motion */
@@ -571,163 +366,161 @@ img {
     opacity: 1;
     transform: none;
   }
-
-  .magnetic-hover:hover {
-    transform: none;
-  }
 }
 
 /* ============================================
-   Element Plus Overrides (Global)
+   Element Plus Overrides (Global) — flat & neutral
    ============================================ */
 
-/* Buttons */
+/* Buttons — solid fills, no gradient, no lift, one accent */
 .el-button {
   border-radius: var(--radius-md) !important;
   font-weight: 500 !important;
-  letter-spacing: 0.02em;
-  transition: all var(--transition-base) !important;
+  letter-spacing: -0.01em;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast) !important;
   font-family: var(--font-body) !important;
 }
 
 .el-button--primary {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)) !important;
+  background: var(--color-primary) !important;
   border: none !important;
-  box-shadow: 0 2px 8px rgba(232, 99, 122, 0.3) !important;
+  box-shadow: none !important;
+  color: #fff !important;
 }
-
-.el-button--primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(232, 99, 122, 0.4) !important;
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background: var(--color-primary-dark) !important;
 }
-
 .el-button--primary:active {
-  transform: translateY(0);
+  background: var(--color-primary-dark) !important;
 }
 
 .el-button--danger {
-  background: linear-gradient(135deg, #ef6b6b, #d94f4f) !important;
+  background: #ff3b30 !important;   /* Apple red */
   border: none !important;
-  box-shadow: 0 2px 8px rgba(239, 107, 107, 0.3) !important;
+  box-shadow: none !important;
+  color: #fff !important;
 }
-
-.el-button--danger:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(239, 107, 107, 0.4) !important;
+.el-button--danger:hover,
+.el-button--danger:focus {
+  background: #e0321f !important;
 }
 
 .el-button--success {
-  background: linear-gradient(135deg, #5cb88a, #4a9e74) !important;
+  background: #34c759 !important;   /* Apple green */
   border: none !important;
-  box-shadow: 0 2px 8px rgba(92, 184, 138, 0.3) !important;
+  box-shadow: none !important;
+  color: #fff !important;
+}
+.el-button--success:hover,
+.el-button--success:focus {
+  background: #2ba64a !important;
 }
 
-.el-button--success:hover {
-  transform: translateY(-1px);
-}
-
-.el-button--info {
-  background: var(--color-bg-tertiary) !important;
+/* Secondary / neutral buttons */
+.el-button--info,
+.el-button--default {
+  background: var(--color-bg-secondary) !important;
   border: 1px solid var(--color-border) !important;
-  color: var(--color-text-secondary) !important;
+  color: var(--color-text-primary) !important;
+  box-shadow: none !important;
+}
+.el-button--info:hover,
+.el-button--default:hover {
+  border-color: var(--color-text-muted) !important;
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
 }
 
-.el-button--info:hover {
-  border-color: var(--color-primary) !important;
-  color: var(--color-primary) !important;
-}
-
-/* Tables — Enhanced with glass interactions */
+/* Tables — hairline rows, no vertical lines, neutral hover */
 .el-table {
   border-radius: var(--radius-lg) !important;
   overflow: hidden;
   border: none !important;
   background: transparent !important;
+  --el-table-border-color: transparent;
+  font-variant-numeric: tabular-nums;
 }
 
 .el-table th.el-table__cell {
-  background: rgba(255, 255, 255, 0.3) !important;
-  backdrop-filter: blur(8px) !important;
-  color: var(--color-text-secondary) !important;
+  background: transparent !important;
+  color: var(--color-text-muted) !important;
   font-weight: 600 !important;
-  font-size: 12px !important;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+  font-size: 13px !important;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--color-border) !important;
 }
 
 .el-table td.el-table__cell {
   border-bottom: 1px solid var(--color-border-light) !important;
   color: var(--color-text-primary) !important;
-  transition: background 0.25s ease !important;
+  transition: background var(--transition-fast) !important;
 }
 
 .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
-  background: rgba(232, 99, 122, 0.06) !important;
+  background: var(--color-bg-tertiary) !important;
 }
 
-/* Selected row pulse */
-.el-table__body tr.current-row > td.el-table__cell {
-  background: rgba(232, 99, 122, 0.08) !important;
-}
-
-/* Checkbox selected row */
+.el-table__body tr.current-row > td.el-table__cell,
 .el-table__body tr.selection-row > td.el-table__cell {
-  background: rgba(232, 99, 122, 0.05) !important;
+  background: var(--color-primary-lighter) !important;
 }
 
-/* Striped rows glass effect */
 .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
-  background: rgba(255, 255, 255, 0.15) !important;
+  background: transparent !important;
 }
 
-/* Table empty state */
 .el-table__empty-block {
   background: transparent !important;
 }
 
-/* Dialogs */
+/* Dialogs — solid neutral surface, no glass, no gradient header */
 .el-dialog {
   border-radius: var(--radius-xl) !important;
+  background: var(--color-bg-secondary) !important;
   box-shadow: var(--shadow-xl) !important;
   overflow: hidden;
 }
 
 .el-dialog__header {
-  background: linear-gradient(135deg, var(--color-primary-lighter), #fff5f7) !important;
+  background: transparent !important;
   padding: 20px 24px !important;
   border-bottom: 1px solid var(--color-border-light);
+  margin-right: 0 !important;
 }
 
 .el-dialog__title {
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   color: var(--color-text-primary) !important;
-  font-size: 16px !important;
+  font-size: 17px !important;
+  letter-spacing: -0.02em;
 }
 
 .el-dialog__body {
   padding: 24px !important;
+  color: var(--color-text-primary) !important;
 }
 
 .el-dialog__footer {
   padding: 16px 24px !important;
   border-top: 1px solid var(--color-border-light);
-  background: var(--color-bg-primary);
+  background: transparent !important;
 }
 
-/* Form inputs */
+/* Form inputs — neutral border, clean focus ring, no glow */
 .el-input__wrapper {
   border-radius: var(--radius-md) !important;
   box-shadow: 0 0 0 1px var(--color-border) inset !important;
-  transition: all var(--transition-base) !important;
+  background: var(--color-bg-secondary) !important;
+  transition: box-shadow var(--transition-fast) !important;
 }
 
 .el-input__wrapper:hover {
-  box-shadow: 0 0 0 1px var(--color-primary-light) inset !important;
+  box-shadow: 0 0 0 1px var(--color-text-muted) inset !important;
 }
 
 .el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 2px var(--color-primary) inset, var(--shadow-glow) !important;
+  box-shadow: 0 0 0 2px var(--color-primary) inset !important;
 }
 
 .el-select .el-input__wrapper {
@@ -739,14 +532,15 @@ img {
   justify-content: flex-end !important;
 }
 
-.el-pagination .el-pager li.is-active {
-  background: var(--color-primary) !important;
-  border-radius: var(--radius-sm) !important;
-}
-
 .el-pagination .el-pager li {
   border-radius: var(--radius-sm) !important;
-  transition: all var(--transition-fast) !important;
+  transition: background var(--transition-fast) !important;
+}
+
+.el-pagination .el-pager li.is-active {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+  border-radius: var(--radius-sm) !important;
 }
 
 /* Date picker */
@@ -757,7 +551,7 @@ img {
 /* Upload */
 .el-upload {
   border-radius: var(--radius-md) !important;
-  transition: all var(--transition-base) !important;
+  transition: border-color var(--transition-fast) !important;
 }
 
 .el-upload:hover {
@@ -767,6 +561,7 @@ img {
 /* Message Box */
 .el-message-box {
   border-radius: var(--radius-lg) !important;
+  background: var(--color-bg-secondary) !important;
   box-shadow: var(--shadow-xl) !important;
 }
 
@@ -801,7 +596,8 @@ img {
 }
 
 /* ============================================
-   Liquid Glass Panel System
+   Material Panel System (frosted, neutral)
+   Class names preserved; sheen / spotlight / ripple removed.
    ============================================ */
 
 .glass-panel {
@@ -809,214 +605,73 @@ img {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   box-shadow: var(--glass-specular), var(--glass-shadow);
-  transition: all var(--transition-spring);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
   position: relative;
   overflow: hidden;
 }
 
-/* Static diagonal sheen */
-.glass-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 1;
-  border-radius: inherit;
-}
-
-/* Cursor-follow specular highlight */
-.glass-panel::after {
-  content: '';
-  position: absolute;
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at center,
-    rgba(255, 255, 255, 0.35) 0%,
-    rgba(255, 255, 255, 0.1) 30%,
-    transparent 70%
-  );
-  pointer-events: none;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  left: calc(var(--mx, 50%) - 90px);
-  top: calc(var(--my, 50%) - 90px);
-}
-
-/* Show spotlight on panels that opt in via data attribute or class */
-.glass-panel.glass-spotlight::after {
-  opacity: 1;
-}
-
-.glass-panel.glass-spotlight:hover::after {
-  opacity: 1;
-}
+/* Spotlight / sheen pseudo-elements intentionally omitted (decorative noise). */
+.glass-panel.glass-spotlight::after,
+.glass-panel.glass-spotlight:hover::after { content: none; }
 
 .glass-panel--hover:hover {
   transform: translateY(-2px);
   box-shadow: var(--glass-specular), var(--glass-shadow-hover);
-  border-color: rgba(232, 99, 122, 0.2);
+  border-color: var(--color-border);
 }
 
 .glass-panel--hover:active {
-  transform: scale(0.99) translateY(0);
+  transform: translateY(0);
 }
 
-/* Lighter glass variant for nested elements */
 .glass-panel--light {
   background: var(--glass-bg-light);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
 
-/* Glass ripple container — for click ripple effects */
+/* Ripple container kept as a plain overflow clip; wave effect neutralized. */
 .glass-ripple {
   position: relative;
   overflow: hidden;
 }
 
 .glass-ripple__wave {
-  position: absolute;
-  border-radius: 50%;
-  background: var(--glass-ripple-color);
-  transform: translate(-50%, -50%) scale(0);
-  animation: liquidRipple var(--transition-ripple) ease-out forwards;
-  pointer-events: none;
-  z-index: 3;
+  display: none;   /* click ripple removed */
 }
 
-/* ============================================
-   Element Plus Glass Overrides
-   ============================================ */
-
-/* Dialog — frosted glass */
-.el-dialog {
-  background: rgba(255, 255, 255, 0.78) !important;
-  backdrop-filter: blur(40px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.4) inset,
-    0 24px 80px rgba(45, 35, 39, 0.15) !important;
-}
-
-.el-dialog::before {
-  content: '' !important;
-  position: absolute !important;
-  inset: 0 !important;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%) !important;
-  pointer-events: none !important;
-  z-index: 1 !important;
-  border-radius: inherit !important;
-}
-
-.el-dialog__header {
-  background: linear-gradient(135deg, rgba(232, 99, 122, 0.08), rgba(240, 163, 92, 0.06)) !important;
-  backdrop-filter: blur(8px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
-  position: relative !important;
-  z-index: 2 !important;
-}
-
-.el-dialog__body {
-  position: relative !important;
-  z-index: 2 !important;
-}
-
-.el-dialog__footer {
-  background: rgba(255, 255, 255, 0.3) !important;
-  backdrop-filter: blur(8px) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
-  position: relative !important;
-  z-index: 2 !important;
-}
-
-/* Drawer — frosted glass */
+/* Dialog / drawer — restrained entrance, no spring bounce */
 .el-drawer {
-  background: rgba(255, 255, 255, 0.78) !important;
-  backdrop-filter: blur(40px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.5) !important;
-  box-shadow: -8px 0 40px rgba(45, 35, 39, 0.1) !important;
+  background: var(--color-bg-secondary) !important;
+  border-left: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-xl) !important;
+  transition: transform var(--transition-base) !important;
 }
 
 .el-drawer__header {
-  background: linear-gradient(135deg, rgba(232, 99, 122, 0.08), rgba(240, 163, 92, 0.06)) !important;
-  backdrop-filter: blur(8px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border-light) !important;
   margin-bottom: 0 !important;
   padding: 20px 24px !important;
+  color: var(--color-text-primary) !important;
 }
 
 .el-drawer__body {
   background: transparent !important;
 }
 
-/* ============================================
-   Dialog & Drawer Spring Animations
-   ============================================ */
-
-/* Dialog spring entrance */
-.el-overlay-dialog {
-  perspective: 800px;
-}
-
-.el-dialog {
-  transform-origin: center center;
-}
-
-.dialog-spring-enter-active .el-dialog,
-.el-overlay-dialog .el-dialog {
-  animation: dialogSpringIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.dialog-spring-leave-active .el-dialog {
-  animation: dialogSpringOut 0.25s cubic-bezier(0.4, 0, 1, 1) both;
-}
-
-@keyframes dialogSpringIn {
-  from {
-    opacity: 0;
-    transform: scale(0.88) translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes dialogSpringOut {
-  from {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.92) translateY(8px);
-  }
-}
-
-/* Drawer spring entrance */
-.el-drawer {
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-
-/* Overlay fade */
-.v-enter-active .el-overlay,
-.v-leave-active .el-overlay {
-  transition: opacity 0.3s ease !important;
-}
-
-/* Message box spring */
-.el-overlay-message-box {
-  perspective: 800px;
+.el-overlay-dialog .el-dialog,
+.dialog-spring-enter-active .el-dialog {
+  animation: scaleIn 0.25s var(--transition-base) both;
 }
 
 .el-message-box {
-  animation: dialogSpringIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: scaleIn 0.25s var(--transition-base) both;
+}
+
+.v-enter-active .el-overlay,
+.v-leave-active .el-overlay {
+  transition: opacity 0.25s ease !important;
 }

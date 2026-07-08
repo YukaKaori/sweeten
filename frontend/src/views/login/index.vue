@@ -1,10 +1,8 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useUserStore } from '@/stores/modules/user'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { User, Lock } from '@element-plus/icons-vue'
-import { useGlassSpotlight, useGlassRipple } from '@/composables/useLiquidGlass'
 
 const loginForm = ref({ username: '', password: '' })
 const router = useRouter()
@@ -32,417 +30,210 @@ const login = async () => {
   }
 }
 
-const clear = () => {
-  loginForm.value = { username: '', password: '' }
-}
-
 const handleKeyup = (e) => {
   if (e.key === 'Enter') login()
 }
-
-// ========== Liquid Glass Effects ==========
-const leftPanelRef = ref(null)
-const formWrapperRef = ref(null)
-const loginBtnRef = ref(null)
-
-// Cursor-follow spotlight on the login form glass card
-useGlassSpotlight(formWrapperRef, { selector: ':self', smoothing: 0.1 })
-
-// Glass ripple on login button
-useGlassRipple(loginBtnRef, { selector: ':self', color: 'rgba(255, 255, 255, 0.4)', maxSize: 300 })
-
-// Parallax floating orbs in left panel
-const orbStyle = ref({})
-let orbRafId = null
-let targetX = 0, targetY = 0, currentX = 0, currentY = 0
-
-const onLeftMove = (e) => {
-  if (!leftPanelRef.value) return
-  const rect = leftPanelRef.value.getBoundingClientRect()
-  targetX = (e.clientX - rect.left) / rect.width - 0.5
-  targetY = (e.clientY - rect.top) / rect.height - 0.5
-  if (!orbRafId) {
-    orbRafId = requestAnimationFrame(animateLoginOrbs)
-  }
-}
-
-const onLeftLeave = () => {
-  targetX = 0
-  targetY = 0
-}
-
-const animateLoginOrbs = () => {
-  currentX += (targetX - currentX) * 0.04
-  currentY += (targetY - currentY) * 0.04
-
-  if (Math.abs(targetX - currentX) < 0.0005 && Math.abs(targetY - currentY) < 0.0005 && targetX === 0 && targetY === 0) {
-    orbRafId = null
-    return
-  }
-
-  orbStyle.value = {
-    '--orb-offset-x': currentX * 60 + 'px',
-    '--orb-offset-y': currentY * 40 + 'px',
-  }
-  orbRafId = requestAnimationFrame(animateLoginOrbs)
-}
-
-onMounted(() => {
-  if (leftPanelRef.value) {
-    leftPanelRef.value.addEventListener('mousemove', onLeftMove, { passive: true })
-    leftPanelRef.value.addEventListener('mouseleave', onLeftLeave)
-  }
-})
-
-onUnmounted(() => {
-  if (orbRafId) cancelAnimationFrame(orbRafId)
-  if (leftPanelRef.value) {
-    leftPanelRef.value.removeEventListener('mousemove', onLeftMove)
-    leftPanelRef.value.removeEventListener('mouseleave', onLeftLeave)
-  }
-})
 </script>
 
 <template>
   <div class="login-page">
-    <!-- Left decorative panel -->
-    <div ref="leftPanelRef" class="login-left">
-      <div class="left-content">
-        <div class="brand-area">
-          <div class="brand-icon">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="24" r="22" stroke="white" stroke-width="2" fill="rgba(255,255,255,0.1)"/>
-              <path d="M16 28c0-6 4-12 8-12s8 6 8 12" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
-              <path d="M12 28h24" stroke="white" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.6)"/>
-              <circle cx="28" cy="18" r="1.5" fill="rgba(255,255,255,0.4)"/>
-              <circle cx="24" cy="15" r="1" fill="rgba(255,255,255,0.5)"/>
-            </svg>
-          </div>
-          <h1 class="brand-title">DessertShop</h1>
-          <p class="brand-subtitle">甜品管理系统</p>
-        </div>
-        <div class="features">
-          <div class="feature-item">
-            <div class="feature-dot"></div>
-            <span>高效管理甜品订单与库存</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-dot"></div>
-            <span>实时数据统计与分析</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-dot"></div>
-            <span>员工与部门协同管理</span>
-          </div>
+    <div class="login-card">
+      <div class="brand" style="--i: 0">
+        <div class="brand-mark">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <path d="M9 20c0-5 3-10 7-10s7 5 7 10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" fill="none"/>
+            <path d="M6 20h20" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            <circle cx="16" cy="7.5" r="1.4" fill="currentColor"/>
+          </svg>
         </div>
       </div>
-      <!-- Floating decorative elements -->
-      <div class="float-circle c1" :style="orbStyle"></div>
-      <div class="float-circle c2" :style="orbStyle"></div>
-      <div class="float-circle c3" :style="orbStyle"></div>
-      <div class="float-circle c4" :style="orbStyle"></div>
-    </div>
 
-    <!-- Right login form -->
-    <div class="login-right">
-      <div ref="formWrapperRef" class="login-form-wrapper glass-panel glass-spotlight">
-        <div class="form-header">
-          <h2>欢迎回来</h2>
-          <p>请登录您的账户以继续</p>
-        </div>
-        <el-form :model="loginForm" class="login-form" @keyup="handleKeyup">
-          <el-form-item>
-            <el-input
-              v-model="loginForm.username"
-              placeholder="请输入用户名"
-              size="large"
-              :prefix-icon="User"
-              clearable
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-input
-              type="password"
-              v-model="loginForm.password"
-              placeholder="请输入密码"
-              size="large"
-              :prefix-icon="Lock"
-              show-password
-              clearable
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-button
-              ref="loginBtnRef"
-              class="login-btn glass-ripple"
-              type="primary"
-              size="large"
-              :loading="loading"
-              @click="login"
-            >
-              {{ loading ? '登录中...' : '登 录' }}
-            </el-button>
-          </el-form-item>
-          <el-form-item>
-            <el-button
-              class="reset-btn"
-              size="large"
-              @click="clear"
-            >
-              重 置
-            </el-button>
-          </el-form-item>
-        </el-form>
-        <div class="form-footer">
-          <span class="footer-text">DessertShop Management System</span>
-        </div>
+      <div class="head" style="--i: 1">
+        <h1>DessertShop</h1>
+        <p>登录以进入管理后台</p>
       </div>
+
+      <el-form :model="loginForm" class="login-form" @keyup="handleKeyup">
+        <div class="field" style="--i: 2">
+          <label>账户</label>
+          <el-input
+            v-model="loginForm.username"
+            placeholder="用户名"
+            size="large"
+          />
+        </div>
+        <div class="field" style="--i: 3">
+          <label>密码</label>
+          <el-input
+            type="password"
+            v-model="loginForm.password"
+            placeholder="密码"
+            size="large"
+            show-password
+          />
+        </div>
+        <el-button
+          class="login-btn"
+          style="--i: 4"
+          type="primary"
+          size="large"
+          :loading="loading"
+          @click="login"
+        >
+          {{ loading ? '登录中…' : '登录' }}
+        </el-button>
+      </el-form>
+
+      <p class="foot" style="--i: 5">DessertShop Management System</p>
     </div>
   </div>
 </template>
 
 <style scoped>
 .login-page {
-  display: flex;
   min-height: 100vh;
-  overflow: hidden;
-}
-
-/* ---- Left Panel ---- */
-.login-left {
-  flex: 1;
-  background: linear-gradient(135deg, #e8637a 0%, #c94d63 40%, #a33d52 70%, #7d2f40 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  overflow: hidden;
-  padding: 48px;
+  padding: 24px;
+  /* Calm neutral depth — no color, barely a gradient */
+  background:
+    radial-gradient(120% 80% at 50% -10%, #fbfbfd 0%, var(--color-bg-primary) 55%);
 }
 
-.left-content {
-  position: relative;
-  z-index: 2;
-  color: white;
-  animation: fadeInUp 0.8s ease forwards;
-}
-
-.brand-area {
-  margin-bottom: 48px;
-}
-
-.brand-icon {
-  margin-bottom: 20px;
-}
-
-.brand-title {
-  font-family: var(--font-display);
-  font-size: 42px;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 8px;
-  letter-spacing: -0.02em;
-}
-
-.brand-subtitle {
-  font-size: 16px;
-  opacity: 0.85;
-  font-weight: 300;
-  letter-spacing: 0.1em;
-}
-
-.features {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 15px;
-  opacity: 0.9;
-  font-weight: 400;
-}
-
-.feature-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.6);
-  flex-shrink: 0;
-}
-
-/* Floating circles — with parallax cursor follow */
-.float-circle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  animation: float 6s ease-in-out infinite;
-  /* Parallax via CSS vars from JS */
-  transform: translate(var(--orb-offset-x, 0px), var(--orb-offset-y, 0px));
-  transition: transform 0.5s ease-out;
-  will-change: transform;
-}
-
-.c1 {
-  width: 200px;
-  height: 200px;
-  top: -50px;
-  right: -60px;
-  animation-delay: 0s;
-}
-
-.c2 {
-  width: 120px;
-  height: 120px;
-  bottom: 10%;
-  left: -30px;
-  animation-delay: 1.5s;
-}
-
-.c3 {
-  width: 80px;
-  height: 80px;
-  top: 30%;
-  right: 15%;
-  background: rgba(255, 255, 255, 0.04);
-  animation-delay: 3s;
-}
-
-.c4 {
-  width: 160px;
-  height: 160px;
-  bottom: -40px;
-  right: 20%;
-  animation-delay: 2s;
-}
-
-/* ---- Right Panel ---- */
-.login-right {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-primary);
-  padding: 48px;
-}
-
-.login-form-wrapper {
+.login-card {
   width: 100%;
-  max-width: 380px;
-  animation: fadeInUp 0.6s ease 0.2s forwards;
+  max-width: 400px;
+  padding: 56px 48px 40px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 22px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---- Staggered entrance — restrained fade-up ---- */
+.brand,
+.head,
+.field,
+.login-btn,
+.foot {
   opacity: 0;
-  padding: 40px 36px;
-  border-radius: var(--radius-xl);
-  /* glass-panel provides the glass background */
+  transform: translateY(10px);
+  animation: fadeInUp 0.55s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+  animation-delay: calc(var(--i) * 0.07s + 0.05s);
 }
 
-.form-header {
-  margin-bottom: 40px;
+/* ---- Brand mark ---- */
+.brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
 }
 
-.form-header h2 {
-  font-size: 28px;
-  font-weight: 700;
+.brand-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  background: var(--color-primary-lighter);
+}
+
+/* ---- Heading ---- */
+.head {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.head h1 {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.form-header p {
+.head p {
   font-size: 15px;
   color: var(--color-text-muted);
+  letter-spacing: -0.01em;
+}
+
+/* ---- Fields ---- */
+.field {
+  margin-bottom: 18px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
 }
 
 .login-form :deep(.el-input__wrapper) {
   border-radius: var(--radius-md) !important;
   box-shadow: 0 0 0 1px var(--color-border) inset !important;
-  padding: 4px 12px;
   background: var(--color-bg-secondary);
-  transition: all var(--transition-base);
+  padding: 6px 14px;
+  transition: box-shadow var(--transition-fast);
 }
 
 .login-form :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px var(--color-primary-light) inset !important;
+  box-shadow: 0 0 0 1px var(--color-text-muted) inset !important;
 }
 
 .login-form :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px var(--color-primary) inset, var(--shadow-glow) !important;
+  box-shadow: 0 0 0 2px var(--color-primary) inset !important;
 }
 
 .login-form :deep(.el-input__inner) {
   font-size: 15px;
-  height: 24px;
+  height: 26px;
 }
 
-.login-form :deep(.el-input__prefix) {
-  color: var(--color-text-muted);
-}
-
-.login-form :deep(.el-form-item) {
-  margin-bottom: 24px;
-}
-
+/* ---- Primary action ---- */
 .login-btn {
   width: 100%;
   height: 48px;
+  margin-top: 12px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   border-radius: var(--radius-md) !important;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)) !important;
+  background: var(--color-primary) !important;
   border: none !important;
-  box-shadow: 0 4px 16px rgba(232, 99, 122, 0.3) !important;
-  transition: all var(--transition-base) !important;
-  letter-spacing: 0.1em;
-  position: relative;
-  overflow: hidden;
+  box-shadow: none !important;
+  transition: background-color var(--transition-fast), transform var(--transition-fast) !important;
 }
 
 .login-btn:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 24px rgba(232, 99, 122, 0.4) !important;
+  background: var(--color-primary-dark) !important;
 }
 
 .login-btn:active {
-  transform: translateY(0) !important;
+  transform: scale(0.99);
 }
 
-.reset-btn {
-  width: 100%;
-  height: 48px;
-  font-size: 15px;
-  border-radius: var(--radius-md) !important;
-  background: transparent !important;
-  border: 1px solid var(--color-border) !important;
-  color: var(--color-text-secondary) !important;
-}
-
-.reset-btn:hover {
-  border-color: var(--color-primary-light) !important;
-  color: var(--color-primary) !important;
-}
-
-.form-footer {
-  margin-top: 48px;
+/* ---- Footer ---- */
+.foot {
+  margin-top: 32px;
   text-align: center;
-}
-
-.footer-text {
   font-size: 12px;
   color: var(--color-text-muted);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.01em;
 }
 
-/* ---- Responsive ---- */
-@media (max-width: 768px) {
-  .login-left {
-    display: none;
-  }
-
-  .login-right {
-    padding: 24px;
+@media (max-width: 480px) {
+  .login-card {
+    padding: 44px 28px 32px;
+    border: none;
+    box-shadow: none;
+    background: transparent;
   }
 }
 </style>
