@@ -792,27 +792,27 @@ const updateOrderStatus = async (order, newStatus) => {
   font-size: 12px;
 }
 
-/* Dark mode kanban adjustments */
-:global([data-theme="dark"]) .kanban-column {
-  background: rgba(37, 28, 32, 0.45);
+/* Dark mode kanban adjustments（整选择器入 :global，避免描述符被丢弃失效） */
+:global([data-theme="dark"] .kanban-column) {
+  background: rgba(48, 41, 54, 0.45);
   border-color: rgba(255, 255, 255, 0.06);
 }
 
-:global([data-theme="dark"]) .kanban-card {
-  background: rgba(37, 28, 32, 0.65);
+:global([data-theme="dark"] .kanban-card) {
+  background: rgba(48, 41, 54, 0.6);
   border-color: rgba(255, 255, 255, 0.08);
-
-  &:hover {
-    background: rgba(37, 28, 32, 0.85);
-    border-color: rgba(240, 140, 158, 0.2);
-  }
 }
 
-:global([data-theme="dark"]) .kanban-column__header {
+:global([data-theme="dark"] .kanban-card:hover) {
+  background: rgba(48, 41, 54, 0.82);
+  border-color: rgba(240, 140, 158, 0.2);
+}
+
+:global([data-theme="dark"] .kanban-column__header) {
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
-:global([data-theme="dark"]) .kanban-card__actions {
+:global([data-theme="dark"] .kanban-card__actions) {
   border-top-color: rgba(255, 255, 255, 0.06);
 }
 </style>

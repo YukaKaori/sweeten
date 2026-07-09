@@ -36,7 +36,7 @@ import {
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const { theme, toggleTheme, preset, presets, setPreset } = useTheme()
+const { theme, toggleTheme } = useTheme()
 const isCollapsed = ref(false)
 
 // ========== 移动端响应式 ==========
@@ -93,7 +93,7 @@ const headerOpacity = computed(() => {
 
 const headerBg = computed(() => {
   const isDark = theme.value === 'dark'
-  const base = isDark ? '37, 28, 32' : '255, 255, 255'
+  const base = isDark ? '48, 41, 54' : '255, 255, 255'
   return `rgba(${base}, ${headerOpacity.value})`
 })
 
@@ -421,30 +421,16 @@ const submitPassword = async () => {
           <Breadcrumb />
         </div>
         <div class="header-right">
-          <!-- 主题选择器 -->
+          <!-- 外观切换（浅色 / 深色） -->
           <div class="theme-switcher" @click.stop="themeSwitcherOpen = !themeSwitcherOpen">
-            <div class="theme-switcher__trigger" :title="'主题：' + presets[preset].name">
-              <span class="theme-switcher__emoji">{{ presets[preset].icon }}</span>
+            <div class="theme-switcher__trigger" :title="theme === 'dark' ? '深色模式' : '浅色模式'">
+              <el-icon :size="18">
+                <Moon v-if="theme === 'dark'" />
+                <Sunny v-else />
+              </el-icon>
             </div>
             <transition name="fade">
               <div v-if="themeSwitcherOpen" class="theme-switcher__dropdown glass-panel">
-                <div class="theme-switcher__section">
-                  <span class="theme-switcher__label">配色方案</span>
-                  <div class="theme-swatches">
-                    <button
-                      v-for="(p, key) in presets"
-                      :key="key"
-                      class="theme-swatch"
-                      :class="{ active: preset === key }"
-                      :title="p.name"
-                      @click.stop="setPreset(key)"
-                    >
-                      <span class="theme-swatch__emoji">{{ p.icon }}</span>
-                      <span class="theme-swatch__name">{{ p.name }}</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="theme-switcher__divider"></div>
                 <div class="theme-switcher__section">
                   <span class="theme-switcher__label">外观模式</span>
                   <button
@@ -1241,8 +1227,8 @@ const submitPassword = async () => {
   }
 
   /* 移动端暗色模式侧边栏 */
-  :global([data-theme="dark"]) .sidebar {
-    background: rgba(24, 18, 21, 0.92);
+  :global([data-theme="dark"] .sidebar) {
+    background: rgba(48, 41, 54, 0.92);
     backdrop-filter: blur(48px) saturate(160%);
     -webkit-backdrop-filter: blur(48px) saturate(160%);
     box-shadow: 8px 0 40px rgba(0, 0, 0, 0.25);
@@ -1269,9 +1255,9 @@ const submitPassword = async () => {
 }
 
 /* ---- Dark Mode Overrides ---- */
-:global([data-theme="dark"]) .sidebar {
-  /* Dark frosted glass for dark mode */
-  background: rgba(24, 18, 21, 0.78);
+:global([data-theme="dark"] .sidebar) {
+  /* Dark frosted glass — 暖可可紫，与提亮后的暗底和谐（不再近黑） */
+  background: rgba(48, 41, 54, 0.72);
   backdrop-filter: blur(40px) saturate(160%);
   -webkit-backdrop-filter: blur(40px) saturate(160%);
   border-right-color: rgba(255, 255, 255, 0.05);
@@ -1279,79 +1265,90 @@ const submitPassword = async () => {
     inset -8px 0 24px rgba(0, 0, 0, 0.15),
     1px 0 0 rgba(0, 0, 0, 0.2);
 
-  &::before {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(240, 140, 158, 0.1) 30%,
-      rgba(240, 140, 158, 0.18) 50%,
-      rgba(240, 140, 158, 0.1) 70%,
-      transparent 100%
-    );
-  }
-
-  &::after {
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      transparent 30%,
-      transparent 100%
-    );
-  }
-
   /* Dark mode nav text */
   --nav-active-color: rgba(0, 0, 0, 0.8);
 }
 
-:global([data-theme="dark"]) .logo-title {
+/* 伪元素必须与 :global 同层展开，不能用 & 嵌套（否则退化失效） */
+:global([data-theme="dark"] .sidebar::before) {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(240, 140, 158, 0.1) 30%,
+    rgba(240, 140, 158, 0.18) 50%,
+    rgba(240, 140, 158, 0.1) 70%,
+    transparent 100%
+  );
+}
+
+:global([data-theme="dark"] .sidebar::after) {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    transparent 30%,
+    transparent 100%
+  );
+}
+
+:global([data-theme="dark"] .logo-title) {
   color: #f0ebe8;
 }
 
-:global([data-theme="dark"]) .logo-sub {
+:global([data-theme="dark"] .logo-sub) {
   color: var(--color-primary-light);
 }
 
-:global([data-theme="dark"]) .nav-group-title {
-  color: rgba(255, 255, 255, 0.3);
+/* 注意：必须把整个选择器放进 :global(...)。
+   写成 :global([data-theme="dark"]) .nav-item 时，Vue 会丢掉 .nav-item，
+   规则退化成 [data-theme=dark]{...} 只作用到 <html>，导致设置无效。 */
+:global([data-theme="dark"] .nav-group-title) {
+  /* 分组标题：暗淡亮金 */
+  color: rgba(255, 206, 90, 0.55);
 }
 
-:global([data-theme="dark"]) .nav-item {
-  color: rgba(255, 255, 255, 0.55);
+:global([data-theme="dark"] .nav-item) {
+  /* 导航字体：亮金（图标随 currentColor 一并变金） */
+  color: var(--gold) !important;
 }
 
-:global([data-theme="dark"]) .nav-item:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.06) !important;
+:global([data-theme="dark"] .nav-item:hover) {
+  color: var(--gold-strong) !important;
+  background: rgba(255, 206, 90, 0.12) !important;
 }
 
-:global([data-theme="dark"]) .logout-btn {
+/* 选中项在亮白药丸上仍保持深色字，保证可读（不变金） */
+:global([data-theme="dark"] .nav-item.active) {
+  color: var(--nav-active-color, rgba(0, 0, 0, 0.8)) !important;
+}
+
+:global([data-theme="dark"] .logout-btn) {
   color: rgba(255, 255, 255, 0.35);
 }
 
-:global([data-theme="dark"]) .logout-btn:hover {
+:global([data-theme="dark"] .logout-btn:hover) {
   color: #ef6b6b;
   background: rgba(239, 107, 107, 0.1) !important;
 }
 
-:global([data-theme="dark"]) .collapse-btn {
+:global([data-theme="dark"] .collapse-btn) {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.45);
 }
 
-:global([data-theme="dark"]) .collapse-btn:hover {
+:global([data-theme="dark"] .collapse-btn:hover) {
   background: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.9);
 }
 
-:global([data-theme="dark"]) .sidebar-header {
+:global([data-theme="dark"] .sidebar-header) {
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
-:global([data-theme="dark"]) .sidebar-footer {
+:global([data-theme="dark"] .sidebar-footer) {
   border-top-color: rgba(255, 255, 255, 0.06);
 }
 
-:global([data-theme="dark"]) .glass-pill-inner {
+:global([data-theme="dark"] .glass-pill-inner) {
   border-color: rgba(255, 255, 255, 0.15);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
@@ -1360,16 +1357,16 @@ const submitPassword = async () => {
     0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-:global([data-theme="dark"]) .sidebar-nav::-webkit-scrollbar-thumb {
+:global([data-theme="dark"] .sidebar-nav::-webkit-scrollbar-thumb) {
   background: rgba(255, 255, 255, 0.08);
 }
 
-:global([data-theme="dark"]) .header {
+:global([data-theme="dark"] .header) {
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
-:global([data-theme="dark"]) .notification-dot {
-  border-color: rgba(37, 28, 32, 0.8);
+:global([data-theme="dark"] .notification-dot) {
+  border-color: rgba(48, 41, 54, 0.9);
 }
 
 /* ---- Theme Switcher ---- */
@@ -1524,19 +1521,19 @@ const submitPassword = async () => {
 }
 
 /* Dark mode adjustments for theme switcher dropdown */
-:global([data-theme="dark"]) .theme-switcher__dropdown {
-  background: rgba(37, 28, 32, 0.9);
+:global([data-theme="dark"] .theme-switcher__dropdown) {
+  background: rgba(48, 41, 54, 0.92);
   border-color: rgba(255, 255, 255, 0.1);
-
-  &::before {
-    background: rgba(37, 28, 32, 0.9);
-    border-color: rgba(255, 255, 255, 0.1);
-    border-right: none;
-    border-bottom: none;
-  }
 }
 
-:global([data-theme="dark"]) .theme-switcher__trigger:hover {
+:global([data-theme="dark"] .theme-switcher__dropdown::before) {
+  background: rgba(48, 41, 54, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-right: none;
+  border-bottom: none;
+}
+
+:global([data-theme="dark"] .theme-switcher__trigger:hover) {
   background: rgba(255, 255, 255, 0.08);
 }
 </style>

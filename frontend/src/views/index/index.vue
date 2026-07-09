@@ -9,12 +9,35 @@ import { useUserStore } from '@/stores/modules/user'
 import { useDashboard } from '@/composables/useDashboard'
 import { useGlassSpotlight, useMagneticTilt, useGlassRipple } from '@/composables/useLiquidGlass'
 import { useScrollReveal } from '@/composables/useScrollReveal'
+import { useMotionPref } from '@/composables/useMotionPref'
 import CountUp from '@/components/CountUp.vue'
 import FloatingParticles from '@/components/FloatingParticles.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const userName = ref(userStore.username || '主厨')
+
+// 动效降级信号：static 档（reduced-motion / 低端）→ 入场瞬时到位
+const { allowMotion } = useMotionPref()
+
+/**
+ * KPI 卡 v-motion 变体：弹簧 + 逐级 stagger 升起。
+ * static 档返回"瞬时到位"变体，尊重 prefers-reduced-motion。
+ */
+const kpiMotion = (index) => {
+  if (!allowMotion.value) {
+    return { initial: { opacity: 1, y: 0 }, enter: { opacity: 1, y: 0 } }
+  }
+  return {
+    initial: { opacity: 0, y: 26, scale: 0.98 },
+    enter: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { type: 'spring', stiffness: 240, damping: 20, delay: 120 + index * 90 },
+    },
+  }
+}
 
 const {
   loading: dashboardLoading,
@@ -25,13 +48,28 @@ const {
   handleReorder, sendCompensation: sendCompensationCoupon,
 } = useDashboard()
 
+// 图表：IntersectionObserver 触发入场，每个只初始化一次（滚入视口才播放"生长"动画）
+let chartObserver = null
 onMounted(() => {
   nextTick(() => {
-    initChart()
-    initRoseChart()
-    initHeatmapChart()
     loadData()
+    chartObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return
+        const el = entry.target
+        if (el === chartRef.value) initChart()
+        else if (el === roseChartRef.value) initRoseChart()
+        else if (el === heatmapChartRef.value) initHeatmapChart()
+        chartObserver.unobserve(el)
+      })
+    }, { threshold: 0.15 })
+    ;[chartRef.value, roseChartRef.value, heatmapChartRef.value]
+      .forEach((el) => el && chartObserver.observe(el))
   })
+})
+
+onUnmounted(() => {
+  chartObserver?.disconnect()
 })
 
 /* ==================== 智能问候引擎 ==================== */
@@ -165,9 +203,10 @@ onUnmounted(() => {
       <div
         v-for="(card, index) in statsCards"
         :key="card.title"
-        class="metric-stripe-card glass-panel magnetic-hover"
-        :style="{ animationDelay: `${(index + 1) * 0.05}s` }"
+        v-motion="kpiMotion(index)"
+        class="metric-stripe-motion"
       >
+       <div class="metric-stripe-card glass-panel magnetic-hover">
         <div class="metric-stripe-card__top">
           <div class="metric-stripe-card__meta">
             <span class="metric-stripe-card__title">{{ card.title }}</span>
@@ -181,7 +220,7 @@ onUnmounted(() => {
 
         <div class="metric-stripe-card__middle">
           <span class="metric-stripe-card__value">
-            <CountUp :value="card.value" :prefix="card.prefix" :suffix="card.suffix" :decimals="card.decimals || 0" />
+            <CountUp odometer :value="card.value" :prefix="card.prefix" :suffix="card.suffix" :decimals="card.decimals || 0" />
           </span>
           <div class="metric-stripe-card__icon-wrapper" :style="{ background: card.iconBg }">
             <el-icon :size="20" :style="{ color: card.iconColor }">
@@ -199,6 +238,7 @@ onUnmounted(() => {
           </div>
           <span class="metric-stripe-card__target-label">达成率 {{ card.progress }}%</span>
         </div>
+       </div>
       </div>
     </section>
 
@@ -547,10 +587,10 @@ onUnmounted(() => {
 .dolce-dashboard-wrapper {
   --color-text-chocolate: var(--color-text-primary);
   --color-primary-raspberry: var(--color-primary);
-  --color-primary-raspberry-glow: rgba(232, 99, 122, 0.18);
+  --color-primary-raspberry-glow: rgba(var(--rose-rgb), 0.18);
   --color-accent-amber: var(--color-accent);
-  --color-accent-amber-glow: rgba(240, 163, 92, 0.15);
-  --color-accent-mint: #5cb88a;
+  --color-accent-amber-glow: rgba(var(--amber-rgb), 0.15);
+  --color-accent-mint: var(--matcha);
 
   width: 100%;
   max-width: 1360px;
@@ -708,9 +748,11 @@ onUnmounted(() => {
   @media (max-width: 640px) { grid-template-columns: 1fr; }
 }
 
+/* v-motion 包裹层：作为 grid 单元，卡片填满；入场由 v-motion 弹簧驱动 */
+.metric-stripe-motion { display: grid; }
+
 .metric-stripe-card {
   padding: 24px; display: flex; flex-direction: column;
-  animation: cardEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   transform-style: preserve-3d;
   perspective: 800px;
   will-change: transform;
@@ -1196,5 +1238,62 @@ onUnmounted(() => {
   .micro-kpi-card__divider { width: 100%; height: 1px; }
   .campaign-item-card .campaign-metrics-row { grid-template-columns: 1fr 1fr 1fr; }
   .metric-stripe-card { padding: 16px; &__value { font-size: 22px; } }
+}
+
+/* ==========================================================================
+   深色模式表面修复
+   浅色版把大量子卡片硬编码成 rgba(255,255,255,α)「牛奶白」、分隔线用深墨
+   rgba(45,35,39,α)。深色下前者刺眼、后者隐形 → 这里统一改暖玻璃 + 反相描边。
+   ========================================================================== */
+:global([data-theme='dark']) {
+  /* 玻璃子卡片：牛奶白 → 暖玻璃 */
+  .aurora-banner__micro-kpis,
+  .chart-canvas-container,
+  .campaign-item-card,
+  .campaign-item-card .campaign-metrics-row,
+  .action-dock-card,
+  .bento-alert-pill,
+  .bento-review-bubble,
+  .orderflow-item {
+    background: rgba(255, 255, 255, 0.045);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  /* hover 抬升时略提亮 */
+  .action-dock-card:hover { background: rgba(255, 255, 255, 0.09); }
+  .bento-review-bubble:hover { background: rgba(255, 255, 255, 0.08); }
+  .orderflow-item:hover { background: rgba(255, 255, 255, 0.08); }
+
+  /* 分隔线 / 进度轨道 / 虚线：深墨在暗底不可见 → 反相为浅 */
+  .micro-kpi-card__divider,
+  .metric-stripe-card__progress-container,
+  .campaign-progress-track,
+  .bento-rank-item__progress-rail,
+  .bento-alert-pill__countdown-line {
+    background: rgba(255, 255, 255, 0.10);
+  }
+  .bento-rank-item { border-bottom-color: rgba(255, 255, 255, 0.07); }
+  .bento-review-bubble__actions-row { border-top-color: rgba(255, 255, 255, 0.07); }
+  .chart-legend-stripe { border-top-color: rgba(255, 255, 255, 0.08); }
+
+  /* 浅墨底控件 → 浅玻璃底 */
+  .linear-segmented-control { background: rgba(255, 255, 255, 0.06) !important; }
+  .bento-rank-item__position { background: rgba(255, 255, 255, 0.06); }
+  .reorder-action-btn { background: rgba(255, 255, 255, 0.08) !important; }
+  .linear-segmented-control .el-radio-button__original-radio:checked + .el-radio-button__inner {
+    background: rgba(255, 255, 255, 0.14) !important;
+    color: var(--color-text-primary) !important;
+  }
+
+  /* 实时订单流首行高亮：浅色 → 玫瑰微光 */
+  .orderflow-item:first-child {
+    background: rgba(var(--rose-rgb), 0.14);
+    border-left-color: var(--color-primary);
+  }
+
+  /* metric 卡的扫光高光在暗底过白 → 收敛 */
+  .metric-stripe-card::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  }
 }
 </style>

@@ -1,44 +1,75 @@
 /* ============================================
    DessertShop Design System
-   Apple-grade neutral minimalism
-   — restraint · precision · whitespace · calm
+   「奶油玻璃 Cream Glass」— 暖色 · 甜美 · 通透
+   品牌人格恢复版（SHOWCASE 第一波）
+   —— 单一色彩来源：本文件的 --rose/--amber/... 令牌
+      JS / Canvas / ECharts 通过 utils/brandTokens.js 读取，杜绝脑裂
    ============================================ */
 
 :root {
-  /* Single functional accent — used ONLY for interactive/selected states */
-  --color-primary: #0071e3;         /* Apple blue */
-  --color-primary-light: #3a91ea;
-  --color-primary-lighter: #e8f2fd; /* faint tint for selected backgrounds */
-  --color-primary-dark: #0058b8;
+  /* ── 品牌原色（RGB 三元组，供 rgb()/rgba() 与 JS 复用） ── */
+  --rose-rgb: 232, 99, 122;         /* 草莓 · 主强调 */
+  --amber-rgb: 240, 163, 92;        /* 焦糖 · 次强调 */
+  --matcha-rgb: 92, 184, 138;       /* 抹茶 · 成功/利润 */
+  --blueberry-rgb: 107, 140, 206;   /* 蓝莓 · 信息 */
+  --violet-rgb: 167, 139, 250;      /* 紫罗兰 · 点缀 */
+  --ink-rgb: 45, 35, 39;            /* 可可墨 · 文字底色 */
 
-  /* Accent kept as an alias of primary — one accent, no second brand color */
-  --color-accent: #0071e3;
-  --color-accent-light: #e8f2fd;
+  --rose: rgb(var(--rose-rgb));
+  --amber: rgb(var(--amber-rgb));
+  --matcha: rgb(var(--matcha-rgb));
+  --blueberry: rgb(var(--blueberry-rgb));
+  --violet: rgb(var(--violet-rgb));
+  --ink: rgb(var(--ink-rgb));
 
-  /* Neutrals — Apple gray scale */
-  --color-text-primary: #1d1d1f;    /* near-black, never pure #000 */
-  --color-text-secondary: #6e6e73;
-  --color-text-muted: #86868b;
+  /* ── 主强调（草莓玫瑰）── */
+  --color-primary: var(--rose);
+  --color-primary-light: #ef8296;
+  --color-primary-lighter: rgba(var(--rose-rgb), 0.10); /* 选中/hover 的淡色底 */
+  --color-primary-dark: #d94f68;
+
+  /* ── 次强调（焦糖琥珀）—— 真正的第二品牌色，不再是 primary 的别名 ── */
+  --color-accent: var(--amber);
+  --color-accent-light: rgba(var(--amber-rgb), 0.12);
+
+  /* ── 文字（可可墨暖灰阶）── */
+  --color-text-primary: var(--ink);      /* 可可墨，非纯黑 */
+  --color-text-secondary: #6f6169;
+  --color-text-muted: #a3949b;
   --color-text-inverse: #ffffff;
 
-  /* Backgrounds — gray page, white surfaces */
-  --color-bg-primary: #f5f5f7;      /* page background — Apple's signature light gray */
-  --color-bg-secondary: #ffffff;    /* cards / surfaces */
-  --color-bg-tertiary: #f5f5f7;     /* subtle fills, hover */
-  --color-bg-sidebar: #ffffff;
-  --color-bg-sidebar-hover: #f5f5f7;
+  /* ── 背景（奶油底 + 暖白卡面）── */
+  --bg-canvas: #fdf7f2;             /* 语义别名：页面奶油底 */
+  --color-bg-primary: #fdf7f2;      /* 奶油底 */
+  --color-bg-secondary: #fffdfb;    /* 卡片 / 表面（暖白） */
+  --color-bg-tertiary: #f7efe9;     /* 轻微填充 / hover */
+  --color-bg-sidebar: #fffdfb;
+  --color-bg-sidebar-hover: #f7efe9;
 
-  /* Borders — hairline, always low-contrast */
-  --color-border: #d2d2d7;
-  --color-border-light: #e8e8ed;
+  /* ── 边框（暖色发丝线）── */
+  --color-border: #ede2da;
+  --color-border-light: #f3ebe4;
 
-  /* Shadows — neutral, minimal, no color */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.10);
-  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.14);
-  --shadow-glow: 0 0 0 transparent;  /* glow removed — kept as no-op for legacy refs */
+  /* ── 阴影（极轻暖调，非纯黑）── */
+  --shadow-xs: 0 1px 2px rgba(var(--ink-rgb), 0.04);
+  --shadow-sm: 0 1px 3px rgba(var(--ink-rgb), 0.06);
+  --shadow-md: 0 4px 16px rgba(var(--ink-rgb), 0.08);
+  --shadow-lg: 0 8px 30px rgba(var(--ink-rgb), 0.10);
+  --shadow-xl: 0 20px 50px rgba(var(--ink-rgb), 0.14);
+  --shadow-glow: 0 0 0 transparent;  /* legacy no-op；品牌辉光见 --glow-* */
+
+  /* ── Mesh 渐变（登录页 / Hero 背景三点网格：玫瑰↖ 琥珀↗ 抹茶↙）── */
+  --mesh-1: rgba(var(--rose-rgb), 0.55);     /* 左上 · 草莓 */
+  --mesh-2: rgba(var(--amber-rgb), 0.45);    /* 右上 · 焦糖 */
+  --mesh-3: rgba(var(--matcha-rgb), 0.32);   /* 左下 · 抹茶 */
+  --mesh-base: #fdf7f2;                        /* 网格底色（奶油） */
+  --mesh-noise-opacity: 0.05;                  /* 颗粒噪声强度 */
+
+  /* ── 品牌辉光（本波保守，第二波精修）── */
+  --glow-brand: 0 0 0 transparent;                    /* 默认关闭，交互态再点亮 */
+  --glow-sm: 0 4px 14px rgba(var(--rose-rgb), 0.14);
+  --glow-md: 0 8px 28px rgba(var(--rose-rgb), 0.18);
+  --glow-amber: 0 6px 20px rgba(var(--amber-rgb), 0.16);
 
   /* Radius — collapsed to control / card family */
   --radius-sm: 6px;
@@ -71,72 +102,116 @@
   --z-modal: 400;
   --z-toast: 500;
 
-  /* Material tokens (frosted panels) — neutral, no tint / sheen / colored glow.
+  /* Material tokens (frosted panels) — 暖白磨砂玻璃。
      Names preserved so existing .glass-panel usages keep working. */
-  --glass-bg: rgba(255, 255, 255, 0.80);
-  --glass-bg-light: rgba(255, 255, 255, 0.60);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
-  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-  --glass-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --glass-bg: rgba(255, 253, 251, 0.78);
+  --glass-bg-light: rgba(255, 253, 251, 0.58);
+  --glass-border: rgba(var(--ink-rgb), 0.07);
+  --glass-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 4px 24px rgba(var(--ink-rgb), 0.07);
+  --glass-shadow-hover: 0 8px 30px rgba(var(--ink-rgb), 0.11);
   --glass-blur: blur(20px) saturate(180%);
   --transition-spring: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* Legacy interactive tokens — neutralized (no magnetism / ripple / edge glow) */
+  /* Legacy interactive tokens — 第二波（复活 useLiquidGlass）再点亮，本波保持中性 */
   --glass-highlight: rgba(255, 255, 255, 0.5);
   --glass-edge-glow: transparent;
-  --glass-ripple-color: rgba(0, 0, 0, 0.04);
+  --glass-ripple-color: rgba(var(--rose-rgb), 0.05);
   --transition-magnetic: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-ripple: 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-  --depth-1: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --depth-2: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --depth-3: 0 20px 50px rgba(0, 0, 0, 0.14);
+  --depth-1: 0 1px 3px rgba(var(--ink-rgb), 0.06);
+  --depth-2: 0 4px 16px rgba(var(--ink-rgb), 0.08);
+  --depth-3: 0 20px 50px rgba(var(--ink-rgb), 0.14);
+
+  /* ── Element Plus 桥接：让组件库跟随品牌令牌 ── */
+  --el-color-primary: var(--rose);
+  --el-color-primary-light-3: rgba(var(--rose-rgb), 0.55);
+  --el-color-primary-light-5: rgba(var(--rose-rgb), 0.40);
+  --el-color-primary-light-7: rgba(var(--rose-rgb), 0.25);
+  --el-color-primary-light-8: rgba(var(--rose-rgb), 0.16);
+  --el-color-primary-light-9: rgba(var(--rose-rgb), 0.10);
+  --el-color-primary-dark-2: var(--color-primary-dark);
+  --el-color-success: var(--matcha);
+  --el-color-warning: var(--amber);
+  --el-color-danger: #ef5350;
+  --el-color-info: var(--blueberry);
+  --el-border-radius-base: var(--radius-md);
 }
 
 /* ============================================
-   Dark Mode Tokens — neutral
+   Dark Mode Tokens
+   「暗夜霓虹甜品 Neon Patisserie」— 令牌骨架（第一波）
+   本波辉光强度保守；bloom / 霓虹玻璃细化留给第三波
    ============================================ */
 [data-theme="dark"] {
-  --color-primary: #2997ff;         /* Apple dark-mode blue */
-  --color-primary-light: #5aa9ff;
-  --color-primary-lighter: rgba(41, 151, 255, 0.16);
-  --color-primary-dark: #0071e3;
+  /* 甜品糖霜色（暗底：柔和不刺眼，与暖底和谐，非荧光） */
+  --rose-rgb: 239, 122, 157;        /* 糖霜莓 */
+  --amber-rgb: 232, 172, 114;       /* 焦糖奶油 */
+  --matcha-rgb: 127, 206, 158;      /* 柔抹茶 */
+  --blueberry-rgb: 147, 166, 224;   /* 蓝莓 */
+  --violet-rgb: 189, 166, 240;
+  --ink-rgb: 240, 232, 236;         /* 暗色下 ink = 暖白（文字/边线复用） */
 
-  --color-accent: #2997ff;
-  --color-accent-light: rgba(41, 151, 255, 0.16);
+  --color-primary: var(--rose);
+  --color-primary-light: #f394b0;
+  --color-primary-lighter: rgba(var(--rose-rgb), 0.18);
+  --color-primary-dark: #e5688d;
 
-  --color-text-primary: #f5f5f7;
-  --color-text-secondary: #a1a1a6;
-  --color-text-muted: #6e6e73;
-  --color-text-inverse: #1d1d1f;
+  --color-accent: var(--amber);
+  --color-accent-light: rgba(var(--amber-rgb), 0.18);
 
-  --color-bg-primary: #161617;      /* page */
-  --color-bg-secondary: #1d1d1f;    /* cards */
-  --color-bg-tertiary: #2c2c2e;
-  --color-bg-sidebar: #1d1d1f;
-  --color-bg-sidebar-hover: #2c2c2e;
+  /* 亮金 —— 深色模式左侧导航字体用色 */
+  --gold: #ffce5a;
+  --gold-strong: #ffe28c;
 
-  --color-border: rgba(255, 255, 255, 0.12);
-  --color-border-light: rgba(255, 255, 255, 0.08);
+  /* 文字：暖柔白，与暖底同色系，避免冷白刺眼、与背景"不搭" */
+  --color-text-primary: #ece3e8;
+  --color-text-secondary: #b6aab4;
+  --color-text-muted: #8a7f89;
+  --color-text-inverse: #2f2934;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.6);
+  /* 背景：暖可可紫，明显提亮——不是黑，也不过深 */
+  --bg-canvas: #2f2934;
+  --color-bg-primary: #2f2934;
+  --color-bg-secondary: #383140;    /* 卡片（比底色亮一档，形成层次） */
+  --color-bg-tertiary: #423b4b;
+  --color-bg-sidebar: #383140;
+  --color-bg-sidebar-hover: #423b4b;
+
+  --color-border: rgba(255, 255, 255, 0.10);
+  --color-border-light: rgba(255, 255, 255, 0.055);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.38);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.46);
   --shadow-glow: 0 0 0 transparent;
 
-  --glass-bg: rgba(29, 29, 31, 0.72);
-  --glass-bg-light: rgba(29, 29, 31, 0.5);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  /* Mesh：暖可可紫底 + 糖霜玫瑰/抹茶低透辉光 */
+  --mesh-1: rgba(var(--rose-rgb), 0.24);
+  --mesh-2: rgba(var(--amber-rgb), 0.16);
+  --mesh-3: rgba(var(--matcha-rgb), 0.14);
+  --mesh-base: #2f2934;
+  --mesh-noise-opacity: 0.055;
+
+  /* 品牌辉光（暗色保守，第三波再加强 bloom） */
+  --glow-brand: 0 0 0 transparent;
+  --glow-sm: 0 4px 16px rgba(var(--rose-rgb), 0.20);
+  --glow-md: 0 8px 30px rgba(var(--rose-rgb), 0.26);
+  --glow-amber: 0 6px 22px rgba(var(--amber-rgb), 0.20);
+
+  --glass-bg: rgba(56, 49, 64, 0.72);
+  --glass-bg-light: rgba(56, 49, 64, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.10);
   --glass-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
-  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --glass-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --glass-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.4);
   --glass-blur: blur(20px) saturate(160%);
 
   --glass-highlight: rgba(255, 255, 255, 0.08);
   --glass-edge-glow: transparent;
-  --glass-ripple-color: rgba(255, 255, 255, 0.05);
+  --glass-ripple-color: rgba(var(--rose-rgb), 0.08);
   --depth-1: 0 1px 3px rgba(0, 0, 0, 0.3);
   --depth-2: 0 4px 16px rgba(0, 0, 0, 0.4);
   --depth-3: 0 20px 50px rgba(0, 0, 0, 0.55);

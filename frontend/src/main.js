@@ -14,6 +14,9 @@ import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
+// 动效编排（弹簧/stagger 入场）
+import { MotionPlugin } from '@vueuse/motion'
+
 // 初始化主题（在 Vue 挂载前执行，避免闪烁）
 import { useTheme } from '@/composables/useTheme'
 const { initTheme } = useTheme()
@@ -33,6 +36,9 @@ app.use(ElementPlus, {
 
 // 3. 注册路由
 app.use(router)
+
+// 3.1 注册动效插件（提供 v-motion 指令）
+app.use(MotionPlugin)
 
 // 4. 全局注册 Element Plus 图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

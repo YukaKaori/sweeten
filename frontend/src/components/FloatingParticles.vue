@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { brand } from '@/utils/brandTokens'
 
 const props = defineProps({
   count: { type: Number, default: 15 },
@@ -12,12 +13,13 @@ let ctx = null
 let particles = []
 let animationId = null
 
-const colorMap = {
-  primary: ['rgba(232, 99, 122, 0.08)', 'rgba(240, 140, 158, 0.06)', 'rgba(253, 232, 236, 0.1)'],
-  matcha: ['rgba(107, 142, 78, 0.08)', 'rgba(139, 168, 106, 0.06)', 'rgba(232, 240, 223, 0.1)'],
-  amber: ['rgba(240, 163, 92, 0.08)', 'rgba(245, 185, 122, 0.06)', 'rgba(252, 220, 197, 0.1)'],
-  blue: ['rgba(107, 140, 206, 0.08)', 'rgba(139, 163, 216, 0.06)', 'rgba(230, 236, 245, 0.1)'],
-}
+// 颜色来自 base.css 品牌令牌（经 brandTokens 读取），不再硬编码——浅色/暗色自动跟随
+const buildColorMap = () => ({
+  primary: [brand('rose', 0.08), brand('rose', 0.06), brand('rose', 0.1)],
+  matcha: [brand('matcha', 0.08), brand('matcha', 0.06), brand('matcha', 0.1)],
+  amber: [brand('amber', 0.08), brand('amber', 0.06), brand('amber', 0.1)],
+  blue: [brand('blueberry', 0.08), brand('blueberry', 0.06), brand('blueberry', 0.1)],
+})
 
 class Particle {
   constructor(w, h, colors) {
@@ -65,6 +67,7 @@ onMounted(() => {
   resize()
   window.addEventListener('resize', resize)
 
+  const colorMap = buildColorMap()
   const colors = colorMap[props.color] || colorMap.primary
 
   // Initialize particles

@@ -14,6 +14,7 @@
     "format": "prettier --write \"src/**/*.{vue,js,css,scss}\""
   },
   "dependencies": {
+    "@vueuse/motion": "^3.0.3",
     "axios": "^1.13.2",
     "echarts": "^6.1.0",
     "element-plus": "^2.11.9",
@@ -24,6 +25,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.2",
+    "eslint": "^10.6.0",
+    "eslint-plugin-vue": "^10.9.2",
     "sass-embedded": "^1.100.0",
     "vite": "^7.2.4",
     "vite-plugin-vue-devtools": "^8.0.5"

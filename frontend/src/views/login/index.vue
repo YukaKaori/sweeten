@@ -3,11 +3,16 @@ import { ref } from 'vue'
 import { useUserStore } from '@/stores/modules/user'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import FluidGradient from '@/components/FluidGradient.vue'
+import { useMotionPref } from '@/composables/useMotionPref'
 
 const loginForm = ref({ username: '', password: '' })
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(false)
+
+// static 档（reduced-motion / 低端设备）→ 背景渐变静止
+const { allowMotion } = useMotionPref()
 
 const login = async () => {
   if (!loginForm.value.username || !loginForm.value.password) {
@@ -37,7 +42,10 @@ const handleKeyup = (e) => {
 
 <template>
   <div class="login-page">
-    <div class="login-card">
+    <!-- 奶油流体渐变背景（第一波 CSS 版；static 档静止） -->
+    <FluidGradient :animated="allowMotion" />
+
+    <div class="login-card glass">
       <div class="brand" style="--i: 0">
         <div class="brand-mark">
           <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
@@ -91,24 +99,29 @@ const handleKeyup = (e) => {
 
 <style scoped>
 .login-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  /* Calm neutral depth — no color, barely a gradient */
-  background:
-    radial-gradient(120% 80% at 50% -10%, #fbfbfd 0%, var(--color-bg-primary) 55%);
+  overflow: hidden;
+  background: var(--mesh-base);   /* 兜底，实际由 FluidGradient 覆盖 */
 }
 
+/* 磨砂玻璃卡片（本页唯一的 backdrop-filter 层） */
 .login-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 400px;
   padding: 56px 48px 40px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-light);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: 22px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--glass-specular), var(--shadow-xl);
 }
 
 /* ---- Staggered entrance — restrained fade-up ---- */
@@ -205,14 +218,15 @@ const handleKeyup = (e) => {
   font-weight: 500;
   letter-spacing: -0.01em;
   border-radius: var(--radius-md) !important;
-  background: var(--color-primary) !important;
+  background: var(--color-primary) !important;   /* 品牌草莓玫瑰 */
   border: none !important;
-  box-shadow: none !important;
-  transition: background-color var(--transition-fast), transform var(--transition-fast) !important;
+  box-shadow: var(--glow-sm) !important;          /* 玫瑰柔光 */
+  transition: background-color var(--transition-fast), box-shadow var(--transition-base), transform var(--transition-fast) !important;
 }
 
 .login-btn:hover {
   background: var(--color-primary-dark) !important;
+  box-shadow: var(--glow-md) !important;
 }
 
 .login-btn:active {
@@ -231,9 +245,6 @@ const handleKeyup = (e) => {
 @media (max-width: 480px) {
   .login-card {
     padding: 44px 28px 32px;
-    border: none;
-    box-shadow: none;
-    background: transparent;
   }
 }
 </style>

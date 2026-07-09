@@ -2,6 +2,26 @@ import { ref, computed, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { queryStatsApi, queryRevenueChartApi, queryRankingApi } from '@/api/modules/dashboard'
+import { brand } from '@/utils/brandTokens'
+import { useMotionPref } from '@/composables/useMotionPref'
+
+// 当前是否深色外观（图表构建时读取，跟随 data-theme）
+const isDark = () =>
+  typeof document !== 'undefined' &&
+  document.documentElement.getAttribute('data-theme') === 'dark'
+
+// 图表中性色（坐标轴/网格/tooltip），深浅自适应
+function chartTheme() {
+  const dark = isDark()
+  return {
+    tooltipBg: dark ? 'rgba(35, 28, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+    tooltipBorder: dark ? 'rgba(255, 255, 255, 0.12)' : '#ede6e1',
+    tooltipText: dark ? '#f4ecf0' : '#2d2327',
+    axisLine: dark ? 'rgba(255, 255, 255, 0.12)' : '#ede6e1',
+    splitLine: dark ? 'rgba(255, 255, 255, 0.06)' : '#f5f0ec',
+    axisLabel: dark ? '#9a8b93' : '#a3949b',
+  }
+}
 
 // ---------- 降级数据（API 不可用时使用） ----------
 const FALLBACK = {
@@ -45,52 +65,79 @@ const FALLBACK = {
   ],
 }
 
-/** 构建完整的 ECharts option（双轴：营收 + 利润率） */
-function buildChartOption(data) {
+/** 构建完整的 ECharts option（双轴：营收 + 利润率）
+ *  颜色全部取自品牌令牌；营收线为「玫瑰→琥珀」渐变描边 + 糖丝辉光，逐点生长入场。
+ *  @param {object} data
+ *  @param {boolean} animate  false 时（reduced-motion / static 档）关闭一切动画
+ */
+function buildChartOption(data, animate = true) {
+  const t = chartTheme()
   return {
+    // 逐点"生长"：曲线从左向右画出
+    animation: animate,
+    animationDuration: animate ? 900 : 0,
+    animationEasing: 'cubicOut',
+    animationDelay: animate ? (idx) => idx * 60 : 0,
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
+      backgroundColor: t.tooltipBg,
+      borderColor: t.tooltipBorder,
       borderWidth: 1,
-      textStyle: { color: '#2d2327', fontSize: 12 },
-      axisPointer: { type: 'line', lineStyle: { color: 'rgba(232, 99, 122, 0.4)', width: 1.5, type: 'dashed' } },
+      textStyle: { color: t.tooltipText, fontSize: 12 },
+      axisPointer: { type: 'line', lineStyle: { color: brand('rose', 0.4), width: 1.5, type: 'dashed' } },
     },
     grid: { top: 30, right: 48, bottom: 24, left: 52 },
     xAxis: {
       type: 'category', data: data.xAxis,
-      axisLine: { lineStyle: { color: '#ede6e1' } },
+      axisLine: { lineStyle: { color: t.axisLine } },
       axisTick: { show: false },
-      axisLabel: { color: '#a3949b', fontSize: 11 },
+      axisLabel: { color: t.axisLabel, fontSize: 11 },
     },
     yAxis: [
       {
         type: 'value', name: '营业额',
         axisLine: { show: false }, axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#f5f0ec', type: 'dashed' } },
-        axisLabel: { color: '#a3949b', fontSize: 11, formatter: (v) => v >= 1000 ? (v / 1000) + 'k' : v },
+        splitLine: { lineStyle: { color: t.splitLine, type: 'dashed' } },
+        axisLabel: { color: t.axisLabel, fontSize: 11, formatter: (v) => v >= 1000 ? (v / 1000) + 'k' : v },
       },
       {
         type: 'value', name: '利润率', min: 40, max: 80,
         axisLine: { show: false }, axisTick: { show: false },
         splitLine: { show: false },
-        axisLabel: { color: '#a3949b', fontSize: 11, formatter: '{value}%' },
+        axisLabel: { color: t.axisLabel, fontSize: 11, formatter: '{value}%' },
       },
     ],
     series: [
       {
         name: '营业额', type: 'line', smooth: true,
         symbol: 'circle', symbolSize: 6,
-        lineStyle: { width: 3, color: '#e8637a' },
-        itemStyle: { color: '#fff', borderWidth: 2.5, borderColor: '#e8637a' },
-        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(232, 99, 122, 0.12)' }, { offset: 1, color: 'rgba(232, 99, 122, 0)' }]) },
+        // 沿线渐变描边：玫瑰 → 琥珀（糖丝质感）
+        lineStyle: {
+          width: 3,
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: brand('rose') },
+            { offset: 1, color: brand('amber') },
+          ]),
+          // 辉光：让曲线像发光的糖丝
+          shadowBlur: 12,
+          shadowColor: brand('rose', 0.35),
+          shadowOffsetY: 4,
+        },
+        itemStyle: { color: '#fff', borderWidth: 2.5, borderColor: brand('rose') },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: brand('rose', 0.16) },
+            { offset: 0.55, color: brand('rose', 0.06) },
+            { offset: 1, color: brand('rose', 0) },
+          ]),
+        },
         data: data.revenue,
       },
       {
         name: '边际利润率', type: 'line', yAxisIndex: 1, smooth: true,
         symbol: 'circle', symbolSize: 6,
-        lineStyle: { width: 2, color: '#5cb88a' },
-        itemStyle: { color: '#fff', borderWidth: 2, borderColor: '#5cb88a' },
+        lineStyle: { width: 2, color: brand('matcha') },
+        itemStyle: { color: '#fff', borderWidth: 2, borderColor: brand('matcha') },
         data: data.margins,
       },
     ],
@@ -98,30 +145,43 @@ function buildChartOption(data) {
 }
 
 // ========== 南丁格尔玫瑰图（品类销售占比）==========
-const ROSE_DATA = [
-  { name: '蛋糕', value: 38400, color: '#e8637a' },
-  { name: '面包', value: 25600, color: '#f0a35c' },
-  { name: '饮品', value: 19800, color: '#6b8cce' },
-  { name: '甜点', value: 16200, color: '#5cb88a' },
-  { name: '冰淇淋', value: 12400, color: '#a78bfa' },
-  { name: '零食', value: 8600, color: '#f08c9e' },
-  { name: '礼盒', value: 5200, color: '#c4a35a' },
+// 品类值固定为内容数据，颜色改由品牌令牌派生（暗色下自动切霓虹变体）
+const ROSE_VALUES = [
+  { name: '蛋糕', value: 38400, key: 'rose' },
+  { name: '面包', value: 25600, key: 'amber' },
+  { name: '饮品', value: 19800, key: 'blueberry' },
+  { name: '甜点', value: 16200, key: 'matcha' },
+  { name: '冰淇淋', value: 12400, key: 'violet' },
+  { name: '零食', value: 8600, key: 'rose' },
+  { name: '礼盒', value: 5200, key: 'amber' },
 ]
 
-function buildRoseOption() {
+function buildRoseOption(animate = true) {
+  const data = ROSE_VALUES.map((d) => ({
+    name: d.name,
+    value: d.value,
+    itemStyle: { color: brand(d.key) },
+  }))
+  const t = chartTheme()
   return {
+    // 逐扇"旋入"入场
+    animation: animate,
+    animationType: 'scale',
+    animationEasing: 'elasticOut',
+    animationDuration: animate ? 900 : 0,
+    animationDelay: animate ? (idx) => idx * 70 : 0,
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
-      textStyle: { color: '#2d2327', fontSize: 12 },
+      backgroundColor: t.tooltipBg,
+      borderColor: t.tooltipBorder,
+      textStyle: { color: t.tooltipText, fontSize: 12 },
       formatter: (p) => `${p.name}: ¥${p.value.toLocaleString()} (${p.percent}%)`,
     },
     legend: {
       orient: 'vertical',
       right: 8,
       top: 'center',
-      textStyle: { color: '#a3949b', fontSize: 11 },
+      textStyle: { color: t.axisLabel, fontSize: 11 },
       itemWidth: 8,
       itemHeight: 8,
       itemGap: 6,
@@ -137,7 +197,7 @@ function buildRoseOption() {
         label: { show: true, fontSize: 13, fontWeight: 'bold' },
         itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0, 0, 0, 0.15)', shadowOffsetY: 4 },
       },
-      data: ROSE_DATA,
+      data,
     }],
   }
 }
@@ -149,18 +209,19 @@ function buildCalendarHeatmapOption() {
   for (let d = 1; d <= 31; d++) {
     days.push({ day: `05-${String(d).padStart(2, '0')}`, value: Math.floor(Math.random() * 8000 + 2000) })
   }
+  const t = chartTheme()
   return {
     tooltip: {
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
-      textStyle: { color: '#2d2327', fontSize: 12 },
+      backgroundColor: t.tooltipBg,
+      borderColor: t.tooltipBorder,
+      textStyle: { color: t.tooltipText, fontSize: 12 },
       formatter: (p) => `${p.name}: ¥${p.value.toLocaleString()}`,
     },
     grid: { top: 10, right: 16, bottom: 4, left: 40 },
     xAxis: {
       type: 'category',
       data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-      axisLabel: { color: '#a3949b', fontSize: 10 },
+      axisLabel: { color: t.axisLabel, fontSize: 10 },
       axisLine: { show: false },
       axisTick: { show: false },
       position: 'top',
@@ -168,7 +229,7 @@ function buildCalendarHeatmapOption() {
     yAxis: {
       type: 'category',
       data: ['第1周', '第2周', '第3周', '第4周', '第5周'],
-      axisLabel: { color: '#a3949b', fontSize: 10 },
+      axisLabel: { color: t.axisLabel, fontSize: 10 },
       axisLine: { show: false },
       axisTick: { show: false },
       inverse: true,
@@ -180,10 +241,10 @@ function buildCalendarHeatmapOption() {
       orient: 'horizontal',
       left: 'center',
       bottom: 0,
-      inRange: { color: ['#fde8ec', '#f5a0b0', '#e8637a', '#c94d63', '#a83a4e'] },
+      inRange: { color: [brand('rose', 0.12), brand('rose', 0.4), brand('rose', 0.7), brand('rose', 0.9), brand('rose')] },
       itemWidth: 12,
       itemHeight: 6,
-      textStyle: { color: '#a3949b', fontSize: 9 },
+      textStyle: { color: t.axisLabel, fontSize: 9 },
     },
     series: [{
       type: 'heatmap',
@@ -233,6 +294,7 @@ const ORDER_FLOW = [
  * — 视图层只需调用 useDashboard() 并解构使用
  */
 export function useDashboard() {
+  const { allowMotion } = useMotionPref()  // static 档 → 图表动画关闭
   const loading = ref(false)
   const statsCards = ref([])
   const rankList = ref([])
@@ -290,14 +352,14 @@ export function useDashboard() {
   function renderChart() {
     if (!chartInstance) return
     const data = FALLBACK.salesDataMap[chartRange.value]
-    chartInstance.setOption(buildChartOption(data), true)
+    chartInstance.setOption(buildChartOption(data, allowMotion.value), true)
   }
 
   /** 初始化玫瑰图 */
   function initRoseChart() {
     if (!roseChartRef.value) return
     roseChartInstance = echarts.init(roseChartRef.value)
-    roseChartInstance.setOption(buildRoseOption())
+    roseChartInstance.setOption(buildRoseOption(allowMotion.value))
     roseResizeObserver = new ResizeObserver(() => roseChartInstance?.resize())
     roseResizeObserver.observe(roseChartRef.value)
   }
