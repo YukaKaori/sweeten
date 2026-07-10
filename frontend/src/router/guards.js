@@ -19,6 +19,8 @@ const isMobileH5 = (path) => path.startsWith('/m')
 
 function shouldUseViewTransition(to, from) {
   if (!supportsViewTransitions) return false
+  // 初始导航（硬加载/刷新）：没有旧页面可转场，跑 VT 只会白冻结一帧首屏
+  if (from.matched.length === 0) return false
   // static 档（prefers-reduced-motion）：跳过 startViewTransition 直接导航
   const { isStatic } = useMotionPref()
   if (isStatic.value) return false
