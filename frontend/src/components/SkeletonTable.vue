@@ -58,9 +58,9 @@ defineProps({
   border-radius: var(--radius-sm);
   background: linear-gradient(
     90deg,
-    var(--color-border-light) 25%,
-    rgba(255, 255, 255, 0.5) 50%,
-    var(--color-border-light) 75%
+    var(--skeleton-base) 25%,
+    var(--skeleton-sheen) 50%,
+    var(--skeleton-base) 75%
   );
   background-size: 200% 100%;
   animation: skeletonShimmer 1.5s ease-in-out infinite;

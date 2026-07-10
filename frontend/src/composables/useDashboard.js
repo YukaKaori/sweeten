@@ -1,25 +1,34 @@
 import { ref, computed, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { queryStatsApi, queryRevenueChartApi, queryRankingApi } from '@/api/modules/dashboard'
 import { brand } from '@/utils/brandTokens'
+import {
+  registerDessertThemes,
+  currentChartTheme,
+  isDarkTheme,
+  glassTooltip,
+  axisPointerColor,
+  revenueLineGradient,
+  sliceBorderColor,
+} from '@/utils/echartsTheme'
 import { useMotionPref } from '@/composables/useMotionPref'
+import { useToast } from '@/composables/useToast'
 
-// 当前是否深色外观（图表构建时读取，跟随 data-theme）
-const isDark = () =>
-  typeof document !== 'undefined' &&
-  document.documentElement.getAttribute('data-theme') === 'dark'
+registerDessertThemes(echarts)
 
-// 图表中性色（坐标轴/网格/tooltip），深浅自适应
+// 图表中性色（图表专属、随每次渲染实时读取，不放进静态 registerTheme）
 function chartTheme() {
-  const dark = isDark()
+  const dark = isDarkTheme()
+  const g = revenueLineGradient(dark)
   return {
-    tooltipBg: dark ? 'rgba(35, 28, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-    tooltipBorder: dark ? 'rgba(255, 255, 255, 0.12)' : '#ede6e1',
-    tooltipText: dark ? '#f4ecf0' : '#2d2327',
-    axisLine: dark ? 'rgba(255, 255, 255, 0.12)' : '#ede6e1',
-    splitLine: dark ? 'rgba(255, 255, 255, 0.06)' : '#f5f0ec',
-    axisLabel: dark ? '#9a8b93' : '#a3949b',
+    dark,
+    lineFrom: g.from,
+    lineTo: g.to,
+    lineDot: g.dot,
+    lineShadow: g.shadow,
+    areaKey: g.areaKey,
+    pointerColor: axisPointerColor(dark),
+    sliceBorder: sliceBorderColor(dark),
   }
 }
 
@@ -80,55 +89,46 @@ function buildChartOption(data, animate = true) {
     animationDelay: animate ? (idx) => idx * 60 : 0,
     tooltip: {
       trigger: 'axis',
-      backgroundColor: t.tooltipBg,
-      borderColor: t.tooltipBorder,
-      borderWidth: 1,
-      textStyle: { color: t.tooltipText, fontSize: 12 },
-      axisPointer: { type: 'line', lineStyle: { color: brand('rose', 0.4), width: 1.5, type: 'dashed' } },
+      ...glassTooltip(t.dark, t.lineDot),
+      axisPointer: { type: 'line', lineStyle: { color: t.pointerColor, width: 1.5, type: 'dashed' } },
     },
     grid: { top: 30, right: 48, bottom: 24, left: 52 },
     xAxis: {
       type: 'category', data: data.xAxis,
-      axisLine: { lineStyle: { color: t.axisLine } },
-      axisTick: { show: false },
-      axisLabel: { color: t.axisLabel, fontSize: 11 },
     },
     yAxis: [
       {
         type: 'value', name: '营业额',
-        axisLine: { show: false }, axisTick: { show: false },
-        splitLine: { lineStyle: { color: t.splitLine, type: 'dashed' } },
-        axisLabel: { color: t.axisLabel, fontSize: 11, formatter: (v) => v >= 1000 ? (v / 1000) + 'k' : v },
+        axisLabel: { formatter: (v) => v >= 1000 ? (v / 1000) + 'k' : v },
       },
       {
         type: 'value', name: '利润率', min: 40, max: 80,
-        axisLine: { show: false }, axisTick: { show: false },
         splitLine: { show: false },
-        axisLabel: { color: t.axisLabel, fontSize: 11, formatter: '{value}%' },
+        axisLabel: { formatter: '{value}%' },
       },
     ],
     series: [
       {
         name: '营业额', type: 'line', smooth: true,
         symbol: 'circle', symbolSize: 6,
-        // 沿线渐变描边：玫瑰 → 琥珀（糖丝质感）
+        // 沿线渐变描边：浅色玫瑰→琥珀 / 暗色金→香槟（糖丝质感）
         lineStyle: {
           width: 3,
           color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-            { offset: 0, color: brand('rose') },
-            { offset: 1, color: brand('amber') },
+            { offset: 0, color: t.lineFrom },
+            { offset: 1, color: t.lineTo },
           ]),
-          // 辉光：让曲线像发光的糖丝
+          // 辉光：让曲线像发光的糖丝 / 金丝
           shadowBlur: 12,
-          shadowColor: brand('rose', 0.35),
+          shadowColor: t.lineShadow,
           shadowOffsetY: 4,
         },
-        itemStyle: { color: '#fff', borderWidth: 2.5, borderColor: brand('rose') },
+        itemStyle: { color: t.dark ? '#171310' : '#fff', borderWidth: 2.5, borderColor: t.lineDot },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: brand('rose', 0.16) },
-            { offset: 0.55, color: brand('rose', 0.06) },
-            { offset: 1, color: brand('rose', 0) },
+            { offset: 0, color: brand(t.areaKey, 0.16) },
+            { offset: 0.55, color: brand(t.areaKey, 0.06) },
+            { offset: 1, color: brand(t.areaKey, 0) },
           ]),
         },
         data: data.revenue,
@@ -137,7 +137,7 @@ function buildChartOption(data, animate = true) {
         name: '边际利润率', type: 'line', yAxisIndex: 1, smooth: true,
         symbol: 'circle', symbolSize: 6,
         lineStyle: { width: 2, color: brand('matcha') },
-        itemStyle: { color: '#fff', borderWidth: 2, borderColor: brand('matcha') },
+        itemStyle: { color: t.dark ? '#171310' : '#fff', borderWidth: 2, borderColor: brand('matcha') },
         data: data.margins,
       },
     ],
@@ -172,16 +172,13 @@ function buildRoseOption(animate = true) {
     animationDelay: animate ? (idx) => idx * 70 : 0,
     tooltip: {
       trigger: 'item',
-      backgroundColor: t.tooltipBg,
-      borderColor: t.tooltipBorder,
-      textStyle: { color: t.tooltipText, fontSize: 12 },
+      ...glassTooltip(t.dark),
       formatter: (p) => `${p.name}: ¥${p.value.toLocaleString()} (${p.percent}%)`,
     },
     legend: {
       orient: 'vertical',
       right: 8,
       top: 'center',
-      textStyle: { color: t.axisLabel, fontSize: 11 },
       itemWidth: 8,
       itemHeight: 8,
       itemGap: 6,
@@ -191,11 +188,11 @@ function buildRoseOption(animate = true) {
       radius: ['18%', '68%'],
       center: ['38%', '50%'],
       roseType: 'area',
-      itemStyle: { borderRadius: 6, borderColor: 'rgba(255, 255, 255, 0.6)', borderWidth: 2 },
+      itemStyle: { borderRadius: 6, borderColor: t.sliceBorder, borderWidth: 2 },
       label: { show: false },
       emphasis: {
         label: { show: true, fontSize: 13, fontWeight: 'bold' },
-        itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0, 0, 0, 0.15)', shadowOffsetY: 4 },
+        itemStyle: { shadowBlur: 20, shadowColor: t.dark ? 'rgba(212, 167, 71, 0.28)' : 'rgba(0, 0, 0, 0.15)', shadowOffsetY: 4 },
       },
       data,
     }],
@@ -203,7 +200,7 @@ function buildRoseOption(animate = true) {
 }
 
 // ========== 日历热力图（月度销售热度）==========
-function buildCalendarHeatmapOption() {
+function buildCalendarHeatmapOption(animate = true) {
   // 生成 2026年5月 的模拟数据
   const days = []
   for (let d = 1; d <= 31; d++) {
@@ -211,17 +208,16 @@ function buildCalendarHeatmapOption() {
   }
   const t = chartTheme()
   return {
+    animation: animate,
     tooltip: {
-      backgroundColor: t.tooltipBg,
-      borderColor: t.tooltipBorder,
-      textStyle: { color: t.tooltipText, fontSize: 12 },
+      ...glassTooltip(t.dark),
       formatter: (p) => `${p.name}: ¥${p.value.toLocaleString()}`,
     },
     grid: { top: 10, right: 16, bottom: 4, left: 40 },
     xAxis: {
       type: 'category',
       data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-      axisLabel: { color: t.axisLabel, fontSize: 10 },
+      axisLabel: { fontSize: 10 },
       axisLine: { show: false },
       axisTick: { show: false },
       position: 'top',
@@ -229,7 +225,7 @@ function buildCalendarHeatmapOption() {
     yAxis: {
       type: 'category',
       data: ['第1周', '第2周', '第3周', '第4周', '第5周'],
-      axisLabel: { color: t.axisLabel, fontSize: 10 },
+      axisLabel: { fontSize: 10 },
       axisLine: { show: false },
       axisTick: { show: false },
       inverse: true,
@@ -241,10 +237,14 @@ function buildCalendarHeatmapOption() {
       orient: 'horizontal',
       left: 'center',
       bottom: 0,
-      inRange: { color: [brand('rose', 0.12), brand('rose', 0.4), brand('rose', 0.7), brand('rose', 0.9), brand('rose')] },
+      inRange: {
+        color: t.dark
+          ? [brand('gold', 0.14), brand('gold', 0.38), brand('gold', 0.62), brand('gold', 0.82), brand('gold')]
+          : [brand('rose', 0.12), brand('rose', 0.4), brand('rose', 0.7), brand('rose', 0.9), brand('rose')],
+      },
       itemWidth: 12,
       itemHeight: 6,
-      textStyle: { color: t.axisLabel, fontSize: 9 },
+      textStyle: { fontSize: 9 },
     },
     series: [{
       type: 'heatmap',
@@ -272,9 +272,9 @@ function buildCalendarHeatmapOption() {
         formatter: (p) => p.value?.[2] >= 8000 ? '🔥' : '',
       },
       emphasis: {
-        itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0, 0, 0, 0.2)' },
+        itemStyle: { shadowBlur: 12, shadowColor: t.dark ? 'rgba(212, 167, 71, 0.35)' : 'rgba(0, 0, 0, 0.2)' },
       },
-      itemStyle: { borderRadius: 3, borderWidth: 2, borderColor: 'rgba(255, 255, 255, 0.8)' },
+      itemStyle: { borderRadius: 3, borderWidth: 2, borderColor: t.dark ? 'rgba(23, 19, 16, 0.85)' : 'rgba(255, 255, 255, 0.8)' },
     }],
   }
 }
@@ -288,6 +288,15 @@ const ORDER_FLOW = [
   { id: 'DS20260616038', customer: '王子轩', items: '芒果冰沙 + 可颂', amount: 52, status: '待接单', time: '13:30', statusColor: 'danger' },
 ]
 
+// 模拟推送的取材池（真实场景为 WebSocket 下发）
+const FLOW_CUSTOMERS = ['顾一娜', '沈星河', '许愿', '江枫眠', '陆知微', '温言']
+const FLOW_ITEMS = ['蓝莓芝士蛋糕 × 1', '焦糖布丁 × 2', '舒芙蕾 × 1', '法式可颂 × 3', '抹茶千层 × 1', '海盐芝士奶盖 × 2']
+const FLOW_STATUS = [
+  { status: '待接单', color: 'danger' },
+  { status: '制作中', color: 'warning' },
+  { status: '配送中', color: 'primary' },
+]
+
 /**
  * 仪表盘数据与图表管理 composable
  * — 单一数据源：API 优先 → 降级数据 fallback
@@ -295,6 +304,7 @@ const ORDER_FLOW = [
  */
 export function useDashboard() {
   const { allowMotion } = useMotionPref()  // static 档 → 图表动画关闭
+  const toast = useToast()                 // 玻璃质感通知（成功抹茶 / 失败草莓）
   const loading = ref(false)
   const statsCards = ref([])
   const rankList = ref([])
@@ -315,9 +325,30 @@ export function useDashboard() {
   let roseResizeObserver = null
   let heatmapResizeObserver = null
 
-  // 实时订单流
+  // 实时订单流：每 8s 顶部推入一单，保持 5 行（页面隐藏时暂停，省电且避免积压）
   const orderFlow = ref(ORDER_FLOW)
   const orderFlowVisible = ref(true)
+  let orderFlowSeq = 43
+  function pushSimulatedOrder() {
+    if (typeof document !== 'undefined' && document.hidden) return
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
+    const now = new Date()
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    const s = pick(FLOW_STATUS)
+    orderFlow.value = [
+      {
+        id: `DS20260616${String(orderFlowSeq++).padStart(3, '0')}`,
+        customer: pick(FLOW_CUSTOMERS),
+        items: pick(FLOW_ITEMS),
+        amount: 20 + Math.floor(Math.random() * 12) * 8,
+        status: s.status,
+        statusColor: s.color,
+        time,
+      },
+      ...orderFlow.value.slice(0, 4),
+    ]
+  }
+  const orderFlowTimer = setInterval(pushSimulatedOrder, 8000)
 
   // 快捷操作（静态配置）
   const quickActions = [
@@ -339,10 +370,10 @@ export function useDashboard() {
     }
   })
 
-  /** 初始化 ECharts 实例 */
+  /** 初始化 ECharts 实例（按当前 data-theme 选 'dessert' / 'dessert-dark'） */
   function initChart() {
     if (!chartRef.value) return
-    chartInstance = echarts.init(chartRef.value)
+    chartInstance = echarts.init(chartRef.value, currentChartTheme())
     renderChart()
     resizeObserver = new ResizeObserver(() => chartInstance?.resize())
     resizeObserver.observe(chartRef.value)
@@ -358,7 +389,7 @@ export function useDashboard() {
   /** 初始化玫瑰图 */
   function initRoseChart() {
     if (!roseChartRef.value) return
-    roseChartInstance = echarts.init(roseChartRef.value)
+    roseChartInstance = echarts.init(roseChartRef.value, currentChartTheme())
     roseChartInstance.setOption(buildRoseOption(allowMotion.value))
     roseResizeObserver = new ResizeObserver(() => roseChartInstance?.resize())
     roseResizeObserver.observe(roseChartRef.value)
@@ -367,8 +398,8 @@ export function useDashboard() {
   /** 初始化热力图 */
   function initHeatmapChart() {
     if (!heatmapChartRef.value) return
-    heatmapChartInstance = echarts.init(heatmapChartRef.value)
-    heatmapChartInstance.setOption(buildCalendarHeatmapOption())
+    heatmapChartInstance = echarts.init(heatmapChartRef.value, currentChartTheme())
+    heatmapChartInstance.setOption(buildCalendarHeatmapOption(allowMotion.value))
     heatmapResizeObserver = new ResizeObserver(() => heatmapChartInstance?.resize())
     heatmapResizeObserver.observe(heatmapChartRef.value)
   }
@@ -380,15 +411,42 @@ export function useDashboard() {
     chartInstance = null
   }
 
-  /** 销毁所有图表 */
-  function disposeAllCharts() {
-    disposeChart()
+  /** 销毁玫瑰图 */
+  function disposeRoseChart() {
     roseResizeObserver?.disconnect()
     roseChartInstance?.dispose()
     roseChartInstance = null
+  }
+
+  /** 销毁热力图 */
+  function disposeHeatmapChart() {
     heatmapResizeObserver?.disconnect()
     heatmapChartInstance?.dispose()
     heatmapChartInstance = null
+  }
+
+  /** 销毁所有图表 */
+  function disposeAllCharts() {
+    disposeChart()
+    disposeRoseChart()
+    disposeHeatmapChart()
+  }
+
+  /**
+   * 主题（浅/深）切换时重建图表：echarts.init(el, themeName) 的主题在初始化时
+   * 就已「烘焙」进实例，无法用 setOption 热切换，必须 dispose 后按新主题重新
+   * init。只重建「已经初始化过」的图表（未滚入视口的图表保持懒加载不受影响）。
+   */
+  function handleThemeChange() {
+    if (chartInstance) { disposeChart(); initChart() }
+    if (roseChartInstance) { disposeRoseChart(); initRoseChart() }
+    if (heatmapChartInstance) { disposeHeatmapChart(); initHeatmapChart() }
+  }
+
+  let themeObserver = null
+  if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+    themeObserver = new MutationObserver(handleThemeChange)
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
   }
 
   /** 从 API 加载仪表盘数据 */
@@ -426,16 +484,18 @@ export function useDashboard() {
 
   /** 补货操作 */
   function handleReorder(itemName) {
-    ElMessage.success(`已生成 [${itemName}] 的智能合并补货单`)
+    toast.success(`已生成 [${itemName}] 的智能合并补货单`, '补货单已创建')
   }
 
   /** 发送补偿券 */
   function sendCompensation(username) {
-    ElMessage.success(`已向 [${username}] 派送尝鲜新品免单致谢券`)
+    toast.success(`已向 [${username}] 派送尝鲜新品免单致谢券`, '致谢券已发放')
   }
 
   onUnmounted(() => {
     disposeAllCharts()
+    themeObserver?.disconnect()
+    clearInterval(orderFlowTimer)
   })
 
   return {

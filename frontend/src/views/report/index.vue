@@ -12,6 +12,21 @@ import {
   queryReportRankingApi,
 } from '@/api/modules/dashboard'
 import PageHeader from '@/components/PageHeader.vue'
+import { brand } from '@/utils/brandTokens'
+import {
+  registerDessertThemes,
+  currentChartTheme,
+  isDarkTheme,
+  glassTooltip,
+  revenueLineGradient,
+  sliceBorderColor,
+} from '@/utils/echartsTheme'
+import { useMotionPref } from '@/composables/useMotionPref'
+
+registerDessertThemes(echarts)
+
+// static 档（reduced-motion / 低端）：图表「生长」动画关闭，数据瞬时到位
+const { allowMotion } = useMotionPref()
 
 // 日期范围
 const dateRange = ref([])
@@ -26,12 +41,13 @@ const dateParams = computed(() => {
   return { begin: '', end: '' }
 })
 
-// 统计卡片 (API 数据 + 降级)
+// 统计卡片 (API 数据 + 降级)。color 用 CSS var —— DOM 元素直接吃 var()，
+// 主题切换时圆点颜色自动跟随，无需 JS 重算
 const stats = ref([
-  { label: '本月营收', value: '¥128,640', change: '+12.5%', trend: 'up', color: '#e8637a' },
-  { label: '订单总数', value: '2,846', change: '+8.3%', trend: 'up', color: '#6b8cce' },
-  { label: '客单价', value: '¥45.2', change: '-2.1%', trend: 'down', color: '#5cb88a' },
-  { label: '复购率', value: '34.6%', change: '+5.2%', trend: 'up', color: '#f0a35c' },
+  { label: '本月营收', value: '¥128,640', change: '+12.5%', trend: 'up', color: 'var(--rose)' },
+  { label: '订单总数', value: '2,846', change: '+8.3%', trend: 'up', color: 'var(--blueberry)' },
+  { label: '客单价', value: '¥45.2', change: '-2.1%', trend: 'down', color: 'var(--matcha)' },
+  { label: '复购率', value: '34.6%', change: '+5.2%', trend: 'up', color: 'var(--amber)' },
 ])
 
 // 图表数据 (API 数据 + 降级)
@@ -41,12 +57,14 @@ const revenueData = ref({
   orders: [1800, 1520, 2100, 2350, 2846, 2500, 2800, 3100, 2700, 2950, 3050, 0],
 })
 
+// 不再逐扇烘焙 itemStyle.color —— 交给 dessert / dessert-dark 主题调色板，
+// 主题切换重建图表时扇区颜色自动换成对应色系（浅玫瑰系 / 暗金系）
 const categoryData = ref([
-  { value: 38, name: '蛋糕', itemStyle: { color: '#e8637a' } },
-  { value: 25, name: '面包', itemStyle: { color: '#f0a35c' } },
-  { value: 18, name: '饮品', itemStyle: { color: '#6b8cce' } },
-  { value: 12, name: '甜点', itemStyle: { color: '#5cb88a' } },
-  { value: 7, name: '冰淇淋', itemStyle: { color: '#a78bfa' } },
+  { value: 38, name: '蛋糕' },
+  { value: 25, name: '面包' },
+  { value: 18, name: '饮品' },
+  { value: 12, name: '甜点' },
+  { value: 7, name: '冰淇淋' },
 ])
 
 const weekdayData = ref({
@@ -67,44 +85,34 @@ const rankingChartRef = ref(null)
 const chartInstances = []
 
 const initRevenueChart = () => {
-  const chart = echarts.init(revenueChartRef.value)
+  const chart = echarts.init(revenueChartRef.value, currentChartTheme())
+  const dark = isDarkTheme()
+  const g = revenueLineGradient(dark)
   const option = {
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
-      textStyle: { color: '#2d2327', fontSize: 13 }
-    },
+    animation: allowMotion.value,
+    tooltip: { trigger: 'axis', ...glassTooltip(dark, g.dot) },
     grid: { top: 40, right: 20, bottom: 30, left: 60 },
-    xAxis: {
-      type: 'category',
-      data: revenueData.value.xAxis,
-      axisLine: { lineStyle: { color: '#ede6e1' } },
-      axisLabel: { color: '#a3949b', fontSize: 12 }
-    },
+    xAxis: { type: 'category', data: revenueData.value.xAxis },
     yAxis: {
       type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#f5f0ec', type: 'dashed' } },
-      axisLabel: {
-        color: '#a3949b',
-        fontSize: 12,
-        formatter: (v) => `¥${(v / 1000).toFixed(0)}k`
-      }
+      axisLabel: { formatter: (v) => `¥${(v / 1000).toFixed(0)}k` }
     },
     series: [
       {
         name: '营收',
         type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 6,
-        lineStyle: { width: 3, color: '#e8637a' },
-        itemStyle: { color: '#e8637a', borderWidth: 2 },
+        lineStyle: {
+          width: 3,
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: g.from },
+            { offset: 1, color: g.to }
+          ])
+        },
+        itemStyle: { color: g.dot, borderWidth: 2 },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(232, 99, 122, 0.25)' },
-            { offset: 1, color: 'rgba(232, 99, 122, 0.02)' }
+            { offset: 0, color: brand(g.areaKey, 0.25) },
+            { offset: 1, color: brand(g.areaKey, 0.02) }
           ])
         },
         data: revenueData.value.revenue
@@ -115,10 +123,9 @@ const initRevenueChart = () => {
         barWidth: 24,
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(107, 140, 206, 0.6)' },
-            { offset: 1, color: 'rgba(107, 140, 206, 0.1)' }
-          ]),
-          borderRadius: [4, 4, 0, 0]
+            { offset: 0, color: brand('blueberry', 0.6) },
+            { offset: 1, color: brand('blueberry', 0.1) }
+          ])
         },
         data: revenueData.value.orders,
         yAxisIndex: 0
@@ -130,30 +137,22 @@ const initRevenueChart = () => {
 }
 
 const initCategoryChart = () => {
-  const chart = echarts.init(categoryChartRef.value)
+  const chart = echarts.init(categoryChartRef.value, currentChartTheme())
+  const dark = isDarkTheme()
   const option = {
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
-      textStyle: { color: '#2d2327', fontSize: 13 }
-    },
-    legend: {
-      orient: 'vertical',
-      right: 20,
-      top: 'center',
-      textStyle: { color: '#6b5b63', fontSize: 13 }
-    },
+    animation: allowMotion.value,
+    tooltip: { trigger: 'item', ...glassTooltip(dark) },
+    legend: { orient: 'vertical', right: 20, top: 'center' },
     series: [{
       name: '甜品分类',
       type: 'pie',
       radius: ['45%', '72%'],
       center: ['35%', '50%'],
       avoidLabelOverlap: false,
-      itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 3 },
+      itemStyle: { borderRadius: 8, borderColor: sliceBorderColor(dark), borderWidth: 3 },
       label: { show: false },
       emphasis: {
-        label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#2d2327' }
+        label: { show: true, fontSize: 14, fontWeight: 'bold' }
       },
       data: categoryData.value
     }]
@@ -163,37 +162,24 @@ const initCategoryChart = () => {
 }
 
 const initWeekdayChart = () => {
-  const chart = echarts.init(weekdayChartRef.value)
+  const chart = echarts.init(weekdayChartRef.value, currentChartTheme())
+  const dark = isDarkTheme()
+  // 工作日蓝莓 / 周末强调色（浅玫瑰、暗金）——高峰日一眼可辨
+  const weekday = brand('blueberry')
+  const weekend = dark ? brand('gold') : brand('rose')
   const option = {
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
-      textStyle: { color: '#2d2327', fontSize: 13 }
-    },
+    animation: allowMotion.value,
+    tooltip: { trigger: 'axis', ...glassTooltip(dark, weekend) },
     grid: { top: 20, right: 20, bottom: 30, left: 50 },
-    xAxis: {
-      type: 'category',
-      data: weekdayData.value.xAxis,
-      axisLine: { lineStyle: { color: '#ede6e1' } },
-      axisLabel: { color: '#a3949b', fontSize: 12 }
-    },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#f5f0ec', type: 'dashed' } },
-      axisLabel: { color: '#a3949b', fontSize: 12 }
-    },
+    xAxis: { type: 'category', data: weekdayData.value.xAxis },
+    yAxis: { type: 'value' },
     series: [{
       name: '订单量',
       type: 'bar',
       barWidth: 32,
       itemStyle: {
         borderRadius: [6, 6, 0, 0],
-        color: (params) => {
-          const colors = ['#6b8cce', '#6b8cce', '#6b8cce', '#6b8cce', '#e8637a', '#e8637a', '#e8637a']
-          return colors[params.dataIndex]
-        }
+        color: (params) => (params.dataIndex >= 4 ? weekend : weekday)
       },
       data: weekdayData.value.orders
     }]
@@ -203,26 +189,17 @@ const initWeekdayChart = () => {
 }
 
 const initRankingChart = () => {
-  const chart = echarts.init(rankingChartRef.value)
+  const chart = echarts.init(rankingChartRef.value, currentChartTheme())
+  const dark = isDarkTheme()
+  const accentKey = dark ? 'gold' : 'rose'
   const option = {
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#ede6e1',
-      textStyle: { color: '#2d2327', fontSize: 13 }
-    },
+    animation: allowMotion.value,
+    tooltip: { trigger: 'axis', ...glassTooltip(dark) },
     grid: { top: 10, right: 30, bottom: 10, left: 120 },
-    xAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#f5f0ec', type: 'dashed' } },
-      axisLabel: { color: '#a3949b', fontSize: 12 }
-    },
+    xAxis: { type: 'value' },
     yAxis: {
       type: 'category',
       data: rankingData.value.names,
-      axisLine: { lineStyle: { color: '#ede6e1' } },
-      axisLabel: { color: '#6b5b63', fontSize: 12 },
       inverse: true
     },
     series: [{
@@ -232,8 +209,8 @@ const initRankingChart = () => {
       itemStyle: {
         borderRadius: [0, 4, 4, 0],
         color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-          { offset: 0, color: 'rgba(232, 99, 122, 0.3)' },
-          { offset: 1, color: '#e8637a' }
+          { offset: 0, color: brand(accentKey, 0.3) },
+          { offset: 1, color: brand(accentKey) }
         ])
       },
       data: rankingData.value.sales
@@ -259,7 +236,7 @@ const refreshCharts = () => {
 
 // 分类英文→中文映射
 const categoryNameMap = { cake: '蛋糕', bread: '面包', drink: '饮品', dessert: '甜点', icecream: '冰淇淋' }
-const cardColors = ['#e8637a', '#6b8cce', '#5cb88a', '#f0a35c']
+const cardColors = ['var(--rose)', 'var(--blueberry)', 'var(--matcha)', 'var(--amber)']
 
 // 加载报表数据
 const loadReportData = async () => {
@@ -284,7 +261,7 @@ const loadReportData = async () => {
           value: `${c.prefix || ''}${Number(c.value || 0).toLocaleString()}${c.suffix || ''}`,
           change: c.trend || '',
           trend: c.trendType || 'up',
-          color: cardColors[i] || '#e8637a',
+          color: cardColors[i] || 'var(--rose)',
         }))
       }
     }
@@ -298,10 +275,10 @@ const loadReportData = async () => {
     if (categoryRes.status === 'fulfilled' && categoryRes.value?.code === 1) {
       const list = categoryRes.value.data
       if (Array.isArray(list) && list.length) {
+        // 丢弃后端下发的 itemStyle —— 扇区颜色统一交给 dessert 主题调色板
         categoryData.value = list.map(item => ({
           value: item.count || item.value || 0,
           name: categoryNameMap[item.category] || item.name || item.category || '未知',
-          itemStyle: item.itemStyle,
         }))
       }
     }
@@ -352,6 +329,19 @@ const handleRefresh = () => {
   loadReportData()
 }
 
+// 主题切换（<html data-theme>）时销毁重建全部图表 —— init(el, theme) 的主题
+// 在创建时烘焙，setOption 换不掉，必须 dispose + 重新 init 才能刷新配色
+let themeObserver = null
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+  themeObserver = new MutationObserver(() => {
+    if (chartInstances.length) refreshCharts()
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  })
+}
+
 onMounted(async () => {
   await nextTick()
   refreshCharts()
@@ -359,6 +349,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  themeObserver?.disconnect()
   chartInstances.forEach(chart => {
     if (chart && !chart.isDisposed()) {
       chart.dispose()
@@ -501,7 +492,7 @@ onBeforeUnmount(() => {
 .stat-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--glass-specular), var(--glass-shadow-hover);
-  border-color: rgba(232, 99, 122, 0.2);
+  border-color: rgba(var(--rose-rgb), 0.2);
 }
 
 .stat-dot {
@@ -537,7 +528,7 @@ onBeforeUnmount(() => {
 }
 
 .stat-change.up {
-  color: #5cb88a;
+  color: var(--matcha);
 }
 
 .stat-change.down {

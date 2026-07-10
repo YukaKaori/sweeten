@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, computed, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { useMotionPref } from '@/composables/useMotionPref'
 
 const props = defineProps({
@@ -67,13 +67,19 @@ const cells = computed(() =>
 // 每位当前显示的数字（先 0，挂载后滚到 target）
 const shown = ref([])
 const rolled = ref(false)
+// 落定后撤掉 will-change（0.9s 过渡 + 逐位 55ms 错峰），不长期占用合成层
+const settled = ref(false)
+let settleTimer = null
 
 const syncOdometer = async () => {
+  clearTimeout(settleTimer)
   shown.value = cells.value.map(() => 0)
   rolled.value = false
+  settled.value = false
   if (!allowMotion.value) {          // static：直接到位、不滚动
     shown.value = cells.value.map((c) => c.target)
     rolled.value = true
+    settled.value = true
     return
   }
   await nextTick()
@@ -81,6 +87,9 @@ const syncOdometer = async () => {
   requestAnimationFrame(() => {
     shown.value = cells.value.map((c) => c.target)
     rolled.value = true
+    settleTimer = setTimeout(() => {
+      settled.value = true
+    }, 900 + cells.value.length * 55 + 100)
   })
 }
 
@@ -94,11 +103,16 @@ watch(() => props.value, () => {
   if (props.odometer) syncOdometer()
   else startClassic()
 })
+
+onUnmounted(() => {
+  cancelAnimationFrame(animationId)
+  clearTimeout(settleTimer)
+})
 </script>
 
 <template>
   <!-- odometer 模式 -->
-  <span v-if="odometer" class="count-up count-up--odometer" :class="{ 'no-anim': !allowMotion }">
+  <span v-if="odometer" class="count-up count-up--odometer" :class="{ 'no-anim': !allowMotion, 'is-settled': settled }">
     <span v-if="prefix" class="count-up__affix">{{ prefix }}</span>
     <template v-for="(cell, i) in cells" :key="i">
       <span v-if="cell.isDigit" class="count-up__digit">
@@ -164,6 +178,11 @@ watch(() => props.value, () => {
 /* static 档：无滚动过渡 */
 .count-up--odometer.no-anim .count-up__strip {
   transition: none;
+}
+
+/* 滚动落定后撤掉 will-change，释放合成层 */
+.count-up--odometer.is-settled .count-up__strip {
+  will-change: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

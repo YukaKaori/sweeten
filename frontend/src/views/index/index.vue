@@ -7,7 +7,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/modules/user'
 import { useDashboard } from '@/composables/useDashboard'
-import { useGlassSpotlight, useMagneticTilt, useGlassRipple } from '@/composables/useLiquidGlass'
+import { useGlassSpotlight, useMagnetic, useGlassRipple } from '@/composables/useLiquidGlass'
 import { useScrollReveal } from '@/composables/useScrollReveal'
 import { useMotionPref } from '@/composables/useMotionPref'
 import CountUp from '@/components/CountUp.vue'
@@ -93,8 +93,9 @@ const dashboardRef = ref(null)
 // Cursor-follow spotlight on the aurora banner
 useGlassSpotlight(bannerRef, { selector: ':self' })
 
-// Magnetic tilt on metric cards
-useMagneticTilt(dashboardRef, { selector: '.metric-stripe-card', maxTilt: 5, scale: 1.015 })
+// 磁吸（位移跟随，非倾斜）：KPI 卡 + 主图表玻璃卡；static/触屏自动关闭
+useMagnetic(dashboardRef, { selector: '.metric-stripe-card', maxDisplace: 5, scale: 1.02 })
+useMagnetic(dashboardRef, { selector: '.bento-card--chart', maxDisplace: 4, scale: 1.006 })
 
 // Glass ripple on quick action cards
 useGlassRipple(dashboardRef, { selector: '.action-dock-card', color: 'rgba(232, 99, 122, 0.12)', maxSize: 400 })
@@ -553,11 +554,24 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="orderflow-list">
+        <!-- TransitionGroup：新单从顶部滑入 + 0.8s 高光消退（enter 强制 800ms，
+             否则 transform 过渡 0.35s 结束就会摘掉 enter-active，::before 高光被截断）。
+             static 档 :css=false → 跳过全部过渡类，直接插入 -->
+        <TransitionGroup
+          tag="div"
+          name="oflow"
+          class="orderflow-list"
+          appear
+          appear-from-class="oflow-appear-from"
+          appear-active-class="oflow-appear-active"
+          :css="allowMotion"
+          :duration="{ enter: 800, leave: 300 }"
+        >
           <div
-            v-for="order in orderFlow"
+            v-for="(order, index) in orderFlow"
             :key="order.id"
             class="orderflow-item"
+            :style="{ '--flow-d': `${index * 60}ms` }"
           >
             <div class="orderflow-item__time">{{ order.time }}</div>
             <div class="orderflow-item__body">
@@ -572,7 +586,7 @@ onUnmounted(() => {
               {{ order.status }}
             </el-tag>
           </div>
-        </div>
+        </TransitionGroup>
       </div>
     </section>
   </div>
@@ -591,6 +605,7 @@ onUnmounted(() => {
   --color-accent-amber: var(--color-accent);
   --color-accent-amber-glow: rgba(var(--amber-rgb), 0.15);
   --color-accent-mint: var(--matcha);
+  --flow-flash: rgba(var(--rose-rgb), 0.14); /* 订单流新行高光（暗色下切金） */
 
   width: 100%;
   max-width: 1360px;
@@ -755,7 +770,7 @@ onUnmounted(() => {
   padding: 24px; display: flex; flex-direction: column;
   transform-style: preserve-3d;
   perspective: 800px;
-  will-change: transform;
+  /* will-change 由 useMagnetic 在悬停期间动态挂/撤，不在此长期占层 */
 
   &:hover {
     transform: translateY(-4px) scale(1.02);
@@ -1059,6 +1074,8 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
+  /* leave 中的行 position:absolute，需要以列表为定位上下文 */
+  position: relative;
 }
 
 .orderflow-item {
@@ -1071,7 +1088,18 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   transition: all var(--transition-fast);
-  animation: flowItemSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  position: relative;
+
+  /* 高光层：底色预先画好，只动 opacity（合成器友好，不触发重绘） */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--flow-flash, rgba(var(--rose-rgb), 0.14));
+    opacity: 0;
+    pointer-events: none;
+  }
 
   &:hover {
     background: rgba(255, 255, 255, 0.55);
@@ -1082,13 +1110,48 @@ onUnmounted(() => {
   &:first-child {
     border-left: 3px solid var(--color-primary);
     background: rgba(232, 99, 122, 0.04);
-    animation-delay: 0s;
   }
+}
 
-  &:nth-child(2) { animation-delay: 0.05s; }
-  &:nth-child(3) { animation-delay: 0.1s; }
-  &:nth-child(4) { animation-delay: 0.15s; }
-  &:nth-child(5) { animation-delay: 0.2s; }
+/* ---- TransitionGroup 进出场（只用 transform/opacity）---- */
+/* 首屏 appear：轻微下落 + 逐行 stagger（--flow-d 由内联样式按 index 注入） */
+.oflow-appear-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+.oflow-appear-active {
+  transition:
+    opacity 0.3s ease var(--flow-d, 0s),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1) var(--flow-d, 0s);
+}
+
+/* 新单 enter：从顶部滑入 + 0.8s 高光消退 */
+.oflow-enter-from {
+  opacity: 0;
+  transform: translateY(-14px);
+}
+.oflow-enter-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &::before {
+    animation: flowFlash 0.8s ease-out both;
+  }
+}
+
+/* 被挤出的末行：淡出下移；absolute 脱离文档流让 move 过渡接管其余行 */
+.oflow-leave-active {
+  position: absolute;
+  width: 100%;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.oflow-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.oflow-move {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .orderflow-item__time {
@@ -1143,9 +1206,10 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-@keyframes flowItemSlideIn {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
+@keyframes flowFlash {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* ---- Rank card (in row 2) ---- */
@@ -1241,59 +1305,86 @@ onUnmounted(() => {
 }
 
 /* ==========================================================================
-   深色模式表面修复
-   浅色版把大量子卡片硬编码成 rgba(255,255,255,α)「牛奶白」、分隔线用深墨
-   rgba(45,35,39,α)。深色下前者刺眼、后者隐形 → 这里统一改暖玻璃 + 反相描边。
+   深色模式「黑金 Noir & Gold」表面适配 + 金色重映射
+   ⚠️ 每条规则必须把整个选择器放进 :global(...)。写成
+      :global([data-theme='dark']) .foo 时，scoped 编译器会丢掉 .foo，
+      规则退化成 [data-theme=dark]{} 只作用 <html>（第一波遗留 bug，此处修正）。
+   金色是暗色唯一主角；玫瑰降为次要点缀（危险/删除）。
    ========================================================================== */
-:global([data-theme='dark']) {
-  /* 玻璃子卡片：牛奶白 → 暖玻璃 */
-  .aurora-banner__micro-kpis,
-  .chart-canvas-container,
-  .campaign-item-card,
-  .campaign-item-card .campaign-metrics-row,
-  .action-dock-card,
-  .bento-alert-pill,
-  .bento-review-bubble,
-  .orderflow-item {
-    background: rgba(255, 255, 255, 0.045);
-    border-color: rgba(255, 255, 255, 0.08);
-  }
 
-  /* hover 抬升时略提亮 */
-  .action-dock-card:hover { background: rgba(255, 255, 255, 0.09); }
-  .bento-review-bubble:hover { background: rgba(255, 255, 255, 0.08); }
-  .orderflow-item:hover { background: rgba(255, 255, 255, 0.08); }
+/* 局部品牌变量在暗色下整体切金（覆盖副标题/图例点/链接/进度/序号等大量引用） */
+:global([data-theme='dark'] .dolce-dashboard-wrapper) {
+  --color-primary-raspberry: var(--gold);
+  --color-primary-raspberry-glow: var(--gold-glow);
+  --color-accent-amber: var(--gold-bright);
+  --flow-flash: rgba(var(--gold-rgb), 0.18); /* 新行高光转金色微光 */
+}
 
-  /* 分隔线 / 进度轨道 / 虚线：深墨在暗底不可见 → 反相为浅 */
-  .micro-kpi-card__divider,
-  .metric-stripe-card__progress-container,
-  .campaign-progress-track,
-  .bento-rank-item__progress-rail,
-  .bento-alert-pill__countdown-line {
-    background: rgba(255, 255, 255, 0.10);
-  }
-  .bento-rank-item { border-bottom-color: rgba(255, 255, 255, 0.07); }
-  .bento-review-bubble__actions-row { border-top-color: rgba(255, 255, 255, 0.07); }
-  .chart-legend-stripe { border-top-color: rgba(255, 255, 255, 0.08); }
+/* 玻璃子卡片：牛奶白 → 暖金玻璃 */
+:global([data-theme='dark'] .aurora-banner__micro-kpis),
+:global([data-theme='dark'] .chart-canvas-container),
+:global([data-theme='dark'] .campaign-item-card),
+:global([data-theme='dark'] .campaign-item-card .campaign-metrics-row),
+:global([data-theme='dark'] .action-dock-card),
+:global([data-theme='dark'] .bento-alert-pill),
+:global([data-theme='dark'] .bento-review-bubble),
+:global([data-theme='dark'] .orderflow-item) {
+  background: rgba(240, 201, 108, 0.04);
+  border-color: rgba(212, 167, 71, 0.12);
+}
 
-  /* 浅墨底控件 → 浅玻璃底 */
-  .linear-segmented-control { background: rgba(255, 255, 255, 0.06) !important; }
-  .bento-rank-item__position { background: rgba(255, 255, 255, 0.06); }
-  .reorder-action-btn { background: rgba(255, 255, 255, 0.08) !important; }
-  .linear-segmented-control .el-radio-button__original-radio:checked + .el-radio-button__inner {
-    background: rgba(255, 255, 255, 0.14) !important;
-    color: var(--color-text-primary) !important;
-  }
+/* hover 抬升时略提亮（暖金微光） */
+:global([data-theme='dark'] .action-dock-card:hover) { background: rgba(240, 201, 108, 0.08); }
+:global([data-theme='dark'] .bento-review-bubble:hover) { background: rgba(240, 201, 108, 0.07); }
+:global([data-theme='dark'] .orderflow-item:hover) { background: rgba(240, 201, 108, 0.07); }
 
-  /* 实时订单流首行高亮：浅色 → 玫瑰微光 */
-  .orderflow-item:first-child {
-    background: rgba(var(--rose-rgb), 0.14);
-    border-left-color: var(--color-primary);
-  }
+/* 分隔线 / 进度轨道 / 虚线：深墨在暗底不可见 → 反相为浅象牙 */
+:global([data-theme='dark'] .micro-kpi-card__divider),
+:global([data-theme='dark'] .metric-stripe-card__progress-container),
+:global([data-theme='dark'] .campaign-progress-track),
+:global([data-theme='dark'] .bento-rank-item__progress-rail),
+:global([data-theme='dark'] .bento-alert-pill__countdown-line) {
+  background: rgba(237, 228, 214, 0.10);
+}
+:global([data-theme='dark'] .bento-rank-item) { border-bottom-color: rgba(212, 167, 71, 0.12); }
+:global([data-theme='dark'] .bento-review-bubble__actions-row) { border-top-color: rgba(212, 167, 71, 0.10); }
+:global([data-theme='dark'] .chart-legend-stripe) { border-top-color: rgba(212, 167, 71, 0.12); }
 
-  /* metric 卡的扫光高光在暗底过白 → 收敛 */
-  .metric-stripe-card::after {
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-  }
+/* 浅墨底控件 → 暖金玻璃底 */
+:global([data-theme='dark'] .linear-segmented-control) { background: rgba(240, 201, 108, 0.06) !important; }
+:global([data-theme='dark'] .bento-rank-item__position) { background: rgba(240, 201, 108, 0.06); }
+:global([data-theme='dark'] .reorder-action-btn) { background: rgba(240, 201, 108, 0.08) !important; }
+:global([data-theme='dark'] .linear-segmented-control .el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  background: rgba(240, 201, 108, 0.16) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* 实时订单流首行高亮：金色微光 */
+:global([data-theme='dark'] .orderflow-item:first-child) {
+  background: rgba(212, 167, 71, 0.12);
+  border-left-color: var(--gold);
+}
+
+/* metric 卡的扫光高光收敛为暖金；hover 边框转金 */
+:global([data-theme='dark'] .metric-stripe-card::after) {
+  background: linear-gradient(90deg, transparent, rgba(240, 201, 108, 0.10), transparent);
+}
+:global([data-theme='dark'] .metric-stripe-card:hover) {
+  border-color: rgba(212, 167, 71, 0.35);
+}
+
+/* KPI 数字：金色渐变文字（大号数字，符合对比度红线——金仅用于大号数字/标题/选中态） */
+:global([data-theme='dark'] .metric-stripe-card__value),
+:global([data-theme='dark'] .micro-kpi-card__value-group) {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-bright) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 欢迎徽标底/边转金 */
+:global([data-theme='dark'] .aurora-banner__greeting-tag) {
+  background: rgba(212, 167, 71, 0.08);
+  border-color: rgba(212, 167, 71, 0.22);
 }
 </style>

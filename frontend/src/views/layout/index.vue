@@ -4,6 +4,8 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/modules/user'
 import { useTheme } from '@/composables/useTheme'
+import { useMotionPref } from '@/composables/useMotionPref'
+import { supportsViewTransitions } from '@/router/guards'
 import { useGlassSpotlight } from '@/composables/useLiquidGlass'
 import { getProfileApi, updatePasswordApi } from '@/api/modules/emp'
 import Breadcrumb from '@/components/Breadcrumb.vue'
@@ -38,6 +40,14 @@ const route = useRoute()
 const userStore = useUserStore()
 const { theme, toggleTheme } = useTheme()
 const isCollapsed = ref(false)
+
+// 换页转场：支持 View Transitions 且非 static 档时，交叉淡入交给
+// ::view-transition-*（见 base.css），内层 Vue <transition> 置空避免双重动画；
+// 否则回退原 page 淡入（static 档下其动画时长已被 reduced-motion 媒体查询归零）
+const { isStatic } = useMotionPref()
+const pageTransition = computed(() =>
+  supportsViewTransitions && !isStatic.value ? 'vt-none' : 'page'
+)
 
 // ========== 移动端响应式 ==========
 const MOBILE_BREAKPOINT = 768
@@ -93,7 +103,7 @@ const headerOpacity = computed(() => {
 
 const headerBg = computed(() => {
   const isDark = theme.value === 'dark'
-  const base = isDark ? '48, 41, 54' : '255, 255, 255'
+  const base = isDark ? '18, 15, 12' : '255, 255, 255'
   return `rgba(${base}, ${headerOpacity.value})`
 })
 
@@ -462,7 +472,7 @@ const submitPassword = async () => {
       <!-- Content — scroll-aware -->
       <main class="content" @scroll="onContentScroll">
         <router-view v-slot="{ Component }">
-          <transition name="page" mode="out-in">
+          <transition :name="pageTransition" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
@@ -660,6 +670,8 @@ const submitPassword = async () => {
   align-items: center;
   gap: 12px;
   overflow: hidden;
+  /* 持久元素：换页时保持稳定，不参与 root 交叉淡入 */
+  view-transition-name: app-logo;
 }
 
 .logo-icon {
@@ -736,6 +748,8 @@ const submitPassword = async () => {
   pointer-events: none;
   opacity: 0;
   will-change: transform, height;
+  /* View Transitions 共享元素：换页时高亮块在导航项之间平滑滑动（全页唯一） */
+  view-transition-name: nav-pill;
 
   /* Apple Spring Transition - hardware accelerated */
   transition:
@@ -933,6 +947,8 @@ const submitPassword = async () => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 1px 3px rgba(45, 35, 39, 0.04);
   transition: background 0.2s ease;
+  /* 持久元素：换页时页头保持稳定 */
+  view-transition-name: app-header;
 
   &::after {
     content: '';
@@ -1002,6 +1018,8 @@ const submitPassword = async () => {
   /* Subtle inner shadow at top when scrolled */
   mask-image: linear-gradient(to bottom, transparent 0%, black 8px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8px);
+  /* 内容区独立快照：换页交叉淡入 + 轻微上移（见 base.css ::view-transition-*） */
+  view-transition-name: page-content;
 }
 
 /* ---- Page Transition ---- */
@@ -1226,12 +1244,12 @@ const submitPassword = async () => {
     display: initial;
   }
 
-  /* 移动端暗色模式侧边栏 */
+  /* 移动端暗色模式侧边栏（暖黑 + 金发丝） */
   :global([data-theme="dark"] .sidebar) {
-    background: rgba(48, 41, 54, 0.92);
-    backdrop-filter: blur(48px) saturate(160%);
-    -webkit-backdrop-filter: blur(48px) saturate(160%);
-    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.25);
+    background: rgba(20, 16, 13, 0.94);
+    backdrop-filter: blur(48px) saturate(140%);
+    -webkit-backdrop-filter: blur(48px) saturate(140%);
+    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.45);
   }
 }
 
@@ -1254,29 +1272,35 @@ const submitPassword = async () => {
   }
 }
 
-/* ---- Dark Mode Overrides ---- */
+/* ==============================================
+   Dark Mode Overrides —「黑金 Noir & Gold」
+   暖黑侧栏 + 金色渐变选中块 + 金发丝分隔线 + 金渐变 logo。
+   辉光上限：选中态一处 + logo 一处（不给每个 item 发光）。
+   ============================================== */
 :global([data-theme="dark"] .sidebar) {
-  /* Dark frosted glass — 暖可可紫，与提亮后的暗底和谐（不再近黑） */
-  background: rgba(48, 41, 54, 0.72);
-  backdrop-filter: blur(40px) saturate(160%);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  border-right-color: rgba(255, 255, 255, 0.05);
+  /* 暖黑磨砂底（非金色实心） */
+  background: rgba(20, 16, 13, 0.82);
+  backdrop-filter: blur(40px) saturate(140%);
+  -webkit-backdrop-filter: blur(40px) saturate(140%);
+  /* 右侧 1px 金色发丝分隔线 */
+  border-right: 1px solid var(--gold-muted);
   box-shadow:
-    inset -8px 0 24px rgba(0, 0, 0, 0.15),
-    1px 0 0 rgba(0, 0, 0, 0.2);
+    inset -8px 0 24px rgba(0, 0, 0, 0.35),
+    1px 0 0 rgba(0, 0, 0, 0.4);
 
-  /* Dark mode nav text */
-  --nav-active-color: rgba(0, 0, 0, 0.8);
+  /* 选中项在金块上用深字，保证对比度 */
+  --nav-active-color: var(--color-text-inverse);
 }
 
 /* 伪元素必须与 :global 同层展开，不能用 & 嵌套（否则退化失效） */
+/* 顶部一条极细金色高光 */
 :global([data-theme="dark"] .sidebar::before) {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(240, 140, 158, 0.1) 30%,
-    rgba(240, 140, 158, 0.18) 50%,
-    rgba(240, 140, 158, 0.1) 70%,
+    rgba(212, 167, 71, 0.12) 30%,
+    rgba(240, 201, 108, 0.28) 50%,
+    rgba(212, 167, 71, 0.12) 70%,
     transparent 100%
   );
 }
@@ -1284,45 +1308,54 @@ const submitPassword = async () => {
 :global([data-theme="dark"] .sidebar::after) {
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    transparent 30%,
+    rgba(240, 201, 108, 0.05) 0%,
+    transparent 32%,
     transparent 100%
   );
 }
 
+/* logo 文字：金色渐变（辉光两处之一） */
 :global([data-theme="dark"] .logo-title) {
-  color: #f0ebe8;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-bright) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 18px var(--gold-glow);
 }
 
 :global([data-theme="dark"] .logo-sub) {
-  color: var(--color-primary-light);
+  color: var(--gold);
+  opacity: 0.75;
 }
 
 /* 注意：必须把整个选择器放进 :global(...)。
    写成 :global([data-theme="dark"]) .nav-item 时，Vue 会丢掉 .nav-item，
    规则退化成 [data-theme=dark]{...} 只作用到 <html>，导致设置无效。 */
 :global([data-theme="dark"] .nav-group-title) {
-  /* 分组标题：暗淡亮金 */
-  color: rgba(255, 206, 90, 0.55);
+  /* 分组标题：暗淡金 */
+  color: rgba(212, 167, 71, 0.5);
 }
 
 :global([data-theme="dark"] .nav-item) {
-  /* 导航字体：亮金（图标随 currentColor 一并变金） */
-  color: var(--gold) !important;
+  /* 未选中：暖象牙白（非金），保证正文对比度 ≥ 4.5:1 */
+  color: var(--color-text-secondary) !important;
 }
 
+/* 未选中 hover：文字转金 + 极轻辉光（辉光随光标只有一处） */
 :global([data-theme="dark"] .nav-item:hover) {
-  color: var(--gold-strong) !important;
-  background: rgba(255, 206, 90, 0.12) !important;
+  color: var(--gold-bright) !important;
+  background: rgba(212, 167, 71, 0.08) !important;
+  text-shadow: 0 0 12px var(--gold-glow);
 }
 
-/* 选中项在亮白药丸上仍保持深色字，保证可读（不变金） */
+/* 选中项在金色药丸上保持深字，保证对比度（图标随 currentColor 变深） */
 :global([data-theme="dark"] .nav-item.active) {
-  color: var(--nav-active-color, rgba(0, 0, 0, 0.8)) !important;
+  color: var(--nav-active-color, #17130d) !important;
+  text-shadow: none;
 }
 
 :global([data-theme="dark"] .logout-btn) {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--color-text-muted);
 }
 
 :global([data-theme="dark"] .logout-btn:hover) {
@@ -1331,42 +1364,44 @@ const submitPassword = async () => {
 }
 
 :global([data-theme="dark"] .collapse-btn) {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.45);
+  background: rgba(212, 167, 71, 0.08);
+  color: rgba(212, 167, 71, 0.6);
 }
 
 :global([data-theme="dark"] .collapse-btn:hover) {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(212, 167, 71, 0.16);
+  color: var(--gold-bright);
 }
 
 :global([data-theme="dark"] .sidebar-header) {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(212, 167, 71, 0.12);
 }
 
 :global([data-theme="dark"] .sidebar-footer) {
-  border-top-color: rgba(255, 255, 255, 0.06);
+  border-top-color: rgba(212, 167, 71, 0.12);
 }
 
+/* 选中态高亮块：金色渐变 + 金外辉光（辉光两处之一） */
 :global([data-theme="dark"] .glass-pill-inner) {
-  border-color: rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-bright) 100%);
+  border: 1px solid rgba(240, 201, 108, 0.5);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    0 8px 24px rgba(0, 0, 0, 0.25);
+    inset 0 1px 0 rgba(255, 240, 200, 0.55),
+    0 0 0 1px rgba(212, 167, 71, 0.25),
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    0 0 16px var(--gold-glow);
 }
 
 :global([data-theme="dark"] .sidebar-nav::-webkit-scrollbar-thumb) {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(212, 167, 71, 0.18);
 }
 
 :global([data-theme="dark"] .header) {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(212, 167, 71, 0.12);
 }
 
 :global([data-theme="dark"] .notification-dot) {
-  border-color: rgba(48, 41, 54, 0.9);
+  border-color: rgba(20, 16, 13, 0.9);
 }
 
 /* ---- Theme Switcher ---- */
@@ -1522,18 +1557,18 @@ const submitPassword = async () => {
 
 /* Dark mode adjustments for theme switcher dropdown */
 :global([data-theme="dark"] .theme-switcher__dropdown) {
-  background: rgba(48, 41, 54, 0.92);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(23, 19, 16, 0.94);
+  border-color: var(--gold-muted);
 }
 
 :global([data-theme="dark"] .theme-switcher__dropdown::before) {
-  background: rgba(48, 41, 54, 0.92);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(23, 19, 16, 0.94);
+  border-color: var(--gold-muted);
   border-right: none;
   border-bottom: none;
 }
 
 :global([data-theme="dark"] .theme-switcher__trigger:hover) {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(212, 167, 71, 0.1);
 }
 </style>

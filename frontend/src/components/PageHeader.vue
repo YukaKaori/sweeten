@@ -35,6 +35,9 @@ defineProps({
   color: var(--color-text-primary);
   margin-bottom: 4px;
   line-height: 1.3;
+  /* View Transitions 共享元素：换页时新旧页标题平滑形变。
+     每页至多一个 PageHeader，名称全页面唯一 */
+  view-transition-name: page-title;
 }
 
 .page-desc {

@@ -65,6 +65,10 @@
   --mesh-base: #fdf7f2;                        /* 网格底色（奶油） */
   --mesh-noise-opacity: 0.05;                  /* 颗粒噪声强度 */
 
+  /* ── 骨架屏扫光（浅色玫瑰微光；暗色见 dark 覆盖为金微光）── */
+  --skeleton-base: var(--color-border-light);
+  --skeleton-sheen: rgba(var(--rose-rgb), 0.12);
+
   /* ── 品牌辉光（本波保守，第二波精修）── */
   --glow-brand: 0 0 0 transparent;                    /* 默认关闭，交互态再点亮 */
   --glow-sm: 0 4px 14px rgba(var(--rose-rgb), 0.14);
@@ -113,9 +117,10 @@
   --glass-blur: blur(20px) saturate(180%);
   --transition-spring: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* Legacy interactive tokens — 第二波（复活 useLiquidGlass）再点亮，本波保持中性 */
+  /* 交互令牌 — 第二波复活 useLiquidGlass：聚光高光 + 边缘微光（浅色玫瑰微光） */
   --glass-highlight: rgba(255, 255, 255, 0.5);
-  --glass-edge-glow: transparent;
+  --glass-edge-glow: rgba(var(--rose-rgb), 0.12);
+  --glass-spotlight-color: rgba(255, 255, 255, 0.32);
   --glass-ripple-color: rgba(var(--rose-rgb), 0.05);
   --transition-magnetic: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-ripple: 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -140,81 +145,91 @@
 
 /* ============================================
    Dark Mode Tokens
-   「暗夜霓虹甜品 Neon Patisserie」— 令牌骨架（第一波）
-   本波辉光强度保守；bloom / 霓虹玻璃细化留给第三波
+   「黑金 Noir & Gold」— 高端巧克力店 / 奢侈品牌语言
+   金色是"被灯照亮的金箔"，克制点亮；玫瑰在暗色降为次要点缀（危险/删除）。
    ============================================ */
 [data-theme="dark"] {
-  /* 甜品糖霜色（暗底：柔和不刺眼，与暖底和谐，非荧光） */
-  --rose-rgb: 239, 122, 157;        /* 糖霜莓 */
-  --amber-rgb: 232, 172, 114;       /* 焦糖奶油 */
-  --matcha-rgb: 127, 206, 158;      /* 柔抹茶 */
-  --blueberry-rgb: 147, 166, 224;   /* 蓝莓 */
-  --violet-rgb: 189, 166, 240;
-  --ink-rgb: 240, 232, 236;         /* 暗色下 ink = 暖白（文字/边线复用） */
+  /* ── 金色体系（暗色唯一主角）── */
+  --gold-rgb: 212, 167, 71;          /* 主金（偏香槟，不偏土黄） */
+  --gold-bright-rgb: 240, 201, 108;  /* 高光金（文字渐变亮部） */
+  --gold: #d4a747;                    /* 主金 */
+  --gold-bright: #f0c96c;             /* 高光金 */
+  --gold-muted: rgba(212, 167, 71, 0.35);  /* 发丝边框 */
+  --gold-glow: rgba(212, 167, 71, 0.18);   /* 辉光（克制） */
+  --gold-strong: var(--gold-bright);        /* 兼容旧引用 */
 
-  --color-primary: var(--rose);
-  --color-primary-light: #f394b0;
-  --color-primary-lighter: rgba(var(--rose-rgb), 0.18);
-  --color-primary-dark: #e5688d;
+  /* ── 品牌糖霜色：暗色下降为次要点缀（危险/删除/少量语义）── */
+  --rose-rgb: 233, 110, 140;         /* 玫瑰仅作危险/删除强调 */
+  --amber-rgb: 224, 176, 104;        /* 兼作香槟琥珀（图表次色） */
+  --matcha-rgb: 122, 200, 152;       /* 成功/利润 */
+  --blueberry-rgb: 138, 160, 214;    /* 信息 */
+  --violet-rgb: 184, 162, 232;
+  --ink-rgb: 237, 228, 214;          /* 暗色 ink = 暖象牙（文字/边线复用） */
 
-  --color-accent: var(--amber);
-  --color-accent-light: rgba(var(--amber-rgb), 0.18);
+  --color-primary: var(--rose);      /* 次要品牌：危险/删除仍用玫瑰 */
+  --color-primary-light: #ef8ca6;
+  --color-primary-lighter: rgba(var(--rose-rgb), 0.16);
+  --color-primary-dark: #e0607f;
 
-  /* 亮金 —— 深色模式左侧导航字体用色 */
-  --gold: #ffce5a;
-  --gold-strong: #ffe28c;
+  --color-accent: var(--gold);       /* 暗色强调 = 金 */
+  --color-accent-light: var(--gold-glow);
 
-  /* 文字：暖柔白，与暖底同色系，避免冷白刺眼、与背景"不搭" */
-  --color-text-primary: #ece3e8;
-  --color-text-secondary: #b6aab4;
-  --color-text-muted: #8a7f89;
-  --color-text-inverse: #2f2934;
+  /* 文字：暖象牙白，与暖黑同色系；对比度 ≥ 4.5:1（正文 ~15:1） */
+  --color-text-primary: #ede4d6;
+  --color-text-secondary: #b6a893;
+  --color-text-muted: #9a8c74;
+  --color-text-inverse: #17130d;     /* 金块上的深字 */
 
-  /* 背景：暖可可紫，明显提亮——不是黑，也不过深 */
-  --bg-canvas: #2f2934;
-  --color-bg-primary: #2f2934;
-  --color-bg-secondary: #383140;    /* 卡片（比底色亮一档，形成层次） */
-  --color-bg-tertiary: #423b4b;
-  --color-bg-sidebar: #383140;
-  --color-bg-sidebar-hover: #423b4b;
+  /* 背景：暖黑阶（偏棕的黑，非纯黑 / 非冷蓝黑） */
+  --bg-canvas: #0e0c0a;
+  --color-bg-primary: #0e0c0a;
+  --color-bg-secondary: #171310;     /* 卡片（略浅暖黑） */
+  --color-bg-tertiary: #1e1915;      /* 填充 / hover */
+  --color-bg-sidebar: #171310;
+  --color-bg-sidebar-hover: #1e1915;
 
-  --color-border: rgba(255, 255, 255, 0.10);
-  --color-border-light: rgba(255, 255, 255, 0.055);
+  --color-border: rgba(212, 167, 71, 0.14);   /* 暖金调发丝线 */
+  --color-border-light: rgba(237, 228, 214, 0.06);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.22);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.38);
-  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.46);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.34);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.42);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.48);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.62);
   --shadow-glow: 0 0 0 transparent;
 
-  /* Mesh：暖可可紫底 + 糖霜玫瑰/抹茶低透辉光 */
-  --mesh-1: rgba(var(--rose-rgb), 0.24);
-  --mesh-2: rgba(var(--amber-rgb), 0.16);
-  --mesh-3: rgba(var(--matcha-rgb), 0.14);
-  --mesh-base: #2f2934;
-  --mesh-noise-opacity: 0.055;
+  /* Mesh：暖黑底 + 金/香槟琥珀低透流光（登录页暗色流体） */
+  --mesh-1: rgba(var(--gold-rgb), 0.32);
+  --mesh-2: rgba(var(--amber-rgb), 0.20);
+  --mesh-3: rgba(var(--gold-bright-rgb), 0.16);
+  --mesh-base: #0e0c0a;
+  --mesh-noise-opacity: 0.05;
 
-  /* 品牌辉光（暗色保守，第三波再加强 bloom） */
+  /* 骨架屏扫光：暗色金微光 */
+  --skeleton-base: rgba(237, 228, 214, 0.05);
+  --skeleton-sheen: rgba(var(--gold-rgb), 0.14);
+
+  /* 品牌辉光 → 金辉光（克制） */
   --glow-brand: 0 0 0 transparent;
-  --glow-sm: 0 4px 16px rgba(var(--rose-rgb), 0.20);
-  --glow-md: 0 8px 30px rgba(var(--rose-rgb), 0.26);
-  --glow-amber: 0 6px 22px rgba(var(--amber-rgb), 0.20);
+  --glow-sm: 0 4px 16px var(--gold-glow);
+  --glow-md: 0 8px 30px rgba(212, 167, 71, 0.26);
+  --glow-amber: 0 6px 22px rgba(224, 176, 104, 0.20);
 
-  --glass-bg: rgba(56, 49, 64, 0.72);
-  --glass-bg-light: rgba(56, 49, 64, 0.5);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
-  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-  --glass-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.4);
-  --glass-blur: blur(20px) saturate(160%);
+  --glass-bg: rgba(23, 19, 16, 0.72);
+  --glass-bg-light: rgba(23, 19, 16, 0.5);
+  --glass-border: rgba(212, 167, 71, 0.14);
+  --glass-specular: inset 0 1px 0 0 rgba(240, 201, 108, 0.07);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --glass-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.6);
+  --glass-blur: blur(20px) saturate(150%);
 
-  --glass-highlight: rgba(255, 255, 255, 0.08);
-  --glass-edge-glow: transparent;
-  --glass-ripple-color: rgba(var(--rose-rgb), 0.08);
-  --depth-1: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --depth-2: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --depth-3: 0 20px 50px rgba(0, 0, 0, 0.55);
+  --glass-highlight: rgba(240, 201, 108, 0.08);
+  --glass-edge-glow: var(--gold-glow);          /* 暗色边缘微光 = 金 */
+  --glass-spotlight-color: rgba(240, 201, 108, 0.14);
+  --glass-ripple-color: rgba(var(--gold-rgb), 0.10);
+  --depth-1: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --depth-2: 0 4px 16px rgba(0, 0, 0, 0.55);
+  --depth-3: 0 20px 50px rgba(0, 0, 0, 0.65);
 }
 
 /* Smooth theme transition */
@@ -289,6 +304,11 @@ img {
 :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* 暗色焦点环：高光金（玫瑰在暖黑底上偏暗，金环对比更清晰） */
+[data-theme="dark"] :focus-visible {
+  outline-color: var(--gold-bright);
 }
 
 /* ============================================
@@ -399,12 +419,12 @@ img {
 .stagger-list > *:nth-child(9) { animation-delay: 0.35s; }
 .stagger-list > *:nth-child(10) { animation-delay: 0.39s; }
 
-/* Skeleton shimmer — low-contrast neutral pulse */
+/* Skeleton shimmer — 柔和扫光带品牌微光（浅色玫瑰 / 暗色金） */
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
     var(--color-bg-tertiary) 25%,
-    var(--color-bg-secondary) 50%,
+    var(--skeleton-sheen) 50%,
     var(--color-bg-tertiary) 75%
   );
   background-size: 200% 100%;
@@ -447,14 +467,24 @@ img {
    Element Plus Overrides (Global) — flat & neutral
    ============================================ */
 
-/* Buttons — solid fills, no gradient, no lift, one accent */
+/* Buttons — solid fills + 弹簧按压（hover 轻升 / active scale .97） */
 .el-button {
   border-radius: var(--radius-md) !important;
   font-weight: 500 !important;
   letter-spacing: -0.01em;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast) !important;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   font-family: var(--font-body) !important;
 }
+.el-button:hover { transform: translateY(-1px); }
+.el-button:active { transform: scale(0.97); }
+/* 图标/文字类小按钮不做位移，避免布局跳动 */
+.el-button.is-link:hover,
+.el-button.is-text:hover { transform: none; }
 
 .el-button--primary {
   background: var(--color-primary) !important;
@@ -527,13 +557,35 @@ img {
 }
 
 .el-table td.el-table__cell {
+  position: relative;
   border-bottom: 1px solid var(--color-border-light) !important;
   color: var(--color-text-primary) !important;
   transition: background var(--transition-fast) !important;
 }
 
+/* 行 hover：左侧 2px 品牌色指示条滑入（暗色为金）+ 行内微光 */
+.el-table--enable-row-hover .el-table__body tr > td.el-table__cell:first-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-primary);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1;
+}
+[data-theme="dark"] .el-table--enable-row-hover .el-table__body tr > td.el-table__cell:first-child::before {
+  background: var(--gold);
+}
+
 .el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
   background: var(--color-bg-tertiary) !important;
+}
+.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell:first-child::before {
+  transform: scaleY(1);
 }
 
 .el-table__body tr.current-row > td.el-table__cell,
@@ -594,8 +646,17 @@ img {
   box-shadow: 0 0 0 1px var(--color-text-muted) inset !important;
 }
 
+/* 聚焦：品牌环 + 极轻外辉光（浅色玫瑰 / 暗色金见下方覆盖） */
 .el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 2px var(--color-primary) inset !important;
+  box-shadow:
+    0 0 0 2px var(--color-primary) inset,
+    0 0 0 4px var(--color-primary-lighter) !important;
+}
+
+[data-theme="dark"] .el-input__wrapper.is-focus {
+  box-shadow:
+    0 0 0 2px var(--gold) inset,
+    0 0 0 4px var(--gold-glow) !important;
 }
 
 .el-select .el-input__wrapper {
@@ -687,13 +748,29 @@ img {
   overflow: hidden;
 }
 
-/* Spotlight / sheen pseudo-elements intentionally omitted (decorative noise). */
-.glass-panel.glass-spotlight::after,
-.glass-panel.glass-spotlight:hover::after { content: none; }
+/* Spotlight sheen — cursor-follow specular highlight (第二波复活).
+   --mx / --my 由 useGlassSpotlight 实时写入；聚光色浅色玫瑰白 / 暗色金。 */
+.glass-panel.glass-spotlight::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  background: radial-gradient(
+    circle 240px at var(--mx, 50%) var(--my, 50%),
+    var(--glass-spotlight-color) 0%,
+    transparent 62%
+  );
+  z-index: 1;
+}
+.glass-panel.glass-spotlight:hover::after { opacity: 1; }
 
 .glass-panel--hover:hover {
   transform: translateY(-2px);
-  box-shadow: var(--glass-specular), var(--glass-shadow-hover);
+  /* 边缘品牌微光（--glass-edge-glow：浅色玫瑰 / 暗色金） */
+  box-shadow: var(--glass-specular), var(--glass-shadow-hover), 0 0 22px -6px var(--glass-edge-glow);
   border-color: var(--color-border);
 }
 
@@ -749,4 +826,139 @@ img {
 .v-enter-active .el-overlay,
 .v-leave-active .el-overlay {
   transition: opacity 0.25s ease !important;
+}
+
+/* ============================================
+   Glass Toast — useToast() 封装的 ElNotification
+   玻璃质感 + 图标微弹 + 品牌左边条；暗色边缘金色发丝
+   ============================================ */
+.glass-toast.el-notification {
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--glass-specular), var(--glass-shadow-hover) !important;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 左侧品牌色指示条（按类型着色） */
+.glass-toast.el-notification::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--color-text-muted);
+}
+.glass-toast--success.el-notification::before { background: var(--matcha); }
+.glass-toast--error.el-notification::before { background: var(--rose); }
+.glass-toast--warning.el-notification::before { background: var(--amber); }
+.glass-toast--info.el-notification::before { background: var(--blueberry); }
+
+.glass-toast .el-notification__title {
+  color: var(--color-text-primary) !important;
+  font-weight: 700 !important;
+}
+.glass-toast .el-notification__content {
+  color: var(--color-text-secondary) !important;
+}
+
+/* 图标微弹入场（成功抹茶 / 失败草莓 / 警告焦糖 / 信息蓝莓） */
+.glass-toast .el-notification__icon {
+  animation: toastIconPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.glass-toast--success .el-notification__icon { color: var(--matcha) !important; }
+.glass-toast--error .el-notification__icon { color: var(--rose) !important; }
+.glass-toast--warning .el-notification__icon { color: var(--amber) !important; }
+.glass-toast--info .el-notification__icon { color: var(--blueberry) !important; }
+
+@keyframes toastIconPop {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60% { transform: scale(1.2) rotate(6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* 暗色：边缘金色发丝 */
+[data-theme="dark"] .glass-toast.el-notification {
+  border-color: var(--gold-muted) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-toast .el-notification__icon { animation: none; }
+}
+
+/* ============================================
+   View Transitions — 页面转场（第三波）
+   router/guards.js 里包裹 document.startViewTransition；
+   不支持的浏览器 / static 档不会触发这些伪元素（渐进增强）。
+   只动 transform / opacity；时长 250–350ms，缓出无弹跳。
+   ============================================ */
+
+/* 内容区：交叉淡入 + 轻微上移（≤ 12px） */
+@keyframes vt-content-out {
+  to { opacity: 0; }
+}
+
+@keyframes vt-content-in {
+  from { opacity: 0; transform: translateY(12px); }
+}
+
+::view-transition-old(page-content) {
+  animation: vt-content-out 0.18s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+::view-transition-new(page-content) {
+  animation: vt-content-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* root（侧栏/顶栏等剩余部分）：短交叉淡入，画面基本不变所以近乎不可见 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
+  animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* 招牌效果：侧边栏选中高亮块在导航项之间平滑滑动（共享元素形变） */
+::view-transition-group(nav-pill) {
+  animation-duration: 0.32s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 页头标题形变（新旧标题交叉淡入 + 位置/尺寸插值） */
+::view-transition-group(page-title) {
+  animation-duration: 0.28s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 持久元素（logo / 页头 / 高亮块）双向快照重叠时不闪烁 */
+::view-transition-old(app-logo),
+::view-transition-old(app-header) {
+  animation: none;
+  opacity: 0;
+}
+::view-transition-new(app-logo),
+::view-transition-new(app-header) {
+  animation: none;
+}
+
+/* 转场期间关闭 glass-pill 自身的过渡/果冻动画：
+   位移完全交给 ::view-transition-group(nav-pill) 形变，避免双重运动打架 */
+.vt-active .glass-pill {
+  transition: none !important;
+}
+.vt-active .glass-pill-inner {
+  animation: none !important;
+}
+
+/* reduced-motion：转场动画全部瞬时（guards 已跳过 startViewTransition，此为双保险） */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

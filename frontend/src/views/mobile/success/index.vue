@@ -1,7 +1,7 @@
 <template>
   <div class="success-page">
-    <!-- Confetti Canvas -->
-    <canvas ref="canvasRef" class="confetti-canvas"></canvas>
+    <!-- 撒糖 burst（复用 FloatingParticles 粒子类，0.6s 自清；仅移动端下单成功页） -->
+    <FloatingParticles mode="burst" :burst-count="110" color="primary" />
 
     <!-- Liquid Glass Card -->
     <div class="success-card">
@@ -62,12 +62,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import FloatingParticles from '@/components/FloatingParticles.vue'
 
 const router = useRouter()
 const route = useRoute()
-const canvasRef = ref(null)
 const orderNo = ref(route.query.orderNo || '')
 const copied = ref(false)
 
@@ -78,55 +78,6 @@ async function copyOrderNo() {
     setTimeout(() => copied.value = false, 2000)
   } catch { /* noop */ }
 }
-
-// ── Confetti ──
-let animFrame = null
-const COLORS = ['#d9574a','#f0a35c','#a78bfa','#34d399','#60a5fa','#fbbf24','#f472b6','#fff']
-
-function launchConfetti() {
-  const canvas = canvasRef.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
-
-  const particles = Array.from({ length: 100 }, () => ({
-    x: Math.random() * canvas.width,
-    y: -30 - Math.random() * 60,
-    vx: (Math.random() - 0.5) * 5,
-    vy: Math.random() * 3 + 2,
-    size: Math.random() * 7 + 3,
-    color: COLORS[Math.floor(Math.random() * COLORS.length)],
-    spin: Math.random() * 360,
-    spinV: (Math.random() - 0.5) * 10,
-    shape: Math.random() > 0.5 ? 'rect' : 'circle',
-    alpha: 1,
-  }))
-
-  let frame = 0
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    frame++
-    let alive = false
-    particles.forEach(p => {
-      p.x += p.vx; p.y += p.vy; p.spin += p.spinV; p.vy += 0.045
-      if (frame > 130) p.alpha -= 0.01
-      p.alpha = Math.max(0, p.alpha)
-      if (p.alpha <= 0 || p.y > canvas.height + 40) return
-      alive = true
-      ctx.save(); ctx.globalAlpha = p.alpha; ctx.translate(p.x, p.y)
-      ctx.rotate(p.spin * Math.PI / 180); ctx.fillStyle = p.color
-      if (p.shape === 'rect') ctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2)
-      else { ctx.beginPath(); ctx.arc(0, 0, p.size/2, 0, Math.PI*2); ctx.fill() }
-      ctx.restore()
-    })
-    if (alive) animFrame = requestAnimationFrame(draw)
-  }
-  requestAnimationFrame(draw)
-}
-
-onMounted(() => setTimeout(launchConfetti, 300))
-onUnmounted(() => { if (animFrame) cancelAnimationFrame(animFrame) })
 </script>
 
 <style scoped>
@@ -134,7 +85,6 @@ onUnmounted(() => { if (animFrame) cancelAnimationFrame(animFrame) })
   min-height: 100dvh; display: flex; align-items: center; justify-content: center;
   padding: 40px 20px; position: relative; overflow: hidden;
 }
-.confetti-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
 
 /* ── Glass Card ── */
 .success-card {

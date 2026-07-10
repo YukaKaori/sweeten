@@ -19,6 +19,7 @@
     "echarts": "^6.1.0",
     "element-plus": "^2.11.9",
     "nprogress": "^0.2.0",
+    "ogl": "^1.0.11",
     "pinia": "^3.0.4",
     "vue": "^3.5.25",
     "vue-router": "^4.6.3"

@@ -1,37 +1,36 @@
 <script setup>
 /**
- * FluidGradient.vue — 奶油流体渐变背景（SHOWCASE 第一波：纯 CSS 版）
+ * FluidGradient.vue — 流体渐变背景
  * ───────────────────────────────────────────────────────────────
- * 三点网格渐变（玫瑰↖ 琥珀↗ 抹茶↙）+ SVG feTurbulence 颗粒噪声 + 缓慢漂移。
- * 颜色全部取自 base.css 的 --mesh-* 令牌，浅色/暗色自动切换。
- *
- * 【OGL 升级接口 · 预留，本波不实现 WebGL】
- *   - prop `renderer`：'css'（默认）| 'webgl'。将来接入 OGL 流体着色器时，
- *     父组件传 renderer="webgl"，并通过默认插槽注入 <OglFluid/> canvas；
- *     CSS 网格自动降级为其后的静态兜底层（无 WebGL / 低端设备时可见）。
- *   - 默认插槽即 WebGL 画布的挂载位（渲染在 CSS 网格之上）。
- * 无论哪种 renderer，CSS 网格始终存在，保证零 WebGL 也惊艳。
+ * 两层策略：
+ *   1) CSS 网格渐变（玫瑰↖ 琥珀↗ 抹茶↙）+ feTurbulence 颗粒噪声 —— 永远存在的兜底，
+ *      零 WebGL / 低端 / reduced-motion 也成立；颜色取自 --mesh-* 令牌，深浅自适应。
+ *   2) OGL WebGL 真流体（simplex domain-warp 三色 mesh）—— 仅 full 档 + 支持 WebGL +
+ *      父组件请求 `webgl` 时叠加在 CSS 之上；组件动态 import() 懒加载，ogl 不进主 bundle。
+ *      暗色下自动切「暖黑底 + 金/琥珀流光」（见 OglFluid.vue）。
  */
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
+import { useMotionPref } from '@/composables/useMotionPref'
 
 const props = defineProps({
-  // 是否播放漂移动画。父组件按 useMotionPref 的 tier 传入（static 档传 false）
+  // 是否播放动画。父组件按 useMotionPref 的 tier 传入（static 档传 false）
   animated: { type: Boolean, default: true },
-  // 渲染器：本波仅 'css'；'webgl' 为将来 OGL 预留
-  renderer: {
-    type: String,
-    default: 'css',
-    validator: (v) => ['css', 'webgl'].includes(v),
-  },
+  // 是否请求 WebGL 真流体（能力不足时自动回退 CSS）
+  webgl: { type: Boolean, default: false },
 })
 
-// 是否启用 WebGL 插槽层（预留接口；本波父组件不会传 webgl）
-const webglSlot = computed(() => props.renderer === 'webgl')
+const { isFull, hasWebGL } = useMotionPref()
+
+// 仅 full 档 + 支持 WebGL + 请求 webgl 且允许动画时启用 OGL；否则纯 CSS mesh 兜底
+const useWebGL = computed(() => props.webgl && props.animated && isFull.value && hasWebGL)
+
+// OGL 组件懒加载：动态 import → 独立 chunk，ogl 只在真正渲染时才拉取
+const OglFluid = defineAsyncComponent(() => import('./OglFluid.vue'))
 </script>
 
 <template>
   <div class="fluid-gradient" :class="{ 'is-static': !animated }" aria-hidden="true">
-    <!-- 网格渐变三色团：玫瑰↖ 琥珀↗ 抹茶↙ -->
+    <!-- 网格渐变三色团：玫瑰↖ 琥珀↗ 抹茶↙（CSS 兜底层，始终存在） -->
     <div class="fluid-gradient__mesh">
       <span class="fluid-gradient__blob fluid-gradient__blob--rose"></span>
       <span class="fluid-gradient__blob fluid-gradient__blob--amber"></span>
@@ -41,10 +40,8 @@ const webglSlot = computed(() => props.renderer === 'webgl')
     <!-- 颗粒噪声：消除渐变色带（Stripe/Linear 招牌手法） -->
     <div class="fluid-gradient__grain"></div>
 
-    <!-- WebGL 升级挂载位（renderer='webgl' 时启用；本波不渲染） -->
-    <div v-if="webglSlot" class="fluid-gradient__webgl">
-      <slot />
-    </div>
+    <!-- WebGL 真流体：仅在能力足够时叠加（覆盖 CSS 兜底） -->
+    <component :is="OglFluid" v-if="useWebGL" class="fluid-gradient__webgl" />
   </div>
 </template>
 
@@ -118,9 +115,10 @@ const webglSlot = computed(() => props.renderer === 'webgl')
   inset: 0;
 }
 
-/* static 档（reduced-motion / 低端）：漂移静止 */
+/* static 档（reduced-motion / 低端）：漂移静止，同时撤掉 will-change 释放合成层 */
 .fluid-gradient.is-static .fluid-gradient__blob {
   animation: none;
+  will-change: auto;
 }
 
 @keyframes fluid-drift {
@@ -131,6 +129,6 @@ const webglSlot = computed(() => props.renderer === 'webgl')
 
 /* 双保险：系统级 reduced-motion 直接冻结 */
 @media (prefers-reduced-motion: reduce) {
-  .fluid-gradient__blob { animation: none; }
+  .fluid-gradient__blob { animation: none; will-change: auto; }
 }
 </style>
