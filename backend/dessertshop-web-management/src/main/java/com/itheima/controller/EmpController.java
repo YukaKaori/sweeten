@@ -1,6 +1,10 @@
 package com.itheima.controller;
 
 import com.itheima.annotation.LogOperation;
+import com.itheima.annotation.RequirePermission;
+import com.itheima.context.CurrentUser;
+import com.itheima.context.CurrentUserHolder;
+import com.itheima.exception.UnauthorizedException;
 import com.itheima.pojo.Emp;
 import com.itheima.pojo.EmpQueryParam;
 import com.itheima.pojo.EmpUpdateDTO;
@@ -30,6 +34,7 @@ public class EmpController {
     private final EmpService empService;
 
     @Operation(summary = "分页查询员工", description = "支持按姓名、性别、部门、职位、入职日期范围等条件分页查询员工列表")
+    @RequirePermission("emp:emp:list")
     @GetMapping
     public Result page(@Valid EmpQueryParam empQueryParam) {
         log.info("查询请求参数:{}", empQueryParam);
@@ -39,6 +44,7 @@ public class EmpController {
 
     @Operation(summary = "新增员工", description = "新增一个员工，包含基本信息和工作经历")
     @LogOperation
+    @RequirePermission("emp:emp:create")
     @PostMapping
     public Result save(@Valid @RequestBody Emp emp) {
         log.info("新增员工:{}", emp.getUsername());
@@ -48,6 +54,7 @@ public class EmpController {
 
     @Operation(summary = "批量删除员工", description = "根据员工ID列表批量删除员工")
     @LogOperation
+    @RequirePermission("emp:emp:delete")
     @DeleteMapping
     public Result delete(@Parameter(description = "员工ID列表") @RequestParam List<Integer> ids) {
         log.info("批量删除员工:ids={}", ids);
@@ -56,6 +63,7 @@ public class EmpController {
     }
 
     @Operation(summary = "根据ID查询员工详情", description = "根据员工ID查询员工的详细信息，包含工作经历")
+    @RequirePermission("emp:emp:list")
     @GetMapping("/{id}")
     public Result getInfo(@Parameter(description = "员工ID") @PathVariable Integer id) {
         log.info("根据id查询员工的详细信息,id:{}", id);
@@ -65,6 +73,7 @@ public class EmpController {
 
     @Operation(summary = "修改员工信息", description = "修改员工的基本信息和工作经历")
     @LogOperation
+    @RequirePermission("emp:emp:update")
     @PutMapping
     public Result update(@Valid @RequestBody EmpUpdateDTO empDTO) {
         log.info("修改员工信息,username:{}", empDTO.getUsername());
@@ -85,26 +94,38 @@ public class EmpController {
         return Result.success();
     }
 
-    @Operation(summary = "查询当前登录用户个人信息", description = "根据用户ID获取当前登录用户的个人信息")
+    @Operation(summary = "查询当前登录用户个人信息", description = "获取当前登录用户的个人信息（以登录态为准，路径中的ID仅为兼容保留，不参与查询）")
     @GetMapping("/profile/{id}")
-    public Result getProfile(@Parameter(description = "用户ID") @PathVariable Integer id) {
-        log.info("查询用户个人信息,id:{}", id);
-        Emp emp = empService.getProfile(id);
+    public Result getProfile(@Parameter(description = "用户ID（已忽略，以登录态为准）") @PathVariable Integer id) {
+        // IDOR 修复: id 一律取自登录上下文, 不信任路径参数
+        Integer currentId = currentUserId();
+        log.info("查询用户个人信息,id:{}", currentId);
+        Emp emp = empService.getProfile(currentId);
         if (emp != null) {
             emp.setPassword(null); // 不返回密码
         }
         return Result.success(emp);
     }
 
-    @Operation(summary = "修改密码", description = "修改当前登录用户的密码，需要验证原密码")
+    @Operation(summary = "修改密码", description = "修改当前登录用户的密码，需要验证原密码（用户ID以登录态为准，请求体中的ID不参与）")
     @LogOperation
     @PutMapping("/password")
     public Result updatePassword(@RequestBody PasswordChangeRequest req) {
-        log.info("修改密码,id:{}", req.getId());
-        boolean success = empService.updatePassword(req.getId(), req.getOldPassword(), req.getNewPassword());
+        // IDOR 修复: id 一律取自登录上下文, 不信任请求体参数
+        Integer currentId = currentUserId();
+        log.info("修改密码,id:{}", currentId);
+        boolean success = empService.updatePassword(currentId, req.getOldPassword(), req.getNewPassword());
         if (success) {
             return Result.success();
         }
         return Result.error("原密码错误");
+    }
+
+    private Integer currentUserId() {
+        CurrentUser user = CurrentUserHolder.get();
+        if (user == null || user.getId() == null) {
+            throw new UnauthorizedException();
+        }
+        return user.getId();
     }
 }

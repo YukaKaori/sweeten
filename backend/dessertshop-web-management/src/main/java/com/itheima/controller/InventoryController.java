@@ -1,6 +1,7 @@
 package com.itheima.controller;
 
 import com.itheima.annotation.LogOperation;
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.*;
 import com.itheima.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,7 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @Operation(summary = "分页查询库存", description = "支持按物料名称、分类、库存状态等条件分页查询库存列表")
+    @RequirePermission("inventory:inventory:list")
     @GetMapping
     public Result page(@Valid InventoryQueryParam queryParam) {
         log.info("分页查询库存:{}", queryParam);
@@ -34,6 +36,7 @@ public class InventoryController {
     }
 
     @Operation(summary = "库存预警", description = "查询库存量低于安全库存阈值的物料列表")
+    @RequirePermission("inventory:inventory:list")
     @GetMapping("/alerts")
     public Result alerts() {
         log.info("查询库存预警");
@@ -42,6 +45,7 @@ public class InventoryController {
     }
 
     @Operation(summary = "新增物料", description = "新增一个库存物料信息")
+    @RequirePermission("inventory:inventory:create")
     @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Inventory inventory) {
@@ -51,6 +55,7 @@ public class InventoryController {
     }
 
     @Operation(summary = "更新物料", description = "更新库存物料的基本信息")
+    @RequirePermission("inventory:inventory:update")
     @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Inventory inventory) {
@@ -60,6 +65,7 @@ public class InventoryController {
     }
 
     @Operation(summary = "删除物料", description = "根据ID删除指定库存物料")
+    @RequirePermission("inventory:inventory:delete")
     @LogOperation
     @DeleteMapping("/{id}")
     public Result delete(@Parameter(description = "物料ID") @PathVariable Integer id) {
@@ -69,6 +75,7 @@ public class InventoryController {
     }
 
     @Operation(summary = "库存调整", description = "执行出入库操作，调整物料的库存数量")
+    @RequirePermission("inventory:stock:adjust")
     @LogOperation
     @PutMapping("/stock")
     public Result adjustStock(@RequestBody Map<String, Object> params) {

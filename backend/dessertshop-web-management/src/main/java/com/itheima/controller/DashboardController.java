@@ -1,5 +1,6 @@
 package com.itheima.controller;
 
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.Result;
 import com.itheima.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +20,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @Operation(summary = "仪表盘统计数据", description = "获取仪表盘统计卡片数据、库存预警、营销活动、评价等综合信息")
+    @RequirePermission("dashboard:stats:read")
     @GetMapping("/stats")
     public Result stats() {
         log.info("查询仪表盘统计数据");
@@ -26,6 +28,7 @@ public class DashboardController {
     }
 
     @Operation(summary = "营收趋势图表数据", description = "获取营收趋势数据，支持day/week/month范围")
+    @RequirePermission("dashboard:stats:read")
     @GetMapping("/revenue")
     public Result revenue(@Parameter(description = "时间范围：day/week/month") @RequestParam(defaultValue = "month") String range) {
         log.info("查询营收趋势数据,range:{}", range);
@@ -33,6 +36,7 @@ public class DashboardController {
     }
 
     @Operation(summary = "热销甜品排行", description = "获取销量排行前N名的甜品列表")
+    @RequirePermission("dashboard:stats:read")
     @GetMapping("/ranking")
     public Result ranking(@Parameter(description = "返回排行数量") @RequestParam(defaultValue = "5") Integer limit) {
         log.info("查询热销甜品排行,limit:{}", limit);
@@ -40,6 +44,7 @@ public class DashboardController {
     }
 
     @Operation(summary = "库存预警", description = "获取当前库存量低于安全阈值的物料预警列表")
+    @RequirePermission("dashboard:stats:read")
     @GetMapping("/stock-alert")
     public Result stockAlert() {
         log.info("查询库存预警");
@@ -49,6 +54,7 @@ public class DashboardController {
     // ---------- 数据报表 API ----------
 
     @Operation(summary = "报表统计卡片", description = "获取指定日期范围内的报表统计卡片数据")
+    @RequirePermission("report:report:read")
     @GetMapping("/report-stats")
     public Result reportStats(@Parameter(description = "开始日期") @RequestParam(defaultValue = "") String begin,
                               @Parameter(description = "结束日期") @RequestParam(defaultValue = "") String end) {
@@ -57,6 +63,7 @@ public class DashboardController {
     }
 
     @Operation(summary = "报表营收趋势", description = "获取指定日期范围内的营收趋势图表数据")
+    @RequirePermission("report:report:read")
     @GetMapping("/report-revenue")
     public Result reportRevenue(@Parameter(description = "开始日期") @RequestParam(defaultValue = "") String begin,
                                 @Parameter(description = "结束日期") @RequestParam(defaultValue = "") String end) {
@@ -65,6 +72,7 @@ public class DashboardController {
     }
 
     @Operation(summary = "报表分类销售占比", description = "获取指定日期范围内的各分类销售占比数据")
+    @RequirePermission("report:report:read")
     @GetMapping("/report-category")
     public Result reportCategory(@Parameter(description = "开始日期") @RequestParam(defaultValue = "") String begin,
                                  @Parameter(description = "结束日期") @RequestParam(defaultValue = "") String end) {
@@ -73,6 +81,7 @@ public class DashboardController {
     }
 
     @Operation(summary = "报表工作日订单分布", description = "获取指定日期范围内的工作日-周末订单分布数据")
+    @RequirePermission("report:report:read")
     @GetMapping("/report-weekday")
     public Result reportWeekday(@Parameter(description = "开始日期") @RequestParam(defaultValue = "") String begin,
                                 @Parameter(description = "结束日期") @RequestParam(defaultValue = "") String end) {
@@ -81,6 +90,7 @@ public class DashboardController {
     }
 
     @Operation(summary = "报表热销排行", description = "获取指定日期范围内的热销甜品排行")
+    @RequirePermission("report:report:read")
     @GetMapping("/report-ranking")
     public Result reportRanking(@Parameter(description = "开始日期") @RequestParam(defaultValue = "") String begin,
                                 @Parameter(description = "结束日期") @RequestParam(defaultValue = "") String end,

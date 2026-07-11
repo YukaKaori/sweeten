@@ -1,6 +1,7 @@
 package com.itheima.controller;
 
 import com.itheima.annotation.LogOperation;
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.Order;
 import com.itheima.pojo.OrderQueryParam;
 import com.itheima.pojo.PageResult;
@@ -26,6 +27,7 @@ public class OrderController {
     private final OrderService orderService;
 
     @Operation(summary = "分页查询订单", description = "支持按订单号、客户名、状态、日期范围等条件分页查询订单列表")
+    @RequirePermission("order:order:list")
     @GetMapping
     public Result page(@Valid OrderQueryParam queryParam) {
         log.info("分页查询订单:{}", queryParam);
@@ -34,6 +36,7 @@ public class OrderController {
     }
 
     @Operation(summary = "根据ID查询订单详情", description = "根据订单ID查询订单的详细信息，含订单明细")
+    @RequirePermission("order:order:list")
     @GetMapping("/{id}")
     public Result getById(@Parameter(description = "订单ID") @PathVariable Integer id) {
         log.info("根据id查询订单:{}", id);
@@ -42,6 +45,7 @@ public class OrderController {
     }
 
     @Operation(summary = "新增订单", description = "创建一个新订单")
+    @RequirePermission("order:order:create")
     @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Order order) {
@@ -51,6 +55,7 @@ public class OrderController {
     }
 
     @Operation(summary = "修改订单", description = "修改订单信息（含状态流转）")
+    @RequirePermission("order:order:update")
     @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Order order) {
@@ -60,6 +65,7 @@ public class OrderController {
     }
 
     @Operation(summary = "删除订单", description = "根据ID删除指定订单")
+    @RequirePermission("order:order:delete")
     @LogOperation
     @DeleteMapping
     public Result delete(@Parameter(description = "订单ID") Integer id) {

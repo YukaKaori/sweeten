@@ -1,5 +1,6 @@
 package com.itheima.controller;
 
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.*;
 import com.itheima.service.EmpLogService;
 import com.itheima.service.OperateLogService;
@@ -24,6 +25,7 @@ public class OperateLogController {
     private final EmpLogService empLogService;
 
     @Operation(summary = "分页查询操作日志", description = "支持按操作人、类型、时间范围等条件分页查询操作审计日志")
+    @RequirePermission("log:operate:list")
     @GetMapping("/operateLogs")
     public Result pageOperateLog(@Valid OperateLogQueryParam queryParam){
         log.info("分页查询操作日志:{}",queryParam);
@@ -32,6 +34,7 @@ public class OperateLogController {
     }
 
     @Operation(summary = "根据ID查询操作日志详情", description = "查询单条操作日志的详细信息")
+    @RequirePermission("log:operate:list")
     @GetMapping("/operateLogs/{id}")
     public Result getOperateLogById(@Parameter(description = "日志ID") @PathVariable Integer id){
         log.info("根据id查询操作日志:{}",id);
@@ -40,6 +43,7 @@ public class OperateLogController {
     }
 
     @Operation(summary = "分页查询员工日志", description = "分页查询员工登录登出日志")
+    @RequirePermission("log:emp:list")
     @GetMapping("/empLogs")
     public Result pageEmpLog(@Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
                              @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Integer pageSize){

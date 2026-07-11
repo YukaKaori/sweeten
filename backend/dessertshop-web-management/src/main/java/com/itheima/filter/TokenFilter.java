@@ -1,6 +1,9 @@
 package com.itheima.filter;
 
+import com.itheima.context.CurrentUser;
+import com.itheima.context.CurrentUserHolder;
 import com.itheima.utils.JwtUtils;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -9,9 +12,14 @@ import org.apache.http.HttpStatus;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Token认证过滤器
+ * <p>
+ * 校验 JWT 有效性, 并将 {id, username, roles} 写入 CurrentUserHolder 供下游
+ * (PermissionAspect / Controller) 使用, 请求结束后清理。
+ * 旧版 token (无 roles 字段) 一律返回 401, 要求重新登录。
  */
 @Slf4j
 public class TokenFilter implements Filter {
@@ -69,16 +77,35 @@ public class TokenFilter implements Filter {
         }
 
         //6. 解析token，如果解析失败，返回错误结果（未登录）
+        Claims claims;
         try {
-            jwtUtils.parseJWT(jwt);
+            claims = jwtUtils.parseJWT(jwt);
         } catch (Exception e) {
             log.info("解析令牌失败, 返回错误结果");
             response.setStatus(HttpStatus.SC_UNAUTHORIZED);
             return;
         }
 
-        //7. 放行
-        log.info("令牌合法, 放行");
-        filterChain.doFilter(request, response);
+        //7. 旧版 token 无 roles 字段 → 强制重新登录（不做 super_admin 兜底）
+        Object rolesClaim = claims.get("roles");
+        if (!(rolesClaim instanceof List<?> roleList)) {
+            log.info("令牌缺少 roles 字段(旧版token), 要求重新登录");
+            response.setStatus(HttpStatus.SC_UNAUTHORIZED);
+            return;
+        }
+
+        //8. 构建当前用户上下文, 放行, 请求结束后清理
+        try {
+            List<String> roles = roleList.stream().map(String::valueOf).toList();
+            CurrentUserHolder.set(new CurrentUser(toInteger(claims.get("id")), (String) claims.get("username"), roles));
+            log.info("令牌合法, 放行");
+            filterChain.doFilter(request, response);
+        } finally {
+            CurrentUserHolder.clear();
+        }
+    }
+
+    private static Integer toInteger(Object value) {
+        return value instanceof Number number ? number.intValue() : null;
     }
 }

@@ -48,7 +48,7 @@ public class OperationLogAspect {
         operateLog.setOperateTime(LocalDateTime.now());
         operateLog.setClassName(joinPoint.getTarget().getClass().getName());
         operateLog.setMethodName(joinPoint.getSignature().getName());
-        operateLog.setMethodParams(Arrays.toString(joinPoint.getArgs()));
+        operateLog.setMethodParams(maskSensitive(Arrays.toString(joinPoint.getArgs())));
         operateLog.setReturnValue(result.toString());
         operateLog.setCostTime(costTime);
 
@@ -56,6 +56,17 @@ public class OperationLogAspect {
         operateLogMapper.insert(operateLog);
 
         return result;
+    }
+
+    /**
+     * 脱敏方法参数中的密码字段
+     * 匹配 Lombok toString 输出中的 password/oldPassword/newPassword 等字段值
+     */
+    private static String maskSensitive(String params) {
+        if (params == null) {
+            return null;
+        }
+        return params.replaceAll("(?i)(\\w*password\\w*=)[^,)\\]]*", "$1***");
     }
 
     /**

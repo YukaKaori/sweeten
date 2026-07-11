@@ -1,6 +1,7 @@
 package com.itheima.controller;
 
 import com.itheima.annotation.LogOperation;
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.*;
 import com.itheima.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +26,7 @@ public class CustomerController {
     private final CustomerService customerService;
 
     @Operation(summary = "分页查询客户", description = "支持按姓名、电话、等级等条件分页查询客户列表")
+    @RequirePermission("customer:customer:list")
     @GetMapping
     public Result page(@Valid CustomerQueryParam queryParam) {
         log.info("分页查询客户:{}", queryParam);
@@ -33,6 +35,7 @@ public class CustomerController {
     }
 
     @Operation(summary = "根据ID查询客户", description = "查询单个客户的详细信息")
+    @RequirePermission("customer:customer:list")
     @GetMapping("/{id}")
     public Result getById(@Parameter(description = "客户ID") @PathVariable Integer id) {
         log.info("查询客户详情,id:{}", id);
@@ -41,6 +44,7 @@ public class CustomerController {
     }
 
     @Operation(summary = "查询客户订单历史", description = "根据客户ID查询其历史订单记录，支持分页")
+    @RequirePermission("customer:order:list")
     @GetMapping("/{id}/orders")
     public Result getOrders(@Parameter(description = "客户ID") @PathVariable Integer id,
                             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
@@ -58,6 +62,7 @@ public class CustomerController {
     }
 
     @Operation(summary = "新增客户", description = "新增一个客户信息")
+    @RequirePermission("customer:customer:create")
     @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Customer customer) {
@@ -67,6 +72,7 @@ public class CustomerController {
     }
 
     @Operation(summary = "修改客户", description = "修改客户信息")
+    @RequirePermission("customer:customer:update")
     @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Customer customer) {
@@ -76,6 +82,7 @@ public class CustomerController {
     }
 
     @Operation(summary = "删除客户", description = "根据ID删除指定客户")
+    @RequirePermission("customer:customer:delete")
     @LogOperation
     @DeleteMapping("/{id}")
     public Result delete(@Parameter(description = "客户ID") @PathVariable Integer id) {

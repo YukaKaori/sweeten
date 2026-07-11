@@ -1,6 +1,7 @@
 package com.itheima.controller;
 
 import com.itheima.annotation.LogOperation;
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.*;
 import com.itheima.service.DessertService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,7 @@ public class DessertController {
     private final DessertService dessertService;
 
     @Operation(summary = "分页查询甜品", description = "支持按名称、分类、状态等条件分页查询甜品列表")
+    @RequirePermission("dessert:dessert:list")
     @GetMapping
     public Result page(@Valid DessertQueryParam queryParam) {
         log.info("分页查询甜品:{}", queryParam);
@@ -34,6 +36,7 @@ public class DessertController {
     }
 
     @Operation(summary = "根据分类查询甜品", description = "根据甜品分类(cake/bread/drink/icecream/snack/gift)查询甜品列表")
+    @RequirePermission("dessert:dessert:list")
     @GetMapping("/category/{category}")
     public Result listByCategory(@Parameter(description = "分类标识") @PathVariable String category) {
         log.info("根据分类查询甜品:{}", category);
@@ -42,6 +45,7 @@ public class DessertController {
     }
 
     @Operation(summary = "查询各分类数量", description = "统计各甜品分类下的商品数量")
+    @RequirePermission("dessert:dessert:list")
     @GetMapping("/categoryCount")
     public Result countByCategory() {
         log.info("查询各分类数量");
@@ -50,6 +54,7 @@ public class DessertController {
     }
 
     @Operation(summary = "根据ID查询甜品", description = "根据甜品ID查询单个甜品的详细信息")
+    @RequirePermission("dessert:dessert:list")
     @GetMapping("/{id}")
     public Result getById(@Parameter(description = "甜品ID") @PathVariable Integer id) {
         log.info("根据id查询甜品:{}", id);
@@ -58,6 +63,7 @@ public class DessertController {
     }
 
     @Operation(summary = "新增甜品", description = "新增一个甜品商品信息")
+    @RequirePermission("dessert:dessert:create")
     @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Dessert dessert) {
@@ -67,6 +73,7 @@ public class DessertController {
     }
 
     @Operation(summary = "修改甜品", description = "修改甜品信息（含价格调整）")
+    @RequirePermission("dessert:dessert:update")
     @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Dessert dessert) {
@@ -76,6 +83,7 @@ public class DessertController {
     }
 
     @Operation(summary = "删除甜品", description = "根据ID删除指定甜品")
+    @RequirePermission("dessert:dessert:delete")
     @LogOperation
     @DeleteMapping
     public Result delete(@Parameter(description = "甜品ID") Integer id) {
@@ -85,6 +93,7 @@ public class DessertController {
     }
 
     @Operation(summary = "甜品上下架", description = "设置甜品的上架(1)或下架(0)状态")
+    @RequirePermission("dessert:dessert:update")
     @LogOperation
     @PutMapping("/status")
     public Result updateStatus(@Parameter(description = "甜品ID") @RequestParam Integer id,

@@ -1,7 +1,9 @@
 package com.itheima.service.impl;
 
+import com.itheima.aop.PermissionAspect;
 import com.itheima.mapper.EmpExprMapper;
 import com.itheima.mapper.EmpMapper;
+import com.itheima.mapper.SysRoleMapper;
 import com.itheima.pojo.*;
 import com.itheima.service.EmpLogService;
 import com.itheima.service.EmpService;
@@ -24,6 +26,7 @@ public class EmpServiceImpl implements EmpService {
     private final EmpExprMapper empExprMapper;
     private final EmpLogService empLogService;
     private final JwtUtils jwtUtils;
+    private final SysRoleMapper sysRoleMapper;
 
     @Override
     public PageResult page(EmpQueryParam empQueryParam) {
@@ -41,7 +44,12 @@ public class EmpServiceImpl implements EmpService {
             emp.setCreateTime(LocalDateTime.now());
             emp.setUpdateTime(LocalDateTime.now());
             empMapper.insert(emp);
-            //3. 保存员工工作经历信息
+            //3. 绑定默认角色（灰度期默认 super_admin, 与存量员工行为一致; 灰度退出后应改为按 job 映射）
+            Integer defaultRoleId = sysRoleMapper.selectRoleIdByCode(PermissionAspect.SUPER_ADMIN);
+            if (defaultRoleId != null) {
+                sysRoleMapper.insertUserRole(emp.getId(), defaultRoleId);
+            }
+            //4. 保存员工工作经历信息
             Integer empId = emp.getId();
             List<EmpExpr> exprList = emp.getExprList();
             if (!CollectionUtils.isEmpty(exprList)) {
@@ -61,6 +69,8 @@ public class EmpServiceImpl implements EmpService {
         empMapper.deleteByIds(ids);
         //2. 根据员工的ID批量删除员工的工作经历信息
         empExprMapper.deleteByEmpIds(ids);
+        //3. 清理员工的角色绑定
+        sysRoleMapper.deleteUserRolesByUserIds(ids);
     }
 
     @Override
@@ -92,14 +102,22 @@ public class EmpServiceImpl implements EmpService {
         if (empLogin != null) {
             // 使用BCrypt验证密码
             if (BCryptUtils.verifyPassword(emp.getPassword(), empLogin.getPassword())) {
-                //1. 生成JWT令牌
+                //1. 查询用户角色与权限（角色进 token; 权限码仅随登录响应下发, 避免 token 膨胀）
+                List<String> roles = sysRoleMapper.selectRoleCodesByUserId(empLogin.getId());
+                List<String> permissions = roles.stream()
+                        .flatMap(role -> sysRoleMapper.selectPermissionCodesByRoleCode(role).stream())
+                        .distinct()
+                        .toList();
+
+                //2. 生成JWT令牌
                 Map<String, Object> dataMap = new HashMap<>();
                 dataMap.put("id", empLogin.getId());
                 dataMap.put("username", empLogin.getUsername());
+                dataMap.put("roles", roles);
 
                 String jwt = jwtUtils.generateJwt(dataMap);
-                LoginInfo loginInfo = new LoginInfo(empLogin.getId(), empLogin.getUsername(), empLogin.getName(), jwt, empLogin.getImage());
-                return loginInfo;
+                return new LoginInfo(empLogin.getId(), empLogin.getUsername(), empLogin.getName(), jwt,
+                        empLogin.getImage(), roles, permissions);
             }
         }
         return null;

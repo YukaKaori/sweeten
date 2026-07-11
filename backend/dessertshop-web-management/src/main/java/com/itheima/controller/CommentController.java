@@ -1,6 +1,7 @@
 package com.itheima.controller;
 
 import com.itheima.annotation.LogOperation;
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.Comment;
 import com.itheima.pojo.PageResult;
 import com.itheima.pojo.Result;
@@ -25,6 +26,7 @@ public class CommentController {
     private final CommentService commentService;
 
     @Operation(summary = "分页查询评论", description = "根据甜品ID分页查询其评论列表")
+    @RequirePermission("dessert:comment:list")
     @GetMapping
     public Result page(@Parameter(description = "甜品ID") @RequestParam Integer dessertId,
                        @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
@@ -35,6 +37,7 @@ public class CommentController {
     }
 
     @Operation(summary = "新增评论", description = "为指定甜品新增一条评论")
+    @RequirePermission("dessert:comment:create")
     @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Comment comment) {
@@ -44,6 +47,7 @@ public class CommentController {
     }
 
     @Operation(summary = "删除评论", description = "根据ID删除指定评论")
+    @RequirePermission("dessert:comment:delete")
     @LogOperation
     @DeleteMapping("/{id}")
     public Result delete(@Parameter(description = "评论ID") @PathVariable Integer id) {

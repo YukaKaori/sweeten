@@ -23,6 +23,29 @@ VALUES (3, '抹茶拿铁', 'drink', 28.00, 32.00, 200, 100, 1);
 INSERT INTO dessert (id, name, category, price, original_price, sales, stock, status)
 VALUES (4, '红丝绒蛋糕', 'cake', 108.00, 128.00, 50, 0, 0);
 
+-- RBAC 角色
+INSERT INTO sys_role (id, code, name) VALUES (1, 'super_admin', '超级管理员/店长');
+INSERT INTO sys_role (id, code, name) VALUES (2, 'manager', '副店长');
+INSERT INTO sys_role (id, code, name) VALUES (3, 'cashier', '收银/运营');
+INSERT INTO sys_role (id, code, name) VALUES (4, 'warehouse', '仓管/后厨');
+INSERT INTO sys_role (id, code, name) VALUES (5, 'finance', '财务');
+
+-- RBAC 权限 (测试用子集)
+INSERT INTO sys_permission (id, code, name, module) VALUES (1, 'order:order:list', '查询订单', 'order');
+INSERT INTO sys_permission (id, code, name, module) VALUES (2, 'dessert:dessert:list', '查询甜品', 'dessert');
+INSERT INTO sys_permission (id, code, name, module) VALUES (3, 'emp:emp:delete', '删除员工', 'emp');
+INSERT INTO sys_permission (id, code, name, module) VALUES (4, 'dashboard:stats:read', '查看仪表盘', 'dashboard');
+INSERT INTO sys_permission (id, code, name, module) VALUES (5, 'emp:emp:list', '查询员工', 'emp');
+
+-- cashier: 订单 + 甜品只读 + 首页
+INSERT INTO sys_role_permission (role_id, permission_id) VALUES (3, 1);
+INSERT INTO sys_role_permission (role_id, permission_id) VALUES (3, 2);
+INSERT INTO sys_role_permission (role_id, permission_id) VALUES (3, 4);
+
+-- 用户角色: admin → super_admin, chef01 → cashier
+INSERT INTO sys_user_role (user_id, role_id) VALUES (1, 1);
+INSERT INTO sys_user_role (user_id, role_id) VALUES (2, 3);
+
 -- 订单
 INSERT INTO orders (id, order_no, customer_name, phone, items, amount, status, address)
 VALUES (1, 'DS20240601001', '测试用户A', '13900000001', '草莓慕斯 x1', 38.00, 4, '北京市朝阳区');

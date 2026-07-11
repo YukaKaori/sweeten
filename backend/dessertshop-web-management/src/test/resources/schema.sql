@@ -68,3 +68,54 @@ CREATE TABLE IF NOT EXISTS orders (
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 操作日志表 (@LogOperation 切面写入)
+CREATE TABLE IF NOT EXISTS operate_log (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    operate_emp_id INT,
+    operate_time TIMESTAMP,
+    class_name VARCHAR(255),
+    method_name VARCHAR(100),
+    method_params TEXT,
+    return_value TEXT,
+    cost_time BIGINT
+);
+
+-- 员工操作日志表 (EmpLogService 写入)
+CREATE TABLE IF NOT EXISTS emp_log (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    operate_time TIMESTAMP,
+    info TEXT
+);
+
+-- ============ RBAC 四表 (与 sql/rbac_init.sql 对应) ============
+CREATE TABLE IF NOT EXISTS sys_role (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(50) NOT NULL,
+    description VARCHAR(200),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sys_permission (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    module VARCHAR(50) NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sys_role_permission (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    role_id INT NOT NULL,
+    permission_id INT NOT NULL,
+    UNIQUE (role_id, permission_id)
+);
+
+CREATE TABLE IF NOT EXISTS sys_user_role (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    role_id INT NOT NULL,
+    UNIQUE (user_id, role_id)
+);

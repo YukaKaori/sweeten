@@ -1,6 +1,7 @@
 package com.itheima.controller;
 
 import com.itheima.annotation.LogOperation;
+import com.itheima.annotation.RequirePermission;
 import com.itheima.pojo.Dept;
 import com.itheima.pojo.Result;
 import com.itheima.service.DeptService;
@@ -24,6 +25,7 @@ public class DeptController {
     private final DeptService deptService;
 
     @Operation(summary = "查询部门列表", description = "获取所有部门信息列表")
+    @RequirePermission("dept:dept:list")
     @GetMapping
     public Result list() {
         log.info("查询部门列表");
@@ -32,6 +34,7 @@ public class DeptController {
     }
 
     @Operation(summary = "删除部门", description = "根据部门ID删除指定部门")
+    @RequirePermission("dept:dept:delete")
     @LogOperation
     @DeleteMapping
     public Result delete(@Parameter(description = "部门ID") Integer id) {
@@ -41,6 +44,7 @@ public class DeptController {
     }
 
     @Operation(summary = "新增部门", description = "新增一个部门信息")
+    @RequirePermission("dept:dept:create")
     @LogOperation
     @PostMapping
     public Result save(@Valid @RequestBody Dept dept) {
@@ -50,6 +54,7 @@ public class DeptController {
     }
 
     @Operation(summary = "根据ID查询部门", description = "根据部门ID查询单个部门详细信息")
+    @RequirePermission("dept:dept:list")
     @GetMapping("/{id}")
     public Result getById(@Parameter(description = "部门ID") @PathVariable Integer id) {
         log.info("根据id查询部门,id:{}", id);
@@ -58,6 +63,7 @@ public class DeptController {
     }
 
     @Operation(summary = "修改部门", description = "根据部门ID修改部门信息")
+    @RequirePermission("dept:dept:update")
     @LogOperation
     @PutMapping
     public Result update(@Valid @RequestBody Dept dept) {

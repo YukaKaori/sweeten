@@ -1,6 +1,5 @@
 package com.itheima.controller;
 
-import com.itheima.annotation.LogOperation;
 import com.itheima.pojo.Emp;
 import com.itheima.pojo.LoginInfo;
 import com.itheima.pojo.LoginRequest;
@@ -22,7 +21,7 @@ public class LoginController {
 
     private final EmpService empService;
 
-    @LogOperation
+    // 不加 @LogOperation: 避免操作日志记录明文密码与返回的 JWT 令牌
     @Operation(summary = "用户登录", description = "使用用户名和密码进行登录认证，返回JWT令牌")
     @PostMapping("/login")
     public Result login(@RequestBody LoginRequest req) {
