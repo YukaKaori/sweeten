@@ -82,6 +82,16 @@ public class DessertController {
         return Result.success();
     }
 
+    @Operation(summary = "调整价格", description = "仅修改现价/原价，不触碰甜品其它字段")
+    @RequirePermission("dessert:dessert:update")
+    @LogOperation
+    @PutMapping("/price")
+    public Result updatePrice(@Valid @RequestBody DessertPriceRequest request) {
+        log.info("甜品调价,id:{},price:{}", request.getId(), request.getPrice());
+        dessertService.updatePrice(request.getId(), request.getPrice(), request.getOriginalPrice());
+        return Result.success();
+    }
+
     @Operation(summary = "删除甜品", description = "根据ID删除指定甜品")
     @RequirePermission("dessert:dessert:delete")
     @LogOperation

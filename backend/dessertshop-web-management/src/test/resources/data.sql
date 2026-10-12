@@ -12,6 +12,9 @@ INSERT INTO emp (id, username, password, name, gender, phone, job, salary, dept_
 VALUES (1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5Eh', '管理员', 1, '13800000000', 1, 10000.00, 1, '2020-01-01');
 INSERT INTO emp (id, username, password, name, gender, phone, job, salary, dept_id, entry_date)
 VALUES (2, 'chef01', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5Eh', '张厨师', 1, '13800000001', 2, 8000.00, 2, '2021-06-01');
+-- 未绑定任何角色的员工（RBAC "空角色 → 403" 用例）
+INSERT INTO emp (id, username, password, name, gender, phone, job, salary, dept_id, entry_date)
+VALUES (3, 'nobody', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5Eh', '无角色', 1, '13800000003', 3, 3000.00, 1, '2022-01-01');
 
 -- 甜品
 INSERT INTO dessert (id, name, category, price, original_price, sales, stock, status)
@@ -53,3 +56,9 @@ INSERT INTO orders (id, order_no, customer_name, phone, items, amount, status, a
 VALUES (2, 'DS20240601002', '测试用户B', '13900000002', '提拉米苏 x2', 64.00, 2, '北京市海淀区');
 INSERT INTO orders (id, order_no, customer_name, phone, items, amount, status, address)
 VALUES (3, 'DS20240601003', '测试用户C', '13900000003', '抹茶拿铁 x1, 草莓慕斯 x1', 66.00, 0, '北京市西城区');
+
+-- 优惠券模板：新人券（免费发放）+ 积分兑换券
+INSERT INTO coupon_template (id, name, type, threshold, reduce_amount, valid_days, total_stock, issued_count, points_cost, status, created_at)
+VALUES (1, '新人满30减5', 1, 30.00, 5.00, 30, -1, 0, 0, 1, CURRENT_TIMESTAMP);
+INSERT INTO coupon_template (id, name, type, threshold, reduce_amount, valid_days, total_stock, issued_count, points_cost, status, created_at)
+VALUES (2, '积分兑换满50减10', 1, 50.00, 10.00, 30, -1, 0, 50, 1, CURRENT_TIMESTAMP);

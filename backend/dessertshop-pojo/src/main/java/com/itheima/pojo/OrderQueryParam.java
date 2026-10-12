@@ -18,4 +18,9 @@ public class OrderQueryParam {
     private LocalDate begin; //开始日期
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate end; //结束日期
+
+    /** 结束日期的次日零点：create_time 为 datetime，按 [begin, end+1) 查询才能包含结束当天的订单 */
+    public LocalDate getEndExclusive() {
+        return end == null ? null : end.plusDays(1);
+    }
 }

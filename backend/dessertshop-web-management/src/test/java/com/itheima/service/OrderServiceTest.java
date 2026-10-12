@@ -1,5 +1,6 @@
 package com.itheima.service;
 
+import com.itheima.exception.BusinessException;
 import com.itheima.mapper.OrderMapper;
 import com.itheima.pojo.Order;
 import com.itheima.service.impl.OrderServiceImpl;
@@ -14,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,18 +80,40 @@ class OrderServiceTest {
     @Test
     @DisplayName("修改订单 - 应更新修改时间")
     void shouldUpdateTimestamp_WhenUpdating() {
+        when(orderMapper.getById(1)).thenReturn(testOrder);
         Order toUpdate = new Order();
         toUpdate.setId(1);
-        toUpdate.setStatus(2);
+        toUpdate.setAddress("上海市");
         orderService.update(toUpdate);
         assertNotNull(toUpdate.getUpdateTime());
         verify(orderMapper).updateById(toUpdate);
     }
 
     @Test
-    @DisplayName("删除订单 - 应调用 Mapper 的 deleteById")
+    @DisplayName("修改订单 - 整单修改不能改状态（须走状态流转接口）")
+    void shouldRejectStatusChange_WhenUpdating() {
+        when(orderMapper.getById(1)).thenReturn(testOrder);
+        Order toUpdate = new Order();
+        toUpdate.setId(1);
+        toUpdate.setStatus(4);
+        assertThrows(BusinessException.class, () -> orderService.update(toUpdate));
+        verify(orderMapper, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("删除订单 - 已完成/已取消的订单可删除")
     void shouldCallDeleteById() {
+        testOrder.setStatus(4);
+        when(orderMapper.getById(1)).thenReturn(testOrder);
         orderService.deleteById(1);
         verify(orderMapper).deleteById(1);
+    }
+
+    @Test
+    @DisplayName("删除订单 - 进行中的订单不能删除（须先取消以回补库存）")
+    void shouldRejectDeletingActiveOrder() {
+        when(orderMapper.getById(1)).thenReturn(testOrder); // status = 1 待接单
+        assertThrows(BusinessException.class, () -> orderService.deleteById(1));
+        verify(orderMapper, never()).deleteById(any());
     }
 }

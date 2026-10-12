@@ -36,6 +36,14 @@ public interface MemberMapper {
     int addPointsAndGrowth(@Param("id") Integer id, @Param("points") Integer points,
                            @Param("growth") Integer growth, @Param("amount") java.math.BigDecimal amount);
 
+    // ── 取消订单：扣回积分并回退订单统计（各项不低于 0；points 条件保证不会扣成负数） ──
+    @Update("UPDATE member SET points = points - #{points}, " +
+            "total_points = GREATEST(total_points - #{awarded}, 0), growth = GREATEST(growth - #{growth}, 0), " +
+            "total_spent = GREATEST(total_spent - #{amount}, 0), order_count = GREATEST(order_count - 1, 0), " +
+            "updated_at = NOW() WHERE id = #{id} AND points >= #{points}")
+    int revokeOrderStats(@Param("id") Integer id, @Param("points") Integer points, @Param("awarded") Integer awarded,
+                         @Param("growth") Integer growth, @Param("amount") java.math.BigDecimal amount);
+
     // ── 扣除积分 ──
     @Update("UPDATE member SET points = points - #{points}, updated_at = NOW() WHERE id = #{id} AND points >= #{points}")
     int deductPoints(@Param("id") Integer id, @Param("points") Integer points);

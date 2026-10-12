@@ -1,16 +1,23 @@
 package com.itheima.exception;
 
 import com.itheima.pojo.Result;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -57,6 +64,39 @@ public class GlobalExceptionHandler {
     public Result handleMissingParameterException(MissingServletRequestParameterException e) {
         log.warn("缺少请求参数: {}", e.getParameterName());
         return Result.error("缺少参数: " + e.getParameterName());
+    }
+
+    /**
+     * 处理方法参数约束异常（@RequestParam/@PathVariable 上的 @Min/@Max 等）
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result handleConstraintViolation(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+        log.warn("参数约束校验失败: {}", message);
+        return Result.error(message);
+    }
+
+    /**
+     * 请求体无法解析（JSON 格式错误、编码错误、字段类型不符）→ 400，而不是兜底的 500
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("请求体无法解析: {}", e.getMostSpecificCause().getMessage());
+        return Result.error("请求数据格式错误");
+    }
+
+    /**
+     * 上传文件超过 spring.servlet.multipart 限制 → 413
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public Result handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        log.warn("上传文件过大: {}", e.getMessage());
+        return Result.error(413, "文件大小不能超过5MB");
     }
 
     /**
@@ -122,6 +162,36 @@ public class GlobalExceptionHandler {
     public Result handleDuplicateException(DuplicateException e) {
         log.warn("资源冲突: {}", e.getMessage());
         return Result.conflict(e.getMessage());
+    }
+
+    /**
+     * 唯一索引冲突兜底 (409)：业务层未显式处理的重复数据
+     */
+    @ExceptionHandler(DuplicateKeyException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result handleDuplicateKeyException(DuplicateKeyException e) {
+        log.warn("唯一索引冲突: {}", e.getMostSpecificCause().getMessage());
+        return Result.conflict("数据已存在，请勿重复提交");
+    }
+
+    /**
+     * 不存在的接口路径 (404)，避免被兜底处理成 500
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result handleNoResourceFound(NoResourceFoundException e) {
+        log.warn("接口不存在: {}", e.getResourcePath());
+        return Result.notFound("接口不存在: /" + e.getResourcePath());
+    }
+
+    /**
+     * 不存在的接口路径 (404)：关闭静态资源映射（生产 spring.web.resources.add-mappings=false）时抛出的是这个异常
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result handleNoHandlerFound(NoHandlerFoundException e) {
+        log.warn("接口不存在: {} {}", e.getHttpMethod(), e.getRequestURL());
+        return Result.notFound("接口不存在");
     }
 
     // ==================== 兜底异常 ====================

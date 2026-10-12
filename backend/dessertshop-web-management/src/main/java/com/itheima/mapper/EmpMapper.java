@@ -32,6 +32,9 @@ public interface EmpMapper {
     /**
      * 根据用户名查询员工（用于登录验证）
      */
+    @Select("select count(*) from emp where id = #{id}")
+    int countById(Integer id);
+
     @Select("select * from emp where username = #{username}")
     Emp getByUsername(String username);
 

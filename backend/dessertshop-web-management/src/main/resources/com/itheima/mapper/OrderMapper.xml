@@ -16,8 +16,11 @@
             <if test="status != null">
                 and status = #{status}
             </if>
-            <if test="begin != null and end != null">
-                and create_time between #{begin} and #{end}
+            <if test="begin != null">
+                and create_time &gt;= #{begin}
+            </if>
+            <if test="end != null">
+                and create_time &lt; #{endExclusive}
             </if>
         </where>
         order by create_time desc

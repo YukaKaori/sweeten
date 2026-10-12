@@ -29,4 +29,16 @@ public interface DessertService {
 
     //查询各分类数量
     List<Map<String, Object>> countByCategory();
+
+    //查询全部上架甜品
+    List<Dessert> listOnSale();
+
+    //仅调整价格（现价必填，原价可选）
+    void updatePrice(Integer id, Double price, Double originalPrice);
+
+    //下单扣减库存并累加销量；库存不足或已下架返回 false
+    boolean deductStock(Integer id, Integer qty);
+
+    //取消订单回补库存并回退销量
+    void restoreStock(Integer id, Integer qty);
 }

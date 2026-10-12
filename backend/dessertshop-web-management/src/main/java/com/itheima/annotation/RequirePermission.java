@@ -19,7 +19,7 @@ import java.lang.annotation.Target;
 public @interface RequirePermission {
 
     /**
-     * 所需权限码
+     * 所需权限码；给多个时满足任意一个即可（如上传接口：能改甜品或能改员工的角色均可上传图片）
      */
-    String value();
+    String[] value();
 }

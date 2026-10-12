@@ -7,6 +7,10 @@ spring:
     url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
     username: sa
     password:
+  # 测试用独立 Redis 库，避免把 H2 测试数据写进本机开发环境（database 0）的甜品缓存
+  data:
+    redis:
+      database: 15
   sql:
     init:
       mode: always
@@ -27,6 +31,11 @@ mybatis:
 pagehelper:
   reasonable: false
   helper-dialect: mysql
+
+# 缓存默认关闭：各测试类使用不同 H2 库，共享 Redis 会互相串数据；RedisCacheIntegrationTest 单独开启
+app:
+  cache:
+    enabled: false
 
 # 关闭 OSS 自动配置（测试不需要）
 aliyun:

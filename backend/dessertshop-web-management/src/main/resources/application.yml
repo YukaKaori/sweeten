@@ -3,8 +3,9 @@ spring:
     name: dessertshop-web-management
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 100MB
+      # 与 UploadController 的 5MB 业务上限一致（略留余量给表单字段）
+      max-file-size: 5MB
+      max-request-size: 6MB
   #mysql连接配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -21,15 +22,18 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:123456}
-      database: 0
-      timeout: 3000ms
+      # 不再内置默认密码：本机 Redis 无密码时留空即可；生产通过环境变量 REDIS_PASSWORD 提供
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      # 缓存只是加速层：超时宜短，失败后由 RedisConfig 熔断直查数据库
+      timeout: 1000ms
+      connect-timeout: 1000ms
       lettuce:
         pool:
           max-active: 16
           max-idle: 8
           min-idle: 4
-          max-wait: 3000ms
+          max-wait: 1000ms
 
 # JWT配置
 jwt:
@@ -73,3 +77,14 @@ aliyun:
     endpoint: https://oss-cn-beijing.aliyuncs.com
     bucketName: yuka-javaweb
     region: cn-beijing
+
+# 应用自定义配置（生产环境见 application-prod.yml）
+app:
+  cors:
+    # 前端与接口不同源时才需要，逗号分隔；开发环境经 Vite 代理同源访问，留空
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  security:
+    # 仅当部署在会覆盖 X-Forwarded-For 的反向代理之后才设为 true（登录限流按真实客户端 IP 计数）
+    trust-forwarded-for: ${TRUST_FORWARDED_FOR:false}
+  cache:
+    breaker-open-seconds: 30

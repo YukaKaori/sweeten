@@ -18,6 +18,9 @@ public interface OrderService {
     //修改订单
     void update(Order order);
 
+    //订单状态流转（服务端校验流转规则；取消时回补库存）
+    void updateStatus(Integer id, Integer status);
+
     //删除订单
     void deleteById(Integer id);
 }

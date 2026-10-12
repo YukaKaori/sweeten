@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -61,6 +63,17 @@ public class OrderController {
     public Result update(@Valid @RequestBody Order order) {
         log.info("修改订单,id:{}", order.getId());
         orderService.update(order);
+        return Result.success();
+    }
+
+    @Operation(summary = "订单状态流转", description = "按流转规则变更订单状态（待支付→待接单→制作中→配送中→已完成，待支付/待接单可取消）；取消时自动回补库存")
+    @RequirePermission("order:order:update")
+    @LogOperation
+    @PutMapping("/status")
+    public Result updateStatus(@Parameter(description = "订单ID") @RequestParam Integer id,
+                               @Parameter(description = "目标状态 0-5") @RequestParam @Min(0) @Max(5) Integer status) {
+        log.info("订单状态流转,id:{},status:{}", id, status);
+        orderService.updateStatus(id, status);
         return Result.success();
     }
 

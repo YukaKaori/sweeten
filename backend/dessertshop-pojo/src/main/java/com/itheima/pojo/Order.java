@@ -7,6 +7,10 @@ import java.time.LocalDateTime;
 
 @Data
 public class Order {
+
+    /** items 列长度上限（与 orders.items VARCHAR(2000) 一致，见 sql/order_stock_and_images.sql） */
+    public static final int ITEMS_MAX_LENGTH = 2000;
+
     private Integer id;
 
     @NotBlank(message = "订单号不能为空")
@@ -22,7 +26,7 @@ public class Order {
     private String phone;
 
     @NotBlank(message = "商品明细不能为空")
-    @Size(max = 500, message = "商品明细长度不能超过500个字符")
+    @Size(max = ITEMS_MAX_LENGTH, message = "商品明细长度不能超过2000个字符")
     private String items;
 
     @NotNull(message = "订单金额不能为空")

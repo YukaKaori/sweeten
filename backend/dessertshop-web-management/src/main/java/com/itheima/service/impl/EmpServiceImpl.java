@@ -1,6 +1,8 @@
 package com.itheima.service.impl;
 
 import com.itheima.aop.PermissionAspect;
+import com.itheima.context.UserRoleLoader;
+import com.itheima.exception.BusinessException;
 import com.itheima.mapper.EmpExprMapper;
 import com.itheima.mapper.EmpMapper;
 import com.itheima.mapper.SysRoleMapper;
@@ -27,6 +29,7 @@ public class EmpServiceImpl implements EmpService {
     private final EmpLogService empLogService;
     private final JwtUtils jwtUtils;
     private final SysRoleMapper sysRoleMapper;
+    private final UserRoleLoader userRoleLoader;
 
     @Override
     public PageResult page(EmpQueryParam empQueryParam) {
@@ -65,12 +68,18 @@ public class EmpServiceImpl implements EmpService {
     @Transactional
     @Override
     public void deleteByIds(List<Integer> ids) {
+        // 空列表会生成 "delete ... where id in " 这样的非法 SQL
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException("请选择要删除的员工");
+        }
         //1. 根据ID批量删除员工基本信息
         empMapper.deleteByIds(ids);
         //2. 根据员工的ID批量删除员工的工作经历信息
         empExprMapper.deleteByEmpIds(ids);
         //3. 清理员工的角色绑定
         sysRoleMapper.deleteUserRolesByUserIds(ids);
+        //4. 已登录的被删员工立即失去访问权（TokenFilter 按库校验账号）
+        userRoleLoader.evict(ids);
     }
 
     @Override

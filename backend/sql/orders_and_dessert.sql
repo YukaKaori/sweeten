@@ -9,12 +9,14 @@ CREATE TABLE IF NOT EXISTS `orders` (
     `order_no` VARCHAR(32) NOT NULL COMMENT '订单号',
     `customer_name` VARCHAR(50) NOT NULL COMMENT '客户姓名',
     `phone` VARCHAR(20) COMMENT '联系电话',
-    `items` VARCHAR(500) COMMENT '商品明细',
+    `items` VARCHAR(2000) COMMENT '商品明细',
     `amount` DECIMAL(10,2) COMMENT '订单金额',
     `status` INT DEFAULT 0 COMMENT '订单状态 0待支付 1待接单 2制作中 3配送中 4已完成 5已取消',
     `address` VARCHAR(200) COMMENT '配送地址',
     `create_time` DATETIME COMMENT '下单时间',
-    `update_time` DATETIME COMMENT '更新时间'
+    `update_time` DATETIME COMMENT '更新时间',
+    -- 唯一键让下方 INSERT IGNORE 真正幂等（此前缺失，重复执行本脚本会整批复制种子订单）
+    UNIQUE KEY `uk_order_no` (`order_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
 
 -- ── 2. 甜品表 ──────────────────────────────────
@@ -81,23 +83,23 @@ DROP PROCEDURE IF EXISTS dedupe_and_index;
 
 -- ── 5. 插入/更新 17 个甜品（含 OSS CDN 图片） ────
 INSERT INTO `dessert` (`name`, `category`, `price`, `original_price`, `image`, `sales`, `stock`, `status`, `create_time`, `update_time`) VALUES
-('草莓慕斯蛋糕',   'cake',     128.00, 158.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/strawberry_mousse_cake.jpg', 326,  45,  1, NOW(), NOW()),
-('提拉米苏',       'cake',      88.00, 108.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/tiramisu.jpg',              218,  32,  1, NOW(), NOW()),
-('巧克力熔岩蛋糕', 'cake',      98.00,  98.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/chocolate_lava_cake.jpg',   156,   8,  1, NOW(), NOW()),
-('芒果千层蛋糕',   'cake',     138.00, 168.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/mango_crepe_cake.jpg',      289,  56,  1, NOW(), NOW()),
-('红丝绒蛋糕',     'cake',     108.00, 128.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/red_velvet_cake.jpg',       175, 120,  0, NOW(), NOW()),
-('法式可颂',       'bread',     15.00,  18.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/croissant.jpg',            1024, 200,  1, NOW(), NOW()),
-('全麦吐司',       'bread',     22.00,  22.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/whole_wheat_toast.jpg',     856, 150,  1, NOW(), NOW()),
-('肉松面包',       'bread',     12.00,  15.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/meat_floss_bread.jpg',      967,   5,  1, NOW(), NOW()),
-('脏脏包',         'bread',     18.00,  18.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/dirty_bread.jpg',           543,  15,  1, NOW(), NOW()),
-('抹茶拿铁',       'drink',     28.00,  32.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/matcha_latte.jpg',         1892, 300,  1, NOW(), NOW()),
-('鲜榨橙汁',       'drink',     22.00,  22.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/orange_juice.jpg',         1234,  80,  1, NOW(), NOW()),
-('美式咖啡',       'drink',     18.00,  22.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/americano_coffee.jpg',     2156, 250,  1, NOW(), NOW()),
-('蓝莓芝士蛋糕',   'dessert',   68.00,  78.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/blueberry_cheesecake.jpg',  432,  18,  1, NOW(), NOW()),
-('舒芙蕾',         'dessert',   48.00,  58.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/souffle.jpg',               367,  10,  1, NOW(), NOW()),
-('焦糖布丁',       'dessert',   32.00,  38.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/creme_brulee.jpg',          589,  65,  1, NOW(), NOW()),
-('香草冰淇淋',     'icecream',  25.00,  25.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/vanilla_icecream.jpg',      765,  90,  1, NOW(), NOW()),
-('抹茶冰淇淋',     'icecream',  28.00,  32.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/dessert-images/matcha_icecream.jpg',       654,   3,  1, NOW(), NOW())
+('草莓慕斯蛋糕',   'cake',     128.00, 158.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png', 326,  45,  1, NOW(), NOW()),
+('提拉米苏',       'cake',      88.00, 108.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',              218,  32,  1, NOW(), NOW()),
+('巧克力熔岩蛋糕', 'cake',      98.00,  98.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',   156,   8,  1, NOW(), NOW()),
+('芒果千层蛋糕',   'cake',     138.00, 168.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',      289,  56,  1, NOW(), NOW()),
+('红丝绒蛋糕',     'cake',     108.00, 128.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',       175, 120,  0, NOW(), NOW()),
+('法式可颂',       'bread',     15.00,  18.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',            1024, 200,  1, NOW(), NOW()),
+('全麦吐司',       'bread',     22.00,  22.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',     856, 150,  1, NOW(), NOW()),
+('肉松面包',       'bread',     12.00,  15.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',      967,   5,  1, NOW(), NOW()),
+('脏脏包',         'bread',     18.00,  18.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',           543,  15,  1, NOW(), NOW()),
+('抹茶拿铁',       'drink',     28.00,  32.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',         1892, 300,  1, NOW(), NOW()),
+('鲜榨橙汁',       'drink',     22.00,  22.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',         1234,  80,  1, NOW(), NOW()),
+('美式咖啡',       'drink',     18.00,  22.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',     2156, 250,  1, NOW(), NOW()),
+('蓝莓芝士蛋糕',   'dessert',   68.00,  78.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',  432,  18,  1, NOW(), NOW()),
+('舒芙蕾',         'dessert',   48.00,  58.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',               367,  10,  1, NOW(), NOW()),
+('焦糖布丁',       'dessert',   32.00,  38.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',          589,  65,  1, NOW(), NOW()),
+('香草冰淇淋',     'icecream',  25.00,  25.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',      765,  90,  1, NOW(), NOW()),
+('抹茶冰淇淋',     'icecream',  28.00,  32.00, 'https://yuka-javaweb.oss-cn-beijing.aliyuncs.com/2026/10/5f6bcc06-e40d-46af-9200-78a8c143e842.png',       654,   3,  1, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     `price`          = VALUES(`price`),
     `original_price` = VALUES(`original_price`),

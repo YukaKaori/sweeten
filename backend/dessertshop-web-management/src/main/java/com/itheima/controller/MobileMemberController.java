@@ -1,5 +1,6 @@
 package com.itheima.controller;
 
+import com.itheima.exception.NotFoundException;
 import com.itheima.pojo.*;
 import com.itheima.service.CouponService;
 import com.itheima.service.MemberService;
@@ -37,16 +38,17 @@ public class MobileMemberController {
      * POST /mobile/member/redeem
      */
     @PostMapping("/redeem")
-    public Result redeem(@RequestBody Map<String, Integer> body) {
-        Integer memberId = body.get("memberId");
-        Integer templateId = body.get("templateId");
+    public Result redeem(@RequestBody Map<String, Object> body) {
+        Integer memberId = body.get("memberId") instanceof Number n ? n.intValue() : null;
+        Integer templateId = body.get("templateId") instanceof Number n ? n.intValue() : null;
+        String phone = body.get("phone") instanceof String s ? s : null;
         log.info("积分兑换: memberId={}, templateId={}", memberId, templateId);
 
-        if (memberId == null || templateId == null) {
+        if (memberId == null || templateId == null || phone == null) {
             return Result.error("参数不完整");
         }
 
-        Map<String, Object> result = memberService.redeemCoupon(memberId, templateId);
+        Map<String, Object> result = memberService.redeemCoupon(memberId, phone, templateId);
         if (Boolean.TRUE.equals(result.get("success"))) {
             return Result.success(result);
         }
@@ -58,8 +60,11 @@ public class MobileMemberController {
      * GET /mobile/member/coupons?memberId=1
      */
     @GetMapping("/coupons")
-    public Result getCoupons(@RequestParam Integer memberId) {
+    public Result getCoupons(@RequestParam Integer memberId, @RequestParam String phone) {
         log.info("查询会员优惠券: memberId={}", memberId);
+        if (!memberService.memberMatchesPhone(memberId, phone)) {
+            throw new NotFoundException("会员不存在");
+        }
         return Result.success(memberService.getUsableCoupons(memberId));
     }
 
@@ -68,8 +73,11 @@ public class MobileMemberController {
      * GET /mobile/member/points-log?memberId=1
      */
     @GetMapping("/points-log")
-    public Result getPointsLog(@RequestParam Integer memberId) {
+    public Result getPointsLog(@RequestParam Integer memberId, @RequestParam String phone) {
         log.info("查询积分日志: memberId={}", memberId);
+        if (!memberService.memberMatchesPhone(memberId, phone)) {
+            throw new NotFoundException("会员不存在");
+        }
         return Result.success(memberService.getPointsLog(memberId));
     }
 

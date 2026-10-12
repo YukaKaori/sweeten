@@ -12,8 +12,9 @@ Thumbs.db
 dessertshop_backup*.sql
 
 # Sensitive configuration
+# 真实密钥只放环境变量或 application-local.yml（仍忽略）。
+# application-prod.yml 只含 ${ENV} 占位符、不含任何密钥，需要随代码发布（否则 prod profile 的加固配置不会进入构建产物），故不再忽略。
 application-local.yml
-application-prod.yml
 .env
 .env.local
 .env.production

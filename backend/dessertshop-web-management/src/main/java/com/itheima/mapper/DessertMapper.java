@@ -41,6 +41,25 @@ public interface DessertMapper {
     @Select("select name, sales from dessert where status = 1 order by sales desc limit #{limit}")
     List<java.util.Map<String, Object>> selectTopSalesRanking(@Param("limit") Integer limit);
 
+    //查询全部上架甜品（移动端"全部"分类）
+    @Select("select * from dessert where status = 1 order by sales desc")
+    List<Dessert> listOnSale();
+
+    //仅调整价格（窄更新，避免整对象覆写其它字段）
+    @Update("update dessert set price = #{price}, original_price = coalesce(#{originalPrice}, original_price), " +
+            "update_time = #{updateTime} where id = #{id}")
+    int updatePrice(Dessert dessert);
+
+    //下单扣库存 + 记销量（条件更新保证原子性：仅上架且库存充足时成功，返回影响行数）
+    @Update("update dessert set stock = stock - #{qty}, sales = coalesce(sales, 0) + #{qty}, update_time = now() " +
+            "where id = #{id} and status = 1 and stock >= #{qty}")
+    int deductStock(@Param("id") Integer id, @Param("qty") Integer qty);
+
+    //取消订单回补库存 + 回退销量
+    @Update("update dessert set stock = coalesce(stock, 0) + #{qty}, sales = greatest(coalesce(sales, 0) - #{qty}, 0), " +
+            "update_time = now() where id = #{id}")
+    int restoreStock(@Param("id") Integer id, @Param("qty") Integer qty);
+
     //库存预警（库存低于阈值的上架甜品）
     @Select("select name, stock from dessert where stock < #{threshold} and status = 1 order by stock asc")
     List<java.util.Map<String, Object>> selectLowStockAlerts(@Param("threshold") Integer threshold);

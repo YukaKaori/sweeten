@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 权限校验切面 — 拦截 @RequirePermission 标注的接口
@@ -49,9 +50,10 @@ public class PermissionAspect {
             return;
         }
 
-        String required = requirePermission.value();
+        List<String> required = List.of(requirePermission.value());
         for (String role : roles) {
-            if (permissionCache.getPermissions(role).contains(required)) {
+            Set<String> granted = permissionCache.getPermissions(role);
+            if (required.stream().anyMatch(granted::contains)) {
                 return;
             }
         }
