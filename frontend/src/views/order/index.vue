@@ -2,8 +2,15 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, View, Delete, Download, List, Grid } from '@element-plus/icons-vue'
-import { ORDER_STATUS, getLabelByValue, getTypeByValue } from '@/utils/constants'
-import { queryPageApi, queryByIdApi, deleteByIdApi, updateApi } from '@/api/modules/order'
+import {
+  ORDER_STATUS,
+  ORDER_STATUS_FLOW,
+  getLabelByValue,
+  getTypeByValue,
+  parseOrderItems,
+  formatOrderItems,
+} from '@/utils/constants'
+import { queryPageApi, queryByIdApi, deleteByIdApi, updateStatusApi } from '@/api/modules/order'
 import { exportCSV } from '@/composables/useExport'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -59,9 +66,13 @@ const search = async () => {
       pageSize.value
     )
     if (result.code) {
-      orderList.value = result.data.rows
-      total.value = result.data.total
+      orderList.value = result.data?.rows || []
+      total.value = result.data?.total || 0
+    } else {
+      ElMessage.error(result.msg || '订单加载失败')
     }
+  } catch {
+    // 拦截器已提示
   } finally {
     loading.value = false
   }
@@ -96,13 +107,12 @@ const handleCurrentChange = () => {
 
 // 查看详情
 const viewDetail = async (order) => {
-  const result = await queryByIdApi(order.id)
-  if (result.code) {
-    currentOrder.value = result.data
-  } else {
-    currentOrder.value = order
-  }
+  currentOrder.value = order
   drawerVisible.value = true
+  const result = await queryByIdApi(order.id).catch(() => null)
+  if (result?.code && result.data) {
+    currentOrder.value = result.data
+  }
 }
 
 // 删除订单
@@ -113,15 +123,20 @@ const deleteOrder = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
+  } catch {
+    return // 取消
+  }
+  try {
     const result = await deleteByIdApi(id)
     if (result.code) {
       ElMessage.success('删除成功')
+      if (orderList.value.length === 1 && currentPage.value > 1) currentPage.value--
       search()
     } else {
-      ElMessage.error(result.msg)
+      ElMessage.error(result.msg || '删除失败')
     }
   } catch {
-    // 取消
+    // 拦截器已提示
   }
 }
 
@@ -129,23 +144,53 @@ const handleExport = () => {
   const columns = [
     { key: 'orderNo', label: '订单号' },
     { key: 'customerName', label: '客户' },
-    { key: 'items', label: '商品明细' },
+    { key: 'itemsText', label: '商品明细' },
     { key: 'amount', label: '金额' },
     { key: 'status', label: '状态' },
     { key: 'createTime', label: '下单时间' }
   ]
-  exportCSV(orderList.value, columns, '订单数据')
+  const rows = orderList.value.map(o => ({
+    ...o,
+    itemsText: formatOrderItems(o.items),
+    status: getLabelByValue(ORDER_STATUS, o.status),
+  }))
+  exportCSV(rows, columns, '订单数据')
 }
 
-// 状态流转映射：每个状态可以流转到的目标状态
-const statusFlow = {
-  0: [1, 5],       // 待支付 → 待接单、已取消
-  1: [2, 5],       // 待接单 → 制作中、已取消
-  2: [3],          // 制作中 → 配送中
-  3: [4],          // 配送中 → 已完成
-  4: [],           // 已完成（终态）
-  5: []            // 已取消（终态）
+// 状态流转映射：每个状态可以流转到的目标状态（后端 PUT /orders/status 同样校验）
+const statusFlow = ORDER_STATUS_FLOW
+const statusUpdating = ref(false)
+
+// 调用状态流转接口；取消订单时后端会回补移动端订单扣减的库存
+const changeStatus = async (order, newStatus) => {
+  const statusLabel = getLabelByValue(ORDER_STATUS, newStatus)
+  statusUpdating.value = true
+  try {
+    const result = await updateStatusApi(order.id, newStatus)
+    if (result.code) {
+      ElMessage.success(`订单已变更为「${statusLabel}」`)
+      if (currentOrder.value?.id === order.id) currentOrder.value.status = newStatus
+      search()
+      return true
+    }
+    ElMessage.error(result.msg || '操作失败')
+  } catch {
+    // 拦截器已展示后端原因（如流转不合法、状态已被他人修改）
+  } finally {
+    statusUpdating.value = false
+  }
+  return false
 }
+
+// 与后端约定一致：完成时发积分；取消时回补库存（若该单曾发过积分则扣回）
+const cancelHint = (newStatus) => {
+  if (newStatus === 5) return '取消后，顾客下单时扣减的库存会自动回补。'
+  if (newStatus === 4) return '完成后将按实付金额为顾客发放会员积分。'
+  return ''
+}
+
+// 只有已完成/已取消的订单可删除；进行中的订单需先取消（以回补库存）
+const canDelete = (order) => order.status === 4 || order.status === 5
 
 const getFlowActions = (status) => {
   const targets = statusFlow[status] || []
@@ -164,41 +209,28 @@ const kanbanStatusChange = async (order, newStatus) => {
   const statusLabel = ORDER_STATUS.find(s => s.value === newStatus)?.label || newStatus
   try {
     await ElMessageBox.confirm(
-      `将订单 #${order.orderNo?.slice(-6)} 从「${getLabelByValue(ORDER_STATUS, order.status)}」移至「${statusLabel}」？`,
+      `将订单 #${order.orderNo?.slice(-6)} 从「${getLabelByValue(ORDER_STATUS, order.status)}」移至「${statusLabel}」？${cancelHint(newStatus)}`,
       '看板流转',
-      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'info' }
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: newStatus === 5 ? 'warning' : 'info' }
     )
-    const result = await updateApi({ ...order, status: newStatus })
-    if (result.code) {
-      ElMessage.success(`已移至「${statusLabel}」`)
-      search()
-    } else {
-      ElMessage.error(result.msg || '操作失败')
-    }
   } catch {
-    // 取消
+    return // 取消
   }
+  await changeStatus(order, newStatus)
 }
 
 const updateOrderStatus = async (order, newStatus) => {
   const statusLabel = ORDER_STATUS.find(s => s.value === newStatus)?.label || newStatus
   try {
-    await ElMessageBox.confirm(`确认将订单状态变更为「${statusLabel}」吗？`, '状态变更', {
+    await ElMessageBox.confirm(`确认将订单状态变更为「${statusLabel}」吗？${cancelHint(newStatus)}`, '状态变更', {
       confirmButtonText: '确认',
       cancelButtonText: '取消',
-      type: 'info'
+      type: newStatus === 5 ? 'warning' : 'info'
     })
-    const result = await updateApi({ ...order, status: newStatus })
-    if (result.code) {
-      ElMessage.success(`订单已变更为「${statusLabel}」`)
-      currentOrder.value.status = newStatus
-      search()
-    } else {
-      ElMessage.error(result.msg || '操作失败')
-    }
   } catch {
-    // 取消
+    return // 取消
   }
+  await changeStatus(order, newStatus)
 }
 </script>
 
@@ -222,13 +254,24 @@ const updateOrderStatus = async (order, newStatus) => {
         <el-form-item label="客户">
           <el-input v-model="searchForm.customerName" placeholder="请输入客户姓名" clearable style="width: 150px" />
         </el-form-item>
+        <el-form-item label="下单日期">
+          <el-date-picker
+            v-model="searchForm.date"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="开始"
+            end-placeholder="结束"
+            style="width: 240px"
+          />
+        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 140px">
             <el-option v-for="s in ORDER_STATUS" :key="s.value" :label="s.label" :value="s.value" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="search">
+          <el-button type="primary" @click="currentPage = 1; search()">
             <el-icon><Search /></el-icon>
             查询
           </el-button>
@@ -292,7 +335,7 @@ const updateOrderStatus = async (order, newStatus) => {
               <span class="kanban-card__amount">¥{{ (order.amount || 0).toFixed(0) }}</span>
             </div>
             <div class="kanban-card__customer">{{ order.customerName }}</div>
-            <div class="kanban-card__items">{{ order.items }}</div>
+            <div class="kanban-card__items">{{ formatOrderItems(order.items) }}</div>
             <div class="kanban-card__time">{{ order.createTime?.slice(5) || '' }}</div>
 
             <!-- 快捷流转按钮 -->
@@ -304,6 +347,7 @@ const updateOrderStatus = async (order, newStatus) => {
                 size="small"
                 plain
                 class="kanban-action-btn"
+                :disabled="statusUpdating"
                 @click="kanbanStatusChange(order, action.value)"
               >
                 → {{ action.label }}
@@ -333,7 +377,11 @@ const updateOrderStatus = async (order, newStatus) => {
           </template>
         </el-table-column>
         <el-table-column prop="customerName" label="客户" width="90" align="center" />
-        <el-table-column prop="items" label="商品明细" min-width="200" show-overflow-tooltip />
+        <el-table-column label="商品明细" min-width="200" show-overflow-tooltip>
+          <template #default="scope">
+            {{ formatOrderItems(scope.row.items) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="amount" label="金额" width="100" align="right">
           <template #default="scope">
             <span class="amount">¥{{ (scope.row.amount || 0).toFixed(2) }}</span>
@@ -358,9 +406,20 @@ const updateOrderStatus = async (order, newStatus) => {
                 <el-icon><View /></el-icon>
                 详情
               </el-button>
-              <el-button type="danger" size="small" plain @click="deleteOrder(scope.row.id)">
-                <el-icon><Delete /></el-icon>
-              </el-button>
+              <el-tooltip :disabled="canDelete(scope.row)" content="进行中的订单请先取消再删除" placement="top">
+                <span>
+                  <el-button
+                    type="danger"
+                    size="small"
+                    plain
+                    :disabled="!canDelete(scope.row)"
+                    aria-label="删除订单"
+                    @click="deleteOrder(scope.row.id)"
+                  >
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </span>
+              </el-tooltip>
             </div>
           </template>
         </el-table-column>
@@ -414,6 +473,7 @@ const updateOrderStatus = async (order, newStatus) => {
                   :type="action.value === 5 ? 'danger' : 'primary'"
                   size="small"
                   plain
+                  :loading="statusUpdating"
                   @click="updateOrderStatus(currentOrder, action.value)"
                 >
                   变更为「{{ action.label }}」
@@ -451,7 +511,14 @@ const updateOrderStatus = async (order, newStatus) => {
 
         <div class="detail-section">
           <h4>商品明细</h4>
-          <p class="detail-items">{{ currentOrder.items }}</p>
+          <ul class="detail-item-list">
+            <li v-for="(line, idx) in parseOrderItems(currentOrder.items)" :key="idx">
+              <span class="detail-item-list__name">{{ line.name }}</span>
+              <span class="detail-item-list__qty">{{ line.qty ? `×${line.qty}` : '' }}</span>
+              <span class="detail-item-list__price">{{ line.price != null ? `¥${(line.price * (line.qty || 1)).toFixed(2)}` : '' }}</span>
+            </li>
+            <li v-if="!parseOrderItems(currentOrder.items).length" class="detail-item-list__empty">无明细</li>
+          </ul>
         </div>
       </div>
     </el-drawer>
@@ -459,6 +526,42 @@ const updateOrderStatus = async (order, newStatus) => {
 </template>
 
 <style scoped>
+.detail-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.detail-item-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--color-border-light);
+  font-size: 14px;
+}
+
+.detail-item-list li:last-child {
+  border-bottom: none;
+}
+
+.detail-item-list__name {
+  flex: 1;
+  color: var(--color-text-primary);
+}
+
+.detail-item-list__qty,
+.detail-item-list__empty {
+  color: var(--color-text-muted);
+}
+
+.detail-item-list__price {
+  min-width: 72px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
 .page-container {
   max-width: 1400px;
   margin: 0 auto;

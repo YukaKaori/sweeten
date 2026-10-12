@@ -1,15 +1,22 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, EditPen, Delete } from '@element-plus/icons-vue'
-import { DESSERT_CATEGORIES } from '@/utils/constants'
+import { Plus, Search, EditPen, Delete, Upload } from '@element-plus/icons-vue'
+import { DESSERT_CATEGORIES, CATEGORY_COLORS, getLabelByValue } from '@/utils/constants'
 import { queryPageApi, addApi, updateApi, deleteByIdApi, updateStatusApi } from '@/api/modules/dessert'
+import { uploadImageApi, UPLOAD_ACCEPT, UPLOAD_MAX_MB } from '@/api/modules/upload'
+import ProductImg from '@/components/ProductImg.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
 
-// 搜索
-const searchName = ref('')
+/** 库存低于该值时在列表中标黄提醒（与首页库存预警口径接近） */
+const LOW_STOCK = 10
+
+// 搜索（支持从首页库存预警带 ?name= 定位到具体甜品）
+const route = useRoute()
+const searchName = ref(typeof route.query.name === 'string' ? route.query.name : '')
 const searchCategory = ref('')
 
 // 分页
@@ -17,6 +24,7 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const loading = ref(false)
+const loadFailed = ref(false)
 const dessertList = ref([])
 
 // 对话框
@@ -24,18 +32,27 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增甜品')
 const isEdit = ref(false)
 const formRef = ref()
+const submitting = ref(false)
+const uploading = ref(false)
 
 const defaultForm = {
   id: null,
   name: '',
   category: 'cake',
   description: '',
-  price: 0,
-  originalPrice: 0,
+  price: undefined,
+  originalPrice: undefined,
+  stock: 50,
   image: '',
   status: 1,
 }
 const form = reactive({ ...defaultForm })
+
+const validateOriginalPrice = (rule, value, callback) => {
+  if (value == null || value === '') return callback()
+  if (form.price != null && value < form.price) return callback(new Error('原价不应低于现价'))
+  callback()
+}
 
 const rules = {
   name: [
@@ -43,34 +60,34 @@ const rules = {
     { min: 2, max: 50, message: '名称长度 2-50 个字符', trigger: 'blur' },
   ],
   category: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
+  price: [
+    { required: true, message: '请输入现价', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '现价必须大于 0', trigger: 'blur' },
+  ],
+  originalPrice: [{ validator: validateOriginalPrice, trigger: 'blur' }],
+  stock: [{ required: true, message: '请输入库存', trigger: 'blur' }],
 }
 
-// 分类颜色
-const categoryColors = {
-  cake: '#e8637a',
-  bread: '#f0a35c',
-  drink: '#6b8cce',
-  dessert: '#5cb88a',
-  icecream: '#a78bfa',
-}
-
-// 加载数据
+// 加载数据（后端 PageResult 结构为 { total, rows }）
 const loadData = async () => {
   loading.value = true
+  loadFailed.value = false
   try {
     const result = await queryPageApi(
-      searchName.value,
+      searchName.value.trim(),
       searchCategory.value,
       currentPage.value,
       pageSize.value,
     )
     if (result.code) {
-      dessertList.value = result.data.records || result.data || []
-      total.value = result.data.total || 0
+      dessertList.value = result.data?.rows || []
+      total.value = result.data?.total || 0
+    } else {
+      loadFailed.value = true
+      ElMessage.error(result.msg || '甜品列表加载失败')
     }
   } catch {
-    // handled by interceptor
+    loadFailed.value = true
   } finally {
     loading.value = false
   }
@@ -103,33 +120,86 @@ const handleSizeChange = (size) => {
 const openAdd = () => {
   isEdit.value = false
   dialogTitle.value = '新增甜品'
-  Object.assign(form, { ...defaultForm, id: null })
+  Object.assign(form, { ...defaultForm })
   dialogVisible.value = true
 }
 
-// 编辑
+// 编辑：只带表单字段，避免把 createTime/sales 等列表快照回写
 const openEdit = (row) => {
   isEdit.value = true
   dialogTitle.value = '编辑甜品'
-  Object.assign(form, { ...row })
+  Object.assign(form, {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    description: row.description || '',
+    price: row.price,
+    originalPrice: row.originalPrice ?? undefined,
+    stock: row.stock ?? 0,
+    image: row.image || '',
+    status: row.status ?? 1,
+  })
   dialogVisible.value = true
+}
+
+// 图片上传（走后端 /upload → 阿里云 OSS）
+const beforeImageUpload = (file) => {
+  if (!UPLOAD_ACCEPT.includes(file.type)) {
+    ElMessage.error('仅支持 JPG / PNG / GIF / WEBP 图片')
+    return false
+  }
+  if (file.size / 1024 / 1024 > UPLOAD_MAX_MB) {
+    ElMessage.error(`图片不能超过 ${UPLOAD_MAX_MB}MB`)
+    return false
+  }
+  return true
+}
+
+const uploadImage = async ({ file }) => {
+  uploading.value = true
+  try {
+    const result = await uploadImageApi(file)
+    if (result.code && result.data) {
+      form.image = result.data
+      ElMessage.success('图片已上传')
+    } else {
+      ElMessage.error(result.msg || '图片上传失败')
+    }
+  } catch {
+    // 拦截器已提示
+  } finally {
+    uploading.value = false
+  }
 }
 
 // 提交
 const submitForm = async () => {
-  if (!formRef.value) return
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
-    const api = isEdit.value ? updateApi : addApi
-    const result = await api(form)
+  if (!formRef.value || submitting.value) return
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+  submitting.value = true
+  try {
+    const payload = {
+      ...form,
+      name: form.name.trim(),
+      description: form.description?.trim() || '',
+      image: form.image?.trim() || undefined,
+      originalPrice: form.originalPrice ?? undefined,
+    }
+    const result = await (isEdit.value ? updateApi(payload) : addApi(payload))
     if (result.code) {
       ElMessage.success(isEdit.value ? '甜品更新成功' : '甜品新增成功')
       dialogVisible.value = false
+      if (!isEdit.value) currentPage.value = 1
       loadData()
     } else {
       ElMessage.error(result.msg || '操作失败')
     }
-  })
+  } catch {
+    // 拦截器已展示后端原因（如名称重复、字段校验）
+  } finally {
+    submitting.value = false
+  }
 }
 
 // 删除
@@ -140,6 +210,10 @@ const handleDelete = async (row) => {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     })
+  } catch {
+    return // 取消
+  }
+  try {
     const result = await deleteByIdApi(row.id)
     if (result.code) {
       ElMessage.success('删除成功')
@@ -151,22 +225,32 @@ const handleDelete = async (row) => {
       ElMessage.error(result.msg || '删除失败')
     }
   } catch {
-    // 取消
+    // 拦截器已提示
   }
 }
 
-// 上下架
+// 上下架（请求中禁用开关，防止连点）
 const toggleStatus = async (row) => {
+  if (row._toggling) return
   const newStatus = row.status === 1 ? 0 : 1
   const action = newStatus === 1 ? '上架' : '下架'
-  const result = await updateStatusApi(row.id, newStatus)
-  if (result.code) {
-    row.status = newStatus
-    ElMessage.success(`已${action}`)
-  } else {
-    ElMessage.error(result.msg || '操作失败')
+  row._toggling = true
+  try {
+    const result = await updateStatusApi(row.id, newStatus)
+    if (result.code) {
+      row.status = newStatus
+      ElMessage.success(`「${row.name}」已${action}`)
+    } else {
+      ElMessage.error(result.msg || '操作失败')
+    }
+  } catch {
+    // 拦截器已提示
+  } finally {
+    row._toggling = false
   }
 }
+
+const stockTagType = (stock) => (stock <= 0 ? 'danger' : stock < LOW_STOCK ? 'warning' : 'info')
 
 onMounted(() => {
   loadData()
@@ -175,7 +259,7 @@ onMounted(() => {
 
 <template>
   <div class="page-container">
-    <PageHeader title="甜品管理" description="管理所有甜品的新增、编辑、上下架和删除">
+    <PageHeader title="甜品管理" description="管理甜品的上新、价格、库存与上下架">
       <template #actions>
         <el-button type="primary" @click="openAdd">
           <el-icon><Plus /></el-icon>
@@ -192,10 +276,17 @@ onMounted(() => {
         clearable
         style="width: 220px"
         @keyup.enter="handleSearch"
+        @clear="handleSearch"
       >
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
-      <el-select v-model="searchCategory" placeholder="全部分类" clearable style="width: 140px">
+      <el-select
+        v-model="searchCategory"
+        placeholder="全部分类"
+        clearable
+        style="width: 140px"
+        @change="handleSearch"
+      >
         <el-option
           v-for="cat in DESSERT_CATEGORIES"
           :key="cat.value"
@@ -223,31 +314,30 @@ onMounted(() => {
         <el-table-column prop="id" label="ID" width="60" align="center" />
         <el-table-column label="图片" width="80" align="center">
           <template #default="{ row }">
-            <img
-              v-if="row.image"
-              :src="row.image"
-              class="dessert-thumb"
-              :alt="row.name"
-            />
-            <span v-else class="thumb-placeholder">🧁</span>
+            <ProductImg :item="row" :width="48" :alt="row.name" class="dessert-thumb" />
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="甜品名称" min-width="140" show-overflow-tooltip />
+        <el-table-column label="甜品名称" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">
+            <router-link :to="`/dessert/${row.id}`" class="name-link">{{ row.name }}</router-link>
+            <p v-if="row.description" class="row-desc">{{ row.description }}</p>
+          </template>
+        </el-table-column>
         <el-table-column label="分类" width="90" align="center">
           <template #default="{ row }">
             <el-tag
               size="small"
-              :style="{ color: categoryColors[row.category], borderColor: categoryColors[row.category] }"
+              :style="{ color: CATEGORY_COLORS[row.category], borderColor: CATEGORY_COLORS[row.category] }"
               effect="plain"
             >
-              {{ DESSERT_CATEGORIES.find(c => c.value === row.category)?.label || row.category }}
+              {{ getLabelByValue(DESSERT_CATEGORIES, row.category) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="160" show-overflow-tooltip />
         <el-table-column label="原价" width="90" align="right">
           <template #default="{ row }">
-            <span class="price-original-col">¥{{ row.originalPrice?.toFixed(2) }}</span>
+            <span v-if="row.originalPrice > row.price" class="price-original-col">¥{{ row.originalPrice.toFixed(2) }}</span>
+            <span v-else class="muted">—</span>
           </template>
         </el-table-column>
         <el-table-column label="现价" width="90" align="right">
@@ -255,10 +345,19 @@ onMounted(() => {
             <span class="price-current-col">¥{{ row.price?.toFixed(2) }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="库存" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="stockTagType(row.stock ?? 0)" size="small" effect="light" round>
+              {{ (row.stock ?? 0) <= 0 ? '售罄' : row.stock }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sales" label="销量" width="80" align="right" />
         <el-table-column label="状态" width="80" align="center">
           <template #default="{ row }">
             <el-switch
               :model-value="row.status === 1"
+              :loading="row._toggling"
               active-text="在售"
               inactive-text="下架"
               inline-prompt
@@ -273,12 +372,8 @@ onMounted(() => {
               <el-icon><EditPen /></el-icon>
               编辑
             </el-button>
-            <el-button
-              size="small"
-              link
-              @click="$router.push(`/dessert/${row.id}`)"
-            >
-              评论
+            <el-button size="small" link @click="$router.push(`/dessert/${row.id}`)">
+              详情
             </el-button>
             <el-button type="danger" size="small" link @click="handleDelete(row)">
               <el-icon><Delete /></el-icon>
@@ -288,6 +383,24 @@ onMounted(() => {
         </el-table-column>
       </el-table>
 
+      <EmptyState
+        v-else-if="loadFailed"
+        title="甜品列表加载失败"
+        description="请检查网络或稍后重试"
+      >
+        <template #action>
+          <el-button @click="loadData">重新加载</el-button>
+        </template>
+      </EmptyState>
+      <EmptyState
+        v-else-if="searchName || searchCategory"
+        title="没有符合条件的甜品"
+        description="换个关键词或分类试试"
+      >
+        <template #action>
+          <el-button @click="handleReset">清除筛选</el-button>
+        </template>
+      </EmptyState>
       <EmptyState
         v-else
         title="暂无甜品数据"
@@ -313,17 +426,19 @@ onMounted(() => {
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="560px"
+      width="580px"
       destroy-on-close
+      :close-on-click-modal="!submitting"
     >
       <el-form
         ref="formRef"
         :model="form"
         :rules="rules"
         label-width="80px"
+        @submit.prevent="submitForm"
       >
         <el-form-item label="甜品名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入甜品名称" maxlength="50" show-word-limit />
+          <el-input v-model="form.name" placeholder="如：草莓奶油蛋糕" maxlength="50" show-word-limit />
         </el-form-item>
         <el-form-item label="分类" prop="category">
           <el-select v-model="form.category" style="width: 100%">
@@ -339,55 +454,93 @@ onMounted(() => {
           <el-input
             v-model="form.description"
             type="textarea"
-            :rows="3"
-            placeholder="甜品描述（选填）"
+            :rows="2"
+            placeholder="一句话介绍口味与用料（选填）"
             maxlength="200"
             show-word-limit
           />
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="原价" prop="originalPrice">
+            <el-form-item label="现价" prop="price">
               <el-input-number
-                v-model="form.originalPrice"
-                :min="0"
+                v-model="form.price"
+                :min="0.01"
                 :precision="2"
                 :step="1"
+                controls-position="right"
                 style="width: 100%"
-                placeholder="原价"
+                placeholder="必填"
               />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="现价" prop="price">
+            <el-form-item label="原价" prop="originalPrice">
               <el-input-number
-                v-model="form.price"
-                :min="0"
+                v-model="form.originalPrice"
+                :min="0.01"
                 :precision="2"
                 :step="1"
+                controls-position="right"
                 style="width: 100%"
-                placeholder="现价"
+                placeholder="选填，划线价"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="库存" prop="stock">
+              <el-input-number
+                v-model="form.stock"
+                :min="0"
+                :precision="0"
+                :step="10"
+                controls-position="right"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态" prop="status">
+              <el-switch
+                v-model="form.status"
+                :active-value="1"
+                :inactive-value="0"
+                active-text="在售"
+                inactive-text="下架"
               />
             </el-form-item>
           </el-col>
         </el-row>
         <el-form-item label="图片" prop="image">
-          <el-input v-model="form.image" placeholder="图片URL地址（选填）" />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-switch
-            v-model="form.status"
-            :active-value="1"
-            :inactive-value="0"
-            active-text="在售"
-            inactive-text="下架"
-          />
+          <div class="image-field">
+            <ProductImg :key="form.image" :item="{ image: form.image }" :width="96" class="image-preview" eager />
+            <div class="image-field__body">
+              <el-upload
+                :show-file-list="false"
+                :accept="UPLOAD_ACCEPT.join(',')"
+                :before-upload="beforeImageUpload"
+                :http-request="uploadImage"
+                :disabled="uploading"
+              >
+                <el-button :loading="uploading" size="small">
+                  <el-icon v-if="!uploading"><Upload /></el-icon>
+                  {{ form.image ? '更换图片' : '上传图片' }}
+                </el-button>
+              </el-upload>
+              <el-input v-model="form.image" size="small" placeholder="或粘贴图片 URL（选填）" clearable />
+              <p class="image-hint">
+                JPG/PNG/WEBP，≤ {{ UPLOAD_MAX_MB }}MB，上传至阿里云 OSS。当前全站临时统一展示草莓蛋糕图，商品自己的图片在关闭统一模式后生效。
+              </p>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">
+          <el-button :disabled="submitting" @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="submitting" :disabled="uploading" @click="submitForm">
             {{ isEdit ? '保存修改' : '确认新增' }}
           </el-button>
         </div>
@@ -423,8 +576,58 @@ onMounted(() => {
   object-fit: cover;
 }
 
-.thumb-placeholder {
-  font-size: 24px;
+.name-link {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.name-link:hover {
+  color: var(--color-primary);
+}
+
+.row-desc {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.image-field {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+}
+
+.image-preview {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+}
+
+.image-field__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.image-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
 }
 
 .price-original-col {

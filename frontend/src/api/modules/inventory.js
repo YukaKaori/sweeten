@@ -2,7 +2,7 @@ import http from '@/utils/http'
 
 /** 分页查询库存 */
 export const queryPageApi = (name = '', page = 1, pageSize = 10) =>
-  http.get(`/inventory?name=${name}&page=${page}&pageSize=${pageSize}`)
+  http.get('/inventory', { params: { name: name || undefined, page, pageSize } })
 
 /** 查询低库存预警 */
 export const queryAlertsApi = () => http.get('/inventory/alerts')

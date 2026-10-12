@@ -419,7 +419,7 @@ onUnmounted(() => {
                 </div>
                 <div class="bento-alert-pill__right">
                   <el-button type="info" size="small" class="reorder-action-btn" @click="handleReorder(item.name)">
-                    快捷采购
+                    去补货
                   </el-button>
                 </div>
               </div>

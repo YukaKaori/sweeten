@@ -107,8 +107,10 @@ function setTabRef(key, el) { if (el) tabRefs[key] = el }
 
 function switchTab(tab) {
   if (tab.key === 'cart') {
-    // Emit event for home page to open cart sheet — store a flag
-    window.__openCartSheet?.()
+    // 购物车面板挂在首页：在首页直接展开，其它页面带 ?cart=1 回首页再展开
+    if (window.__openCartSheet) window.__openCartSheet()
+    else if (cartStore.isEmpty) window.__showToast?.('购物车是空的，先去挑选甜品吧')
+    else router.push({ path: '/m/', query: { cart: 1 } })
     return
   }
   router.push(tab.route)

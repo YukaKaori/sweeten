@@ -94,10 +94,15 @@ export function setupRouterGuards(router) {
             resolveNav() // 旧快照已捕获 → 放行导航去更新 DOM
           })
       )
-      transition.finished.finally(() => {
-        document.documentElement.classList.remove('vt-active')
-        finishViewTransition = null
-      })
+      // 新页面渲染过慢（如低端设备首次加载大 chunk）时浏览器会放弃转场并让这些 promise reject；
+      // 导航本身不受影响，这里显式吞掉，避免控制台出现未处理的 rejection
+      transition.ready.catch(() => {})
+      transition.finished
+        .catch(() => {})
+        .finally(() => {
+          document.documentElement.classList.remove('vt-active')
+          finishViewTransition = null
+        })
     })
   })
 

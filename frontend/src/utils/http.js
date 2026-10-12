@@ -29,7 +29,7 @@ http.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response) {
-      const { status } = error.response
+      const { status, data } = error.response
       const messages = {
         400: '请求参数错误',
         401: '登录已过期，请重新登录',
@@ -39,22 +39,26 @@ http.interceptors.response.use(
         502: '网关错误',
         503: '服务不可用',
       }
-      ElMessage.error(messages[status] || '接口访问异常')
+      // 4xx 优先展示后端给出的具体原因（如"库存不足"、"名称已存在"、字段校验信息）；5xx 不透出内部信息
+      const serverMsg = data && typeof data === 'object' && typeof data.msg === 'string' ? data.msg : ''
+      const useServerMsg = serverMsg && status >= 400 && status < 500 && status !== 401
+      // 调用方可通过 error.displayMessage 复用同一文案，避免重复弹窗
+      error.displayMessage = useServerMsg ? serverMsg : messages[status] || '接口访问异常'
+      if (!error.config?.silent) ElMessage.error(error.displayMessage)
 
       if (status === 401) {
         localStorage.removeItem('loginUser')
         window.location.href = '/login'
       }
     } else {
-      // 网络不可达时尝试 mock 降级
-      const mockData = resolveMockData(error.config?.url || '')
+      // 网络不可达时的 mock 降级仅限开发环境：生产环境若静默返回假数据，员工会把演示订单当成真实订单处理
+      const mockData = config.isDev ? resolveMockData(error.config?.url || '') : null
       if (mockData) {
-        if (config.isDev) {
-          console.info(`[Mock] ${error.config?.url} → 使用本地 mock 数据`)
-        }
+        console.info(`[Mock] ${error.config?.url} → 使用本地 mock 数据`)
         return mockData
       }
-      ElMessage.error('网络连接异常，请检查网络')
+      error.displayMessage = '网络连接异常，请检查网络'
+      if (!error.config?.silent) ElMessage.error(error.displayMessage)
     }
     return Promise.reject(error)
   }

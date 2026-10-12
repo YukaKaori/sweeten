@@ -19,8 +19,12 @@ import { MotionPlugin } from '@vueuse/motion'
 
 // 初始化主题（在 Vue 挂载前执行，避免闪烁）
 import { useTheme } from '@/composables/useTheme'
+import { preconnectImageOrigin } from '@/config/productImage'
 const { initTheme } = useTheme()
 initTheme()
+
+// 预连接商品图床域名（提前完成 TLS 握手）
+preconnectImageOrigin()
 
 // 创建 Vue 应用实例
 const app = createApp(App)

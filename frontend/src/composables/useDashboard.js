@@ -1,4 +1,5 @@
 import { ref, computed, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { queryStatsApi, queryRevenueChartApi, queryRankingApi } from '@/api/modules/dashboard'
 import { brand } from '@/utils/brandTokens'
@@ -305,6 +306,7 @@ const FLOW_STATUS = [
 export function useDashboard() {
   const { allowMotion } = useMotionPref()  // static 档 → 图表动画关闭
   const toast = useToast()                 // 玻璃质感通知（成功抹茶 / 失败草莓）
+  const router = useRouter()
   const loading = ref(false)
   const statsCards = ref([])
   const rankList = ref([])
@@ -482,9 +484,9 @@ export function useDashboard() {
     loadData()
   }
 
-  /** 补货操作 */
+  /** 补货操作：预警来自甜品成品库存（dessert.stock），跳到甜品管理并定位该商品去调整库存 */
   function handleReorder(itemName) {
-    toast.success(`已生成 [${itemName}] 的智能合并补货单`, '补货单已创建')
+    router.push({ path: '/dessert', query: { name: itemName } })
   }
 
   /** 发送补偿券 */

@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, EditPen, Delete, Search } from '@element-plus/icons-vue'
 import { JOB_LIST, GENDER_LIST } from '@/utils/constants'
 import { useUserStore } from '@/stores/modules/user'
+import { UPLOAD_ACCEPT, UPLOAD_MAX_MB } from '@/api/modules/upload'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
@@ -26,6 +27,7 @@ const total = ref(0)
 // 员工表单
 const initEmployeeForm = () => ({
   username: '',
+  password: '',
   name: '',
   gender: '',
   phone: '',
@@ -47,11 +49,22 @@ const userStore = useUserStore()
 const token = computed(() => userStore.token)
 
 // 表单校验规则
+// 初始密码只在新增时填写（后端要求 6-20 位；编辑员工不修改密码，员工登录后可在个人中心自行修改）
+const validatePassword = (rule, value, callback) => {
+  if (employee.value.id) return callback()
+  if (!value) return callback(new Error('请设置初始密码'))
+  if (value.length < 6 || value.length > 20) return callback(new Error('密码长度应在6到20个字符之间'))
+  callback()
+}
+
 const rules = ref({
+  // 与后端 Emp 校验一致：4-20 位字母/数字/下划线（此前前端允许 2 位、允许中文，提交后才被后端拒绝）
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 2, max: 20, message: '用户名长度应在2到20个字符之间', trigger: 'blur' }
+    { min: 4, max: 20, message: '用户名长度应在4到20个字符之间', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' }
   ],
+  password: [{ validator: validatePassword, trigger: 'blur' }],
   name: [
     { required: true, message: '请输入姓名', trigger: 'blur' },
     { min: 2, max: 10, message: '姓名长度应在2到10个字符之间', trigger: 'blur' }
@@ -176,7 +189,9 @@ const saveEmp = async () => {
     if (valid) {
       let result
       if (employee.value.id) {
-        result = await updateApi(employee.value)
+        // 编辑：不携带密码字段
+        const { password: _omit, ...payload } = employee.value
+        result = await updateApi(payload)
       } else {
         result = await addApi(employee.value)
       }
@@ -241,17 +256,26 @@ const deleteByIds = async () => {
   }
 }
 
-// 头像上传
+// 头像上传（后端 /upload：jpg/png/gif/webp，≤5MB，按文件内容识别类型）
 const handleAvatarSuccess = (response) => {
-  employee.value.image = response.data
+  if (response?.code === 1 && response.data) {
+    employee.value.image = response.data
+  } else {
+    ElMessage.error(response?.msg || '头像上传失败')
+  }
+}
+const handleAvatarError = (err) => {
+  let msg = '头像上传失败'
+  try { msg = JSON.parse(err?.message || '{}').msg || msg } catch { /* 非 JSON 响应 */ }
+  ElMessage.error(msg)
 }
 const beforeAvatarUpload = (rawFile) => {
-  if (rawFile.type !== 'image/jpeg' && rawFile.type !== 'image/png') {
-    ElMessage.error('只支持 JPG/PNG 格式图片')
+  if (!UPLOAD_ACCEPT.includes(rawFile.type)) {
+    ElMessage.error('只支持 JPG/PNG/GIF/WEBP 格式图片')
     return false
   }
-  if (rawFile.size / 1024 / 1024 > 10) {
-    ElMessage.error('图片大小不能超过 10MB')
+  if (rawFile.size / 1024 / 1024 > UPLOAD_MAX_MB) {
+    ElMessage.error(`图片大小不能超过 ${UPLOAD_MAX_MB}MB`)
     return false
   }
   return true
@@ -426,7 +450,7 @@ const getGenderLabel = (value) => value === 1 ? '男' : '女'
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="用户名" prop="username">
-              <el-input v-model="employee.username" placeholder="请输入用户名（2-20个字符）" />
+              <el-input v-model="employee.username" placeholder="4-20 位字母/数字/下划线" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -487,6 +511,20 @@ const getGenderLabel = (value) => value === 1 ? '男' : '女'
           </el-col>
         </el-row>
 
+        <el-row v-if="!employee.id" :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="初始密码" prop="password">
+              <el-input
+                v-model="employee.password"
+                type="password"
+                show-password
+                autocomplete="new-password"
+                placeholder="6-20 位，员工首次登录后可自行修改"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <!-- 头像上传 -->
         <el-row :gutter="20">
           <el-col :span="24">
@@ -496,7 +534,9 @@ const getGenderLabel = (value) => value === 1 ? '男' : '女'
                 action="/api/upload"
                 :headers="{ token: token }"
                 :show-file-list="false"
+                :accept="UPLOAD_ACCEPT.join(',')"
                 :on-success="handleAvatarSuccess"
+                :on-error="handleAvatarError"
                 :before-upload="beforeAvatarUpload"
               >
                 <img v-if="employee.image" :src="employee.image" class="avatar-preview" />

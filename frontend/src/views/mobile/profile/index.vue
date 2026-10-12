@@ -225,7 +225,8 @@ async function doRedeem(template) {
     return
   }
   try {
-    const res = await redeemCoupon(member.value.id, template.id)
+    // 以已查询到的会员手机号做归属校验（后端要求 memberId 与手机号匹配）
+    const res = await redeemCoupon(member.value.id, member.value.phone, template.id)
     if (res?.code === 1) {
       showToast('兑换成功！🎉')
       await loadProfile(phone.value)

@@ -3,8 +3,9 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ChatDotRound, EditPen, Plus, Search } from '@element-plus/icons-vue'
-import { DESSERT_CATEGORIES } from '@/utils/constants'
-import { queryByCategoryApi, queryCategoryCountApi, updateApi, updateStatusApi } from '@/api/modules/dessert'
+import { DESSERT_CATEGORIES, CATEGORY_COLORS } from '@/utils/constants'
+import { queryByCategoryApi, queryCategoryCountApi, updatePriceApi, updateStatusApi } from '@/api/modules/dessert'
+import ProductImg from '@/components/ProductImg.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
@@ -35,8 +36,8 @@ const categoryCounts = ref({})
 
 // 加载分类数量
 const loadCategoryCounts = async () => {
-  const result = await queryCategoryCountApi()
-  if (result.code) {
+  const result = await queryCategoryCountApi().catch(() => null)
+  if (result?.code) {
     const counts = {}
     DESSERT_CATEGORIES.forEach(cat => { counts[cat.value] = 0 })
     result.data.forEach(item => {
@@ -52,8 +53,10 @@ const loadCategoryData = async (category) => {
   try {
     const result = await queryByCategoryApi(category)
     if (result.code) {
-      dessertList.value = result.data
+      dessertList.value = result.data || []
     }
+  } catch {
+    dessertList.value = []
   } finally {
     loading.value = false
   }
@@ -73,56 +76,79 @@ onMounted(() => {
 
 // 编辑对话框
 const dialogVisible = ref(false)
-const editForm = ref({ id: null, name: '', price: 0, originalPrice: 0 })
+const editForm = ref({ id: null, name: '', price: undefined, originalPrice: undefined })
 const editFormRef = ref()
+const saving = ref(false)
 
-const rules = {
-  name: [{ required: true, message: '请输入甜品名称', trigger: 'blur' }],
-  price: [{ required: true, message: '请输入价格', trigger: 'blur' }]
+const validateOriginalPrice = (rule, value, callback) => {
+  if (value == null) return callback()
+  if (editForm.value.price != null && value < editForm.value.price) return callback(new Error('原价不应低于现价'))
+  callback()
 }
 
+const rules = {
+  price: [
+    { required: true, message: '请输入现价', trigger: 'blur' },
+    { type: 'number', min: 0.01, message: '现价必须大于 0', trigger: 'blur' },
+  ],
+  originalPrice: [{ validator: validateOriginalPrice, trigger: 'blur' }],
+}
+
+// 只取调价需要的字段；提交走 PUT /desserts/price 窄接口，不会覆写描述/图片/库存等其它字段
 const openEdit = (item) => {
-  editForm.value = { ...item }
+  editForm.value = {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    originalPrice: item.originalPrice ?? undefined,
+  }
   dialogVisible.value = true
 }
 
 const savePrice = async () => {
-  if (!editFormRef.value) return
-  editFormRef.value.validate(async (valid) => {
-    if (valid) {
-      const result = await updateApi(editForm.value)
-      if (result.code) {
-        ElMessage.success('价格更新成功')
-        dialogVisible.value = false
-        loadCategoryData(activeCategory.value)
-        loadCategoryCounts()
-      } else {
-        ElMessage.error(result.msg)
-      }
+  if (!editFormRef.value || saving.value) return
+  const valid = await editFormRef.value.validate().catch(() => false)
+  if (!valid) return
+  saving.value = true
+  try {
+    const { id, price, originalPrice } = editForm.value
+    const result = await updatePriceApi(id, price, originalPrice ?? undefined)
+    if (result.code) {
+      ElMessage.success('价格更新成功')
+      dialogVisible.value = false
+      loadCategoryData(activeCategory.value)
+    } else {
+      ElMessage.error(result.msg || '价格更新失败')
     }
-  })
-}
-
-const toggleStatus = async (item) => {
-  const newStatus = item.status === 1 ? 0 : 1
-  const result = await updateStatusApi(item.id, newStatus)
-  if (result.code) {
-    item.status = newStatus
-    ElMessage.success(newStatus === 1 ? '已上架' : '已下架')
-    loadCategoryCounts()
-  } else {
-    ElMessage.error(result.msg)
+  } catch {
+    // 拦截器已提示
+  } finally {
+    saving.value = false
   }
 }
 
-// 颜色映射
-const categoryColors = {
-  cake: '#e8637a',
-  bread: '#f0a35c',
-  drink: '#6b8cce',
-  dessert: '#5cb88a',
-  icecream: '#a78bfa'
+const toggleStatus = async (item) => {
+  if (item._toggling) return
+  const newStatus = item.status === 1 ? 0 : 1
+  item._toggling = true
+  try {
+    const result = await updateStatusApi(item.id, newStatus)
+    if (result.code) {
+      item.status = newStatus
+      ElMessage.success(newStatus === 1 ? '已上架' : '已下架')
+      loadCategoryCounts()
+    } else {
+      ElMessage.error(result.msg || '操作失败')
+    }
+  } catch {
+    // 拦截器已提示
+  } finally {
+    item._toggling = false
+  }
 }
+
+// 颜色映射（全站统一）
+const categoryColors = CATEGORY_COLORS
 </script>
 
 <template>
@@ -176,10 +202,7 @@ const categoryColors = {
         :class="{ disabled: item.status === 0 }"
       >
         <div class="card-image">
-          <img v-if="item.image" :src="item.image" :alt="item.name" class="dessert-image" />
-          <div v-else class="image-placeholder" :style="{ background: `${categoryColors[item.category]}15` }">
-            <span style="font-size: 32px">🧁</span>
-          </div>
+          <ProductImg :item="item" :width="300" :alt="item.name" class="dessert-image" />
           <div class="card-badge" v-if="item.price < item.originalPrice">
             {{ Math.round((1 - item.price / item.originalPrice) * 100) }}% OFF
           </div>
@@ -191,11 +214,12 @@ const categoryColors = {
         <div class="card-body">
           <h4 class="dessert-name">{{ item.name }}</h4>
           <div class="dessert-meta">
-            <span class="sales">月销 {{ item.sales }}</span>
+            <span class="sales">销量 {{ item.sales ?? 0 }}</span>
+            <span class="sales" :class="{ 'stock-low': (item.stock ?? 0) < 10 }">库存 {{ item.stock ?? 0 }}</span>
           </div>
           <div class="price-row">
-            <span class="current-price">¥{{ item.price.toFixed(2) }}</span>
-            <span v-if="item.price < item.originalPrice" class="original-price">¥{{ item.originalPrice.toFixed(2) }}</span>
+            <span class="current-price">¥{{ item.price?.toFixed(2) }}</span>
+            <span v-if="item.price < item.originalPrice" class="original-price">¥{{ item.originalPrice?.toFixed(2) }}</span>
           </div>
           <div class="card-actions">
             <el-button type="primary" size="small" plain @click="openEdit(item)">
@@ -206,6 +230,7 @@ const categoryColors = {
               :type="item.status === 1 ? 'warning' : 'success'"
               size="small"
               plain
+              :loading="item._toggling"
               @click="toggleStatus(item)"
             >
               {{ item.status === 1 ? '下架' : '上架' }}
@@ -216,7 +241,7 @@ const categoryColors = {
               @click="router.push(`/dessert/${item.id}`)"
             >
               <el-icon><ChatDotRound /></el-icon>
-              评论
+              详情
             </el-button>
           </div>
         </div>
@@ -224,7 +249,7 @@ const categoryColors = {
     </div>
 
     <EmptyState
-      v-if="filteredList.length === 0"
+      v-if="!loading && filteredList.length === 0"
       title="该分类暂无甜品"
       description="请切换分类或新增甜品"
     />
@@ -235,17 +260,24 @@ const categoryColors = {
         <el-form-item label="甜品名称">
           <el-input :model-value="editForm.name" disabled />
         </el-form-item>
-        <el-form-item label="原价">
-          <el-input :model-value="`¥${editForm.originalPrice?.toFixed(2)}`" disabled />
-        </el-form-item>
         <el-form-item label="现价" prop="price">
-          <el-input-number v-model="editForm.price" :min="0" :precision="2" :step="1" style="width: 100%" />
+          <el-input-number v-model="editForm.price" :min="0.01" :precision="2" :step="1" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="原价" prop="originalPrice">
+          <el-input-number
+            v-model="editForm.originalPrice"
+            :min="0.01"
+            :precision="2"
+            :step="1"
+            style="width: 100%"
+            placeholder="选填，划线价"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="savePrice">确认修改</el-button>
+          <el-button type="primary" :loading="saving" @click="savePrice">确认修改</el-button>
         </div>
       </template>
     </el-dialog>
@@ -368,9 +400,14 @@ const categoryColors = {
   justify-content: center;
 }
 
+.stock-low {
+  color: var(--color-primary-dark);
+}
+
 .dessert-image {
   width: 100%;
   height: 100%;
+  background: var(--color-bg-tertiary);   /* 远程图加载前的占位底色 */
   object-fit: cover;
   transition: transform var(--transition-spring);
 }
@@ -419,6 +456,8 @@ const categoryColors = {
 }
 
 .dessert-meta {
+  display: flex;
+  gap: 12px;
   margin-bottom: 10px;
 }
 

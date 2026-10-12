@@ -6,7 +6,8 @@ import { StarFilled, ChatDotRound, Delete } from '@element-plus/icons-vue'
 import { queryByIdApi } from '@/api/modules/dessert'
 import { queryByDessertApi, addApi, deleteApi } from '@/api/modules/comment'
 import { useUserStore } from '@/stores/modules/user'
-import { DESSERT_CATEGORIES, getLabelByValue } from '@/utils/constants'
+import { DESSERT_CATEGORIES, CATEGORY_COLORS, getLabelByValue } from '@/utils/constants'
+import ProductImg from '@/components/ProductImg.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
@@ -31,14 +32,8 @@ const commentContent = ref('')
 const commentRating = ref(5)
 const submitting = ref(false)
 
-// 分类颜色映射
-const categoryColors = {
-  cake: '#e8637a',
-  bread: '#f0a35c',
-  drink: '#6b8cce',
-  dessert: '#5cb88a',
-  icecream: '#a78bfa'
-}
+// 分类颜色映射（全站统一）
+const categoryColors = CATEGORY_COLORS
 
 // 加载甜品信息
 const loadDessert = async () => {
@@ -46,7 +41,7 @@ const loadDessert = async () => {
   try {
     const result = await queryByIdApi(dessertId.value)
     if (result.code) {
-      dessert.value = result.data
+      dessert.value = result.data || null
     } else {
       ElMessage.error(result.msg || '甜品信息加载失败')
     }
@@ -63,8 +58,8 @@ const loadComments = async () => {
   try {
     const result = await queryByDessertApi(dessertId.value, currentPage.value, pageSize.value)
     if (result.code) {
-      comments.value = result.data.records || result.data || []
-      total.value = result.data.total || 0
+      comments.value = result.data?.rows || []
+      total.value = result.data?.total || 0
     } else {
       // 后端未实现时用空数组
       comments.value = []
@@ -162,10 +157,7 @@ onMounted(() => {
     <div v-else-if="dessert" class="dessert-info-card glass-panel--hover animate-fade-in-up">
       <div class="info-layout">
         <div class="info-image">
-          <img v-if="dessert.image" :src="dessert.image" :alt="dessert.name" class="dessert-image" />
-          <div v-else class="image-placeholder" :style="{ background: `${(categoryColors[dessert.category] || '#e8637a')}15` }">
-            <span class="placeholder-emoji">🧁</span>
-          </div>
+          <ProductImg :item="dessert" :width="240" :alt="dessert.name" class="dessert-image" eager />
         </div>
         <div class="info-body">
           <div class="info-header">
@@ -189,7 +181,13 @@ onMounted(() => {
               <span class="stat-value price-original">¥{{ dessert.originalPrice?.toFixed(2) }}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-label">月销量</span>
+              <span class="stat-label">库存</span>
+              <span class="stat-value" :class="{ 'stock-low': (dessert.stock ?? 0) < 10 }">
+                {{ (dessert.stock ?? 0) <= 0 ? '售罄' : dessert.stock }}
+              </span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">累计销量</span>
               <span class="stat-value">{{ dessert.sales || 0 }}</span>
             </div>
             <div class="stat-item">
@@ -349,9 +347,14 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.stock-low {
+  color: var(--color-primary-dark);
+}
+
 .dessert-image {
   width: 100%;
   height: 100%;
+  background: var(--color-bg-tertiary);   /* 远程图加载前的占位底色 */
   object-fit: cover;
 }
 

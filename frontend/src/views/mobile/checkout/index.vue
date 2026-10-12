@@ -2,18 +2,25 @@
   <div class="checkout-page">
     <!-- Back Nav -->
     <div class="page-nav">
-      <button class="back-btn" @click="router.back()">
+      <button class="back-btn" @click="goBack">
         <span class="back-arrow">←</span> 返回
       </button>
       <h2 class="page-title">确认订单</h2>
     </div>
 
+    <div v-if="syncNotice" class="sync-notice" role="status">{{ syncNotice }}</div>
+
+    <div v-if="cartStore.isEmpty" class="glass-card empty-card">
+      <p class="empty-title">购物车是空的</p>
+      <button class="empty-btn" @click="router.replace('/m/')">去挑选甜品</button>
+    </div>
+
     <!-- Order Items Card -->
-    <div class="glass-card">
+    <div v-else class="glass-card">
       <div class="card-title">🛒 购物明细</div>
       <div class="order-items">
         <div v-for="item in cartStore.items" :key="item.id" class="order-item">
-          <div class="oi-icon">{{ item.icon }}</div>
+          <ProductImg class="oi-thumb" :item="item" :width="44" :alt="item.name" />
           <div class="oi-info">
             <p class="oi-name">{{ item.name }}</p>
             <p class="oi-detail">¥{{ item.price.toFixed(2) }} × {{ item.qty }}</p>
@@ -84,12 +91,14 @@
       </div>
     </div>
 
+    <p v-if="submitError" class="submit-error" role="alert">{{ submitError }}</p>
+
     <!-- Submit -->
     <div class="submit-area">
       <button
         class="submit-btn"
         :class="{ loading: submitting }"
-        :disabled="submitting || cartStore.isEmpty"
+        :disabled="submitting || syncing || cartStore.isEmpty"
         @click="submitOrder"
       >
         <span v-if="submitting" class="loading-dots">
@@ -102,17 +111,60 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/modules/cart'
-import { createMobileOrder } from '@/api/modules/mobile'
+import { createMobileOrder, getMobileProducts } from '@/api/modules/mobile'
+import { saveMyOrder } from '@/stores/modules/myOrders'
+import ProductImg from '@/components/ProductImg.vue'
 
 const router = useRouter()
 const cartStore = useCartStore()
 
 const submitting = ref(false)
+const syncing = ref(false)
+const syncNotice = ref('')
+const submitError = ref('')
 
-const form = reactive({ customerName: '', phone: '', address: '' })
+function goBack() {
+  if (window.history.state?.back) router.back()
+  else router.replace('/m/')
+}
+
+// 购物车存在本机，价格/库存可能已变化：进入结算页时按最新在售商品校正一次
+async function syncCart() {
+  if (cartStore.isEmpty) return
+  syncing.value = true
+  try {
+    const r = await getMobileProducts('all')
+    if (r?.code === 1 && Array.isArray(r.data)) {
+      const { removed, adjusted, repriced } = cartStore.syncWithProducts(r.data)
+      const notes = []
+      if (removed.length) notes.push(`${removed.join('、')} 已下架或售罄，已移出购物车`)
+      if (adjusted.length) notes.push(`${adjusted.join('、')} 库存不足，数量已调整`)
+      if (repriced.length) notes.push(`${repriced.join('、')} 价格有更新`)
+      syncNotice.value = notes.join('；')
+    }
+  } catch {
+    // 同步失败不阻断结算，下单时后端仍会核价与校验库存
+  } finally {
+    syncing.value = false
+  }
+}
+
+onMounted(syncCart)
+
+// 回头客：预填上次下单的联系信息（仅存本机）
+const CONTACT_KEY = 'checkout_contact'
+const lastContact = (() => {
+  try { return JSON.parse(localStorage.getItem(CONTACT_KEY) || '{}') || {} } catch { return {} }
+})()
+
+const form = reactive({
+  customerName: lastContact.customerName || '',
+  phone: lastContact.phone || '',
+  address: lastContact.address || '',
+})
 const errors = reactive({ customerName: '', phone: '', address: '' })
 
 function clearError(field) { errors[field] = '' }
@@ -132,10 +184,11 @@ function validate() {
 }
 
 async function submitOrder() {
-  if (!validate() || cartStore.isEmpty) return
+  if (submitting.value || !validate() || cartStore.isEmpty) return
   submitting.value = true
+  submitError.value = ''
   try {
-    const res = await createMobileOrder({
+    const payload = {
       customerName: form.customerName.trim(),
       phone: form.phone,
       address: form.address.trim(),
@@ -143,21 +196,59 @@ async function submitOrder() {
       items: cartStore.items.map(i => ({
         productId: i.id, productName: i.name, price: i.price, qty: i.qty,
       })),
-    })
+    }
+    const res = await createMobileOrder(payload)
     if (res?.code === 1) {
       const orderNo = res.data?.orderNo || ''
+      const amount = res.data?.amount ?? payload.totalAmount
+      saveMyOrder({
+        orderNo,
+        phone: payload.phone,
+        amount,
+        items: JSON.stringify(payload.items.map(({ productName, price, qty }) => ({ productName, price, qty }))),
+        createTime: new Date().toISOString(),
+      })
+      try {
+        localStorage.setItem(CONTACT_KEY, JSON.stringify({
+          customerName: payload.customerName, phone: payload.phone, address: payload.address,
+        }))
+      } catch { /* ignore */ }
       cartStore.clear()
-      router.replace({ name: 'mobileSuccess', query: { orderNo } })
+      router.replace({ name: 'mobileSuccess', query: { orderNo, amount: String(amount) } })
     } else {
-      alert(res?.msg || '下单失败')
+      submitError.value = res?.msg || '下单失败，请稍后重试'
     }
-  } catch { alert('网络异常，请稍后重试') }
-  finally { submitting.value = false }
+  } catch (e) {
+    // 后端给出的原因（库存不足 / 已下架 / 价格已更新）已由拦截器提示；同步一次购物车让顾客直接看到最新情况
+    submitError.value = e?.displayMessage || '下单失败，请稍后重试'
+    if (e?.response?.status === 400) await syncCart()
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
 <style scoped>
 .checkout-page { padding: 0 0 120px; }
+
+.sync-notice {
+  margin: 0 18px 14px; padding: 12px 16px; border-radius: 16px;
+  background: rgba(240,163,92,0.12); color: #9a5a17; font-size: 13px; line-height: 1.5;
+}
+.empty-card { text-align: center; padding: 32px 20px; }
+.empty-title { margin: 0 0 16px; font-size: 15px; color: #6e6e73; }
+.empty-btn {
+  border: none; border-radius: 999px; padding: 10px 22px;
+  background: #d9574a; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.oi-thumb {
+  width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; object-fit: cover;
+  background: #f0f0f2;
+}
+.submit-error {
+  margin: 0 18px 12px; padding: 10px 14px; border-radius: 14px;
+  background: rgba(217,87,74,0.08); color: #b93f33; font-size: 13px; line-height: 1.5;
+}
 
 /* ── Nav ── */
 .page-nav {

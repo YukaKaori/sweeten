@@ -77,13 +77,11 @@
 
       <!-- Product Grid -->
       <div v-else class="product-grid">
-        <div v-for="p in displayProducts" :key="p.id" class="product-card"
+        <div v-for="(p, idx) in displayProducts" :key="p.id" class="product-card"
              :class="{ 'sold-out': p.stock === 0 }"
              @click="goDetail(p)">
           <div class="img-area">
-            <img v-if="p.image" :src="p.image" :alt="p.name" loading="lazy"
-                 @error="e => e.target.style.display='none'" />
-            <span class="emoji-fallback" :style="{ display: p.image?'none':'flex' }">{{ p.icon || '🍰' }}</span>
+            <ProductImg :item="p" :width="190" :alt="p.name" :eager="idx < 4" />
             <div v-if="p.stock===0" class="sold-out-overlay"><span>售罄</span></div>
           </div>
           <div class="card-info">
@@ -91,7 +89,7 @@
             <div class="card-desc">{{ p.description || '' }}</div>
             <div class="card-row">
               <div class="price-current"><span class="yen">¥</span>{{ p.price.toFixed(2) }}</div>
-              <div class="stepper" v-if="p.stock !== 0" @click.stop>
+              <div v-if="p.stock !== 0" class="stepper" @click.stop>
                 <template v-if="cartStore.getQty(p.id) > 0">
                   <button class="step-btn minus" @click.stop="cartStore.decreaseItem(p.id)">−</button>
                   <span class="step-qty">{{ cartStore.getQty(p.id) }}</span>
@@ -128,12 +126,12 @@
           <div class="sheet-list">
             <div v-if="cartStore.isEmpty" class="cart-empty"><span>🛒</span><p>购物车是空的</p></div>
             <div v-for="item in cartStore.items" :key="item.id" class="cart-item">
-              <div class="ci-icon">{{ item.icon }}</div>
+              <ProductImg class="ci-thumb" :item="item" :width="44" :alt="item.name" />
               <div class="ci-mid"><div class="ci-name">{{ item.name }}</div><div class="ci-price">¥{{ item.price.toFixed(2) }}</div></div>
               <div class="stepper">
                 <button @click.stop="cartStore.decreaseItem(item.id)">−</button>
                 <span>{{ item.qty }}</span>
-                <button @click.stop="cartStore.addItem(item)">+</button>
+                <button :disabled="cartStore.remaining(item) <= 0" @click.stop="handleSheetAdd(item)">+</button>
               </div>
             </div>
           </div>
@@ -148,12 +146,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { getMobileProducts, getMobileCategories } from '@/api/modules/mobile'
 import { useCartStore } from '@/stores/modules/cart'
+import ProductImg from '@/components/ProductImg.vue'
 
 const router = useRouter()
+const route = useRoute()
 const cartStore = useCartStore()
 
 const loading = ref(true)
@@ -169,7 +169,7 @@ let heroTimer = null
 const flyDot = ref(null)
 
 const categoryTitle = computed(() => {
-  const m = { all:'全部甜品', cake:'蛋糕', bread:'面包', drink:'饮品', icecream:'冰淇淋', snack:'小食', gift:'礼盒' }
+  const m = { all:'全部甜品', cake:'蛋糕', bread:'面包', drink:'饮品', dessert:'甜点', icecream:'冰淇淋', snack:'小食', gift:'礼盒' }
   return m[activeCategory.value] || '全部甜品'
 })
 
@@ -218,7 +218,10 @@ function clearSearch() { searchQuery.value = ''; searchFocused.value = false }
 // ── Cart ──
 function handleAdd(product, event) {
   if (product.stock === 0) return
-  cartStore.addItem(product)
+  if (!cartStore.addItem(product)) {
+    window.__showToast?.(`「${product.name}」库存只有 ${product.stock} 件`)
+    return
+  }
   // Fly animation
   if (event && flyDot.value) {
     const btn = event.target.closest('button')
@@ -241,6 +244,10 @@ function handleAdd(product, event) {
   window.__showToast?.('已加入购物车 🛒')
 }
 
+function handleSheetAdd(item) {
+  if (!cartStore.addItem(item)) window.__showToast?.('已达库存上限')
+}
+
 function toggleCartSheet() { showCartSheet.value = !showCartSheet.value }
 function goCheckout() { showCartSheet.value = false; router.push('/m/checkout') }
 function goDetail(product) { router.push(`/m/product/${product.id}`) }
@@ -250,6 +257,11 @@ window.__openCartSheet = () => { showCartSheet.value = true }
 
 onMounted(async () => {
   startTimer()
+  // 从其它页面点"购物车"进入时（/m/?cart=1）直接展开购物车
+  if (route.query.cart && !cartStore.isEmpty) {
+    showCartSheet.value = true
+    router.replace({ path: '/m/' })
+  }
   await Promise.all([loadCategories(), loadProducts('all')])
 })
 
@@ -306,7 +318,7 @@ onUnmounted(() => { clearInterval(heroTimer); window.__openCartSheet = undefined
 .hero-slide.s3 { background:linear-gradient(155deg,#1a2c24,#3d7060 35%,#5b9e8a 70%,#a8d8c8); }
 .hero-content { position:relative; z-index:1; }
 .hero-kicker { display:block; font-size:10px; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; opacity:0.5; margin-bottom:8px; }
-.hero-slide h2 { font-size:34px; font-weight:640; letter-spacing:-0.6px; line-height:1.08; margin:0 0 6px; text-shadow:0 1px 2px rgba(0,0,0,0.08); }
+.hero-slide h2 { color:#fff; font-size:34px; font-weight:640; letter-spacing:-0.6px; line-height:1.08; margin:0 0 6px; text-shadow:0 1px 2px rgba(0,0,0,0.08); }
 .hero-sub { font-size:13px; font-weight:440; opacity:0.72; letter-spacing:-0.1px; }
 .hero-dots { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); display:flex; gap:8px; }
 .hero-dots .dot { width:7px; height:7px; border-radius:4px; background:rgba(255,255,255,0.3); backdrop-filter:blur(8px); border:0.5px solid rgba(255,255,255,0.15); transition:all 0.5s cubic-bezier(0.16,1,0.3,1); cursor:pointer; }
@@ -395,6 +407,8 @@ onUnmounted(() => { clearInterval(heroTimer); window.__openCartSheet = undefined
 .img-area { aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(145deg,#fafafa,#f0f0f2); position:relative; overflow:hidden; }
 .img-area::after { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 40%,rgba(255,255,255,0.4) 0%,transparent 60%); pointer-events:none; }
 .img-area img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+.ci-thumb { width:44px; height:44px; flex-shrink:0; border-radius:12px; object-fit:cover; background:#f0f0f2; }
+.stepper button:disabled { opacity:0.35; cursor:not-allowed; }
 .emoji-fallback { position:relative; z-index:1; font-size:60px; filter:drop-shadow(0 8px 16px rgba(217,87,74,0.12)); transition:transform 0.4s; }
 .product-card:active .emoji-fallback { transform:scale(1.08); }
 .sold-out-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; font-weight:650; z-index:2; }

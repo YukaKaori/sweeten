@@ -14,6 +14,18 @@ export const mobileRoutes = [
         meta: { title: '甜品点餐', public: true },
       },
       {
+        path: 'product/:id',
+        name: 'mobileProduct',
+        component: () => import('@/views/mobile/product/index.vue'),
+        meta: { title: '甜品详情', public: true },
+      },
+      {
+        path: 'orders',
+        name: 'mobileOrders',
+        component: () => import('@/views/mobile/orders/index.vue'),
+        meta: { title: '我的订单', public: true },
+      },
+      {
         path: 'checkout',
         name: 'mobileCheckout',
         component: () => import('@/views/mobile/checkout/index.vue'),

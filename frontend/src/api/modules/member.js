@@ -11,20 +11,20 @@ export const getMemberProfile = (phone) =>
 /**
  * 获取会员可用优惠券列表
  */
-export const getMemberCoupons = (memberId) =>
-  http.get(`${BASE}/coupons`, { params: { memberId } })
+export const getMemberCoupons = (memberId, phone) =>
+  http.get(`${BASE}/coupons`, { params: { memberId, phone } })
 
 /**
  * 获取积分日志
  */
-export const getPointsLog = (memberId) =>
-  http.get(`${BASE}/points-log`, { params: { memberId } })
+export const getPointsLog = (memberId, phone) =>
+  http.get(`${BASE}/points-log`, { params: { memberId, phone } })
 
 /**
  * 积分兑换优惠券
  */
-export const redeemCoupon = (memberId, templateId) =>
-  http.post(`${BASE}/redeem`, { memberId, templateId })
+export const redeemCoupon = (memberId, phone, templateId) =>
+  http.post(`${BASE}/redeem`, { memberId, phone, templateId })
 
 /**
  * 获取可兑换优惠券列表

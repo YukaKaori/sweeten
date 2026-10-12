@@ -25,6 +25,8 @@
       <div class="order-no-card" v-if="orderNo">
         <p class="ono-label">订单编号</p>
         <p class="ono-value">{{ orderNo }}</p>
+        <p v-if="amountText" class="ono-amount">实付 <strong>¥{{ amountText }}</strong></p>
+        <p class="ono-hint">订单完成后，会员积分自动到账</p>
         <button class="ono-copy" @click="copyOrderNo">
           {{ copied ? '✅ 已复制' : '📋 复制' }}
         </button>
@@ -53,8 +55,8 @@
         <button class="act-btn act-secondary" @click="router.replace('/m/')">
           🛍️ 继续购物
         </button>
-        <button class="act-btn act-primary" @click="router.replace('/m/')">
-          返回首页
+        <button class="act-btn act-primary" @click="router.replace('/m/orders')">
+          查看订单
         </button>
       </div>
     </div>
@@ -69,6 +71,9 @@ import FloatingParticles from '@/components/FloatingParticles.vue'
 const router = useRouter()
 const route = useRoute()
 const orderNo = ref(route.query.orderNo || '')
+// 服务端核算后的实付金额
+const amount = Number(route.query.amount)
+const amountText = Number.isFinite(amount) && amount > 0 ? amount.toFixed(2) : ''
 const copied = ref(false)
 
 async function copyOrderNo() {
@@ -158,6 +163,11 @@ async function copyOrderNo() {
   animation: fade-up 0.5s cubic-bezier(0.16,1,0.3,1) 0.55s both;
 }
 .ono-label { font-size: 10px; font-weight: 650; color: #aeaeb2; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 5px; }
+.ono-amount {
+  margin: -4px 0 10px; font-size: 13px; color: #6e6e73;
+}
+.ono-amount strong { color: #d9574a; font-size: 16px; }
+.ono-hint { margin: -4px 0 10px; font-size: 12px; color: #86868b; }
 .ono-value {
   font-size: 16px; font-weight: 650; color: #1d1d1f;
   letter-spacing: 0.03em; margin: 0 0 10px;

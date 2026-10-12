@@ -67,7 +67,7 @@ const loadData = async () => {
   try {
     const result = await queryPageApi(searchName.value, currentPage.value, pageSize.value)
     if (result.code) {
-      itemList.value = result.data.records || result.data || []
+      itemList.value = result.data?.rows || []
       total.value = result.data.total || 0
     }
   } catch {

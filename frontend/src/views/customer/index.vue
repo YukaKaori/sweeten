@@ -51,7 +51,7 @@ const loadData = async () => {
   try {
     const result = await queryPageApi(searchName.value, searchPhone.value, currentPage.value, pageSize.value)
     if (result.code) {
-      customerList.value = result.data.records || result.data || []
+      customerList.value = result.data?.rows || []
       total.value = result.data.total || 0
     }
   } catch { /* handled by interceptor */ } finally { loading.value = false }
@@ -122,7 +122,7 @@ const openDetail = async (row) => {
   try {
     const result = await queryOrdersApi(row.id, 1, 50)
     if (result.code) {
-      detailOrders.value = result.data.records || result.data || []
+      detailOrders.value = result.data?.rows || []
     } else {
       detailOrders.value = []
     }

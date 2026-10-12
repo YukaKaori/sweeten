@@ -2,7 +2,7 @@ import http from '@/utils/http'
 
 /** 分页查询客户 */
 export const queryPageApi = (name = '', phone = '', page = 1, pageSize = 10) =>
-  http.get(`/customers?name=${name}&phone=${phone}&page=${page}&pageSize=${pageSize}`)
+  http.get('/customers', { params: { name: name || undefined, phone: phone || undefined, page, pageSize } })
 
 /** 根据 ID 查询客户详情 */
 export const queryByIdApi = (id) => http.get(`/customers/${id}`)
