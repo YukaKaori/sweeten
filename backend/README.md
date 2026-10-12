@@ -125,7 +125,7 @@ mysql -u root -p dessertshop < sql/add_indexes.sql
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/dessertshop
-    username: root
+    username: your_username    # 修改为实际账号
     password: your_password    # 修改为实际密码
 
 jwt:
@@ -145,12 +145,10 @@ java -jar dessertshop-web-management/target/dessertshop-web-management-1.0-SNAPS
 
 应用启动后访问 `http://localhost:8080`。
 
-### 5. 默认登录
+### 5. 创建管理员账号
 
-```
-用户名: admin
-密码:   1234
-```
+系统不内置默认账号。首次运行前，请通过 `sql/` 目录下的初始化脚本创建员工账号，
+密码以 BCrypt 哈希存储、由创建时指定，登录接口为 `POST /login`。
 
 ## API 概览
 
