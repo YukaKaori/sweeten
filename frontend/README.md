@@ -1,36 +1,29 @@
 # 🍰 甜品店管理系统 — 前端
 
-基于 **Vue 3 + Pinia + Element Plus + ECharts + Vite** 的甜品店后台管理 SPA。
+Vue 3 + Pinia + Element Plus + ECharts + Vite 的甜品店后台管理 SPA。
 
-## 技术栈
+- 前端（本仓库）：https://gitee.com/yuka-kaori/dessertshop-frontend
+- 后端：https://gitee.com/yuka-kaori/newdessertshop
 
-| 技术 | 版本 | 说明 |
-|------|------|------|
-| Vue | 3.5.x | Composition API + `<script setup>` |
-| Vite | 7.x | 构建工具 |
-| Pinia | 3.x | 状态管理 |
-| Vue Router | 4.x | 路由（History 模式） |
-| Element Plus | 2.x | UI 组件库 |
-| ECharts | 6.x | 数据可视化 |
-| Axios | 1.x | HTTP 客户端 |
+## 本地运行
 
-## 快速开始
+**先按后端 README 建库并启动后端**（监听 `localhost:8080`），再启动前端。需要 Node 20.19+ 或 22.12+。
 
 ```bash
-# 安装依赖
 npm install
-
-# 启动开发服务器
 npm run dev
+```
 
-# 构建生产版本
-npm run build
+打开终端里提示的地址（默认 `http://localhost:5173`），用后端导入的默认账号 `admin / 123456` 登录。
 
-# 代码检查
-npm run lint
+开发环境下 `/api` 请求由 Vite 代理到 `http://localhost:8080`，后端地址不同时修改 `.env.development` 中的 `VITE_API_PROXY_TARGET`。
 
-# 格式化
-npm run format
+## 其他命令
+
+```bash
+npm run build                    # 构建生产版本
+npx eslint src --ext .vue,.js    # 代码检查
+npm run format                   # 格式化
 ```
 
 ## 项目结构
@@ -47,16 +40,3 @@ src/
 ├── utils/            # Axios 封装 + 常量
 └── views/            # 页面组件
 ```
-
-## 环境变量
-
-```env
-VITE_API_BASE_URL=http://localhost:8080
-```
-
-## 约定
-
-- 所有 API 通过 `@/utils/http` (Axios) 统一调用
-- 状态管理使用 Pinia，位于 `stores/modules/`
-- 通用逻辑抽取为 composable
-- 全局样式定制通过 CSS 自定义属性
