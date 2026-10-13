@@ -32,6 +32,8 @@ java -jar dessertshop-web-management/target/dessertshop-web-management-0.0.1-SNA
 
 ### 3. 启动前端
 
+另开一个终端，在后端仓库目录之外执行：
+
 ```bash
 git clone https://gitee.com/yuka-kaori/dessertshop-frontend.git
 cd dessertshop-frontend
@@ -52,9 +54,9 @@ npm run dev
 | `mysql` 不是内部或外部命令 | 把 MySQL 安装目录下的 `bin` 加入 PATH |
 | `Failed to open file 'sql/...'` | 没在仓库根目录执行第 1 步 |
 | 登录提示用户名或密码错误 | 第 1 步没执行完整，重新执行（可重复执行） |
-| `release version 22 not supported` | JDK 版本低于 22 |
+| `release version 22 not supported` / `无效的目标发行版: 22` | JDK 版本低于 22 |
 | Maven 下载依赖很慢或失败 | 在 Maven `settings.xml` 配置国内镜像 |
-| `npm install` 报 engine 不兼容 | 升级 Node 到 20.19+ 或 22.12+ |
+| `npm install` 提示 `EBADENGINE`，或 `npm run dev` 报错 | Node 版本过低，升级到 20.19+ 或 22.12+ |
 
 ## 项目结构
 
