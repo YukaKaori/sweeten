@@ -1,0 +1,25 @@
+# 本地开发用：一条命令启动 MySQL 8 + Redis，首次启动时自动执行 sql/init_all.sql
+#   docker compose up -d
+# 账号与 application.yml 默认值一致（root / 1234），无需额外配置。
+# 本机已有 MySQL 占用 3306 时，先停掉本机 MySQL，或直接用本机 MySQL 按 README 导入。
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: "1234"
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./sql:/sql:ro
+      - ./docker/mysql-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql-data:

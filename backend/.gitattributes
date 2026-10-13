@@ -1,0 +1,2 @@
+# Docker 里执行的脚本必须是 LF，Windows 检出时不能转成 CRLF
+*.sh text eol=lf
