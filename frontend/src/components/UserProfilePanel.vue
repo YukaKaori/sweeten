@@ -1,233 +1,298 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+/**
+ * 页头用户菜单：头像 + 姓名 + 岗位角色；个人信息 / 修改密码 / 退出登录
+ */
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/modules/user'
-import {
-  Postcard,
-  Lock,
-  SwitchButton
-} from '@element-plus/icons-vue'
+import SwIcon from '@/components/brand/SwIcon.vue'
 
 const emit = defineEmits(['open-profile', 'open-password', 'logout'])
 
 const userStore = useUserStore()
 const visible = ref(false)
 
-const userName = computed(() => userStore.userInfo?.name || userStore.username || '用户')
-const userAccount = computed(() => userStore.username || '-')
+// 角色码 → 岗位名称（与 sql/rbac_init.sql 一致），按权限从高到低取第一个
+const ROLE_LABELS = [
+  ['super_admin', '店长'],
+  ['manager', '副店长'],
+  ['cashier', '收银 · 运营'],
+  ['warehouse', '仓管 · 后厨'],
+  ['finance', '财务'],
+]
+
+const userName = computed(() => userStore.displayName || '同事')
+const userAccount = computed(() => userStore.username || '')
 const userImage = computed(() => userStore.userInfo?.image || '')
+const roleLabel = computed(() => ROLE_LABELS.find(([code]) => userStore.roles.includes(code))?.[1] || '门店员工')
+const initial = computed(() => userName.value.charAt(0).toUpperCase())
 
 const toggle = () => {
   visible.value = !visible.value
 }
 
-const handleClickOutside = (e) => {
-  if (!e.target.closest('.user-profile-wrapper')) {
-    visible.value = false
-  }
+const pick = (event) => {
+  visible.value = false
+  emit(event)
+}
+
+const onDocClick = (e) => {
+  if (!e.target.closest('.user-menu')) visible.value = false
+}
+const onKey = (e) => {
+  if (e.key === 'Escape') visible.value = false
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onKey)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onKey)
 })
 </script>
 
 <template>
-  <div class="user-profile-wrapper">
-    <div class="user-info" @click.stop="toggle">
-      <div class="user-avatar">
-        <img v-if="userImage" :src="userImage" alt="" />
-        <span v-else>{{ userName.charAt(0).toUpperCase() }}</span>
-      </div>
-      <span class="user-name">{{ userName }}</span>
-    </div>
+  <div class="user-menu">
+    <button
+      type="button"
+      class="user-menu__trigger"
+      :aria-expanded="visible"
+      aria-haspopup="menu"
+      @click.stop="toggle"
+    >
+      <span class="user-menu__avatar">
+        <img
+          v-if="userImage"
+          :src="userImage"
+          alt=""
+        />
+        <span v-else>{{ initial }}</span>
+      </span>
+      <span class="user-menu__who">
+        <span class="user-menu__name">{{ userName }}</span>
+        <span class="user-menu__role">{{ roleLabel }}</span>
+      </span>
+      <SwIcon
+        name="chevron-down"
+        :size="14"
+        class="user-menu__caret"
+      />
+    </button>
 
-    <Transition name="dropdown">
-      <div v-if="visible" class="profile-dropdown glass-panel" @click.stop>
-        <div class="profile-header">
-          <div class="profile-avatar">
-            <img v-if="userImage" :src="userImage" alt="" />
-            <span v-else>{{ userName.charAt(0).toUpperCase() }}</span>
-          </div>
-          <div class="profile-info">
-            <span class="profile-name">{{ userName }}</span>
-            <span class="profile-account">@{{ userAccount }}</span>
-          </div>
+    <Transition name="pop">
+      <div
+        v-if="visible"
+        class="user-menu__panel"
+        role="menu"
+        @click.stop
+      >
+        <div class="user-menu__head">
+          <span class="user-menu__avatar is-lg">
+            <img
+              v-if="userImage"
+              :src="userImage"
+              alt=""
+            />
+            <span v-else>{{ initial }}</span>
+          </span>
+          <span class="user-menu__who">
+            <span class="user-menu__name">{{ userName }}</span>
+            <span class="user-menu__role">@{{ userAccount }} · {{ roleLabel }}</span>
+          </span>
         </div>
-
-        <div class="profile-menu">
-          <div class="profile-menu-item" @click="emit('open-profile')">
-            <el-icon :size="16"><Postcard /></el-icon>
-            <span>个人信息</span>
-          </div>
-          <div class="profile-menu-item" @click="emit('open-password')">
-            <el-icon :size="16"><Lock /></el-icon>
-            <span>修改密码</span>
-          </div>
-          <div class="profile-divider"></div>
-          <div class="profile-menu-item danger" @click="emit('logout')">
-            <el-icon :size="16"><SwitchButton /></el-icon>
-            <span>退出登录</span>
-          </div>
-        </div>
+        <button
+          type="button"
+          role="menuitem"
+          class="user-menu__item"
+          @click="pick('open-profile')"
+        >
+          <SwIcon
+            name="user"
+            :size="17"
+          /> 个人信息
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="user-menu__item"
+          @click="pick('open-password')"
+        >
+          <SwIcon
+            name="lock"
+            :size="17"
+          /> 修改密码
+        </button>
+        <div class="user-menu__sep"></div>
+        <button
+          type="button"
+          role="menuitem"
+          class="user-menu__item is-danger"
+          @click="pick('logout')"
+        >
+          <SwIcon
+            name="logout"
+            :size="17"
+          /> 退出登录
+        </button>
       </div>
     </Transition>
   </div>
 </template>
 
 <style scoped>
-.user-profile-wrapper {
+.user-menu {
   position: relative;
 }
 
-.user-info {
+.user-menu__trigger {
   display: flex;
   align-items: center;
   gap: 10px;
+  height: 44px;
+  padding: 0 10px 0 4px;
+  border: 0;
+  border-radius: var(--sw-r-pill);
+  background: transparent;
+  color: var(--sw-ink);
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: background-color var(--sw-dur-1) var(--sw-ease);
 }
 
-.user-info:hover {
-  background: rgba(45, 35, 39, 0.06);
+.user-menu__trigger:hover,
+.user-menu__trigger[aria-expanded='true'] {
+  background: var(--sw-fill-soft);
 }
 
-.user-avatar {
+.user-menu__avatar {
+  display: grid;
+  place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--sw-blush-soft);
+  color: var(--sw-cocoa);
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(232, 99, 122, 0.25);
-  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.user-avatar img {
+.user-menu__avatar.is-lg {
+  width: 42px;
+  height: 42px;
+  font-size: 16px;
+}
+
+.user-menu__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.user-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-primary);
+.user-menu__who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.25;
 }
 
-.profile-dropdown {
+.user-menu__name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.user-menu__role {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+  white-space: nowrap;
+}
+
+.user-menu__caret {
+  color: var(--sw-ink-3);
+}
+
+.user-menu__panel {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 260px;
-  border-radius: 16px;
-  overflow: hidden;
-  z-index: var(--z-dropdown);
-  box-shadow: 0 16px 48px rgba(45, 35, 39, 0.15);
-}
-
-.profile-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 20px 18px;
-  border-bottom: 1px solid var(--glass-border);
-}
-
-.profile-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(232, 99, 122, 0.3);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.profile-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.profile-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.profile-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.profile-account {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.profile-menu {
+  width: 240px;
   padding: 6px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-surface);
+  box-shadow: var(--sw-shadow-lg);
+  z-index: var(--z-dropdown);
 }
 
-.profile-menu-item {
+.user-menu__head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--color-text-primary);
+  gap: 10px;
+  padding: 10px 10px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--sw-border-soft);
+}
+
+.user-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--sw-r-md);
+  background: transparent;
+  color: var(--sw-ink);
+  font-size: 13px;
+  text-align: left;
   cursor: pointer;
-  transition: all var(--transition-fast);
 }
 
-.profile-menu-item:hover {
-  background: rgba(45, 35, 39, 0.05);
+.user-menu__item:hover {
+  background: var(--sw-fill-soft);
 }
 
-.profile-menu-item.danger {
-  color: #ef6b6b;
+.user-menu__item.is-danger {
+  color: var(--sw-danger);
 }
 
-.profile-menu-item.danger:hover {
-  background: rgba(239, 107, 107, 0.08);
+.user-menu__item.is-danger:hover {
+  background: var(--sw-danger-bg);
 }
 
-.profile-divider {
+.user-menu__sep {
   height: 1px;
-  background: var(--glass-border);
-  margin: 4px 14px;
+  margin: 4px 6px;
+  background: var(--sw-border-soft);
 }
 
-.dropdown-enter-active {
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+.pop-enter-active,
+.pop-leave-active {
+  transition: opacity var(--sw-dur-2) var(--sw-ease), transform var(--sw-dur-2) var(--sw-ease);
 }
 
-.dropdown-leave-active {
-  transition: all 0.15s ease;
-}
-
-.dropdown-enter-from {
+.pop-enter-from,
+.pop-leave-to {
   opacity: 0;
-  transform: scale(0.95) translateY(-8px);
+  transform: translateY(-4px);
 }
 
-.dropdown-leave-to {
-  opacity: 0;
-  transform: scale(0.98) translateY(-4px);
+@media (max-width: 768px) {
+  .user-menu__who,
+  .user-menu__caret {
+    display: none;
+  }
+
+  .user-menu__panel .user-menu__who {
+    display: flex;
+  }
+
+  .user-menu__trigger {
+    padding: 0 4px;
+  }
 }
 </style>

@@ -6,12 +6,12 @@ export const dataRoutes = [
     path: 'report',
     name: 'report',
     component: () => import('@/views/report/index.vue'),
-    meta: { title: '数据报表' },
+    meta: { title: '数据报表', permission: 'report:report:read' },
   },
   {
     path: 'log',
     name: 'log',
     component: () => import('@/views/log/index.vue'),
-    meta: { title: '操作日志' },
+    meta: { title: '操作日志', permission: 'log:operate:list' },
   },
 ]

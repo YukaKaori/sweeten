@@ -3,9 +3,16 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, EditPen, Delete, WarningFilled } from '@element-plus/icons-vue'
 import { queryPageApi, addApi, updateApi, deleteApi, adjustStockApi } from '@/api/modules/inventory'
+import { usePermission } from '@/composables/usePermission'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
+
+const { can } = usePermission()
+const canCreate = can('inventory:inventory:create')
+const canUpdate = can('inventory:inventory:update')
+const canDelete = can('inventory:inventory:delete')
+const canAdjust = can('inventory:stock:adjust')
 
 // 搜索
 const searchName = ref('')
@@ -49,14 +56,14 @@ const rules = {
 
 // 分类
 const CATEGORIES = [
-  { label: '乳制品', value: 'dairy', color: '#6b8cce' },
-  { label: '面粉/谷物', value: 'grain', color: '#f0a35c' },
-  { label: '糖/甜味剂', value: 'sugar', color: '#e8637a' },
-  { label: '水果', value: 'fruit', color: '#5cb88a' },
-  { label: '巧克力/可可', value: 'chocolate', color: '#8b5e3c' },
-  { label: '油脂', value: 'oil', color: '#a78bfa' },
-  { label: '包装材料', value: 'package', color: '#909399' },
-  { label: '其他', value: 'other', color: '#b0b0b0' },
+  { label: '乳制品', value: 'dairy', color: '#4e6a8c' },
+  { label: '面粉/谷物', value: 'grain', color: '#9a6b2f' },
+  { label: '糖/甜味剂', value: 'sugar', color: '#a9524d' },
+  { label: '水果', value: 'fruit', color: '#5e7a57' },
+  { label: '巧克力/可可', value: 'chocolate', color: '#6b4a3a' },
+  { label: '油脂', value: 'oil', color: '#8a6a3e' },
+  { label: '包装材料', value: 'package', color: '#6e6862' },
+  { label: '其他', value: 'other', color: '#6e6862' },
 ]
 
 const UNITS = ['kg', 'g', 'L', 'ml', 'pcs', 'box', 'bag', 'bottle']
@@ -212,8 +219,8 @@ onMounted(() => {
 
 <template>
   <div class="page-container">
-    <PageHeader title="库存管理" description="管理原料、物料的库存、效期与采购补货">
-      <template #actions>
+    <PageHeader title="库存管理" description="原料与物料的库存、效期、出入库与补货">
+      <template v-if="canCreate" #actions>
         <el-button type="primary" @click="openAdd">
           <el-icon><Plus /></el-icon>
           新增物料
@@ -259,7 +266,7 @@ onMounted(() => {
           <template #default="{ row }">
             <el-tag
               size="small"
-              :color="(CATEGORIES.find(c => c.value === row.category) || {}).color || '#909399'"
+              :color="(CATEGORIES.find(c => c.value === row.category) || {}).color || '#6e6862'"
               effect="dark"
             >
               {{ (CATEGORIES.find(c => c.value === row.category) || {}).label || row.category }}
@@ -296,27 +303,29 @@ onMounted(() => {
             <span v-else class="na-text">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" align="center" fixed="right">
+        <el-table-column v-if="canAdjust || canUpdate || canDelete" label="操作" width="260" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button type="success" size="small" link @click="openAdjust(row, 'in')">
-              入库
-            </el-button>
-            <el-button type="warning" size="small" link @click="openAdjust(row, 'out')">
-              出库
-            </el-button>
-            <el-button type="primary" size="small" link @click="openEdit(row)">
+            <template v-if="canAdjust">
+              <el-button type="primary" size="small" link @click="openAdjust(row, 'in')">
+                入库
+              </el-button>
+              <el-button type="primary" size="small" link @click="openAdjust(row, 'out')">
+                出库
+              </el-button>
+              <el-button
+                v-if="getStockStatus(row) === 'low' || getStockStatus(row) === 'empty'"
+                size="small"
+                type="warning"
+                link
+                @click="handleReorder(row)"
+              >
+                补货
+              </el-button>
+            </template>
+            <el-button v-if="canUpdate" type="primary" size="small" link :aria-label="`编辑 ${row.name}`" @click="openEdit(row)">
               <el-icon><EditPen /></el-icon>
             </el-button>
-            <el-button
-              v-if="getStockStatus(row) === 'low' || getStockStatus(row) === 'empty'"
-              size="small"
-              type="warning"
-              link
-              @click="handleReorder(row)"
-            >
-              采购
-            </el-button>
-            <el-button type="danger" size="small" link @click="handleDelete(row)">
+            <el-button v-if="canDelete" type="danger" size="small" link :aria-label="`删除 ${row.name}`" @click="handleDelete(row)">
               <el-icon><Delete /></el-icon>
             </el-button>
           </template>
@@ -326,7 +335,7 @@ onMounted(() => {
       <EmptyState
         v-else
         title="暂无库存数据"
-        description="点击右上角「新增物料」添加第一个库存物料"
+        :description="canCreate ? '点击右上角「新增物料」添加第一个库存物料' : '还没有库存物料记录'"
       />
 
       <div v-if="total > pageSize" class="pagination-wrap">
@@ -485,7 +494,7 @@ onMounted(() => {
 }
 
 .alert-icon {
-  color: #e8637a;
+  color: var(--sw-berry);
   font-size: 14px;
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -500,10 +509,10 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.stock-value.empty { color: #e8637a; }
-.stock-value.low { color: #e8637a; }
-.stock-value.warning { color: #f0a35c; }
-.stock-value.normal { color: #5cb88a; }
+.stock-value.empty { color: var(--sw-danger); }
+.stock-value.low { color: var(--sw-danger); }
+.stock-value.warning { color: var(--sw-warning); }
+.stock-value.normal { color: var(--sw-success); }
 
 .threshold-value {
   color: var(--color-text-secondary, #6b5a60);
@@ -538,7 +547,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: rgba(45, 35, 39, 0.03);
+  background: var(--sw-fill-soft);
   border-radius: 8px;
 }
 

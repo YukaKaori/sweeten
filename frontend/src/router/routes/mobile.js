@@ -1,5 +1,6 @@
 /**
- * 移动端路由（全部为公开路由，无需登录）
+ * 顾客商城路由（/m/*，全部公开，无需登录）
+ * 首页不设标题 → 浏览器标题为「喜甜 SWEETEN · 甜品 · 烘焙 · 饮品」
  */
 export const mobileRoutes = [
   {
@@ -11,7 +12,7 @@ export const mobileRoutes = [
         path: '',
         name: 'mobileHome',
         component: () => import('@/views/mobile/home/index.vue'),
-        meta: { title: '甜品点餐', public: true },
+        meta: { public: true },
       },
       {
         path: 'product/:id',
@@ -35,7 +36,7 @@ export const mobileRoutes = [
         path: 'success',
         name: 'mobileSuccess',
         component: () => import('@/views/mobile/success/index.vue'),
-        meta: { title: '下单成功', public: true },
+        meta: { title: '订单已提交', public: true },
       },
       {
         path: 'profile',

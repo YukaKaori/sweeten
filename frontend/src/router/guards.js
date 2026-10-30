@@ -3,32 +3,39 @@ import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 import { useUserStore } from '@/stores/modules/user'
 import { useMotionPref } from '@/composables/useMotionPref'
+import { pageTitle } from '@/config/brand'
+import { firstAllowedPath } from '@/config/navigation'
 
-NProgress.configure({ showSpinner: false, speed: 400 })
+NProgress.configure({ showSpinner: false, speed: 300, minimum: 0.12 })
 
 /**
  * View Transitions API 特性检测（渐进增强，零 polyfill）。
- * 不支持的浏览器（部分 Firefox / 旧 Safari）直接正常导航。
- * layout 也据此决定是否关闭内层 Vue <transition>（避免双重转场）。
+ * 不支持的浏览器直接正常导航；layout 据此决定是否关闭内层 Vue <transition>（避免双重转场）。
  */
 export const supportsViewTransitions =
   typeof document !== 'undefined' && typeof document.startViewTransition === 'function'
 
-// 移动端 H5 点餐页（/m/*）保持轻量，不加转场
-const isMobileH5 = (path) => path.startsWith('/m')
+// 顾客商城（/m/*）有自己的页面切换，不使用 View Transitions
+const isStore = (path) => path === '/m' || path.startsWith('/m/')
 
 function shouldUseViewTransition(to, from) {
   if (!supportsViewTransitions) return false
-  // 初始导航（硬加载/刷新）：没有旧页面可转场，跑 VT 只会白冻结一帧首屏
-  if (from.matched.length === 0) return false
-  // static 档（prefers-reduced-motion）：跳过 startViewTransition 直接导航
+  if (from.matched.length === 0) return false // 首次加载没有旧页面可转场
   const { isStatic } = useMotionPref()
-  if (isStatic.value) return false
-  if (isMobileH5(to.path) || isMobileH5(from.path)) return false
-  // 同路径（仅 query 变化）或后台标签页不做转场
+  if (isStatic.value) return false // prefers-reduced-motion
+  if (isStore(to.path) || isStore(from.path)) return false
   if (to.path === from.path) return false
   if (document.hidden) return false
   return true
+}
+
+/** 路由要求的权限（取最深一级声明的 meta.permission） */
+function requiredPermission(route) {
+  for (let i = route.matched.length - 1; i >= 0; i--) {
+    const p = route.matched[i].meta?.permission
+    if (p) return p
+  }
+  return null
 }
 
 /**
@@ -36,8 +43,7 @@ function shouldUseViewTransition(to, from) {
  * @param {import('vue-router').Router} router
  */
 export function setupRouterGuards(router) {
-  // NProgress 延迟启动：快速导航（< 180ms）只看转场不闪进度条，
-  // 慢请求（懒加载 chunk / 接口阻塞）才显示进度条 → 与 View Transitions 无视觉冲突
+  // 进度条延迟出现：快速导航不闪烁，慢加载（懒加载 chunk）才显示
   let npTimer = null
   const npStartDelayed = () => {
     clearTimeout(npTimer)
@@ -49,43 +55,38 @@ export function setupRouterGuards(router) {
     NProgress.done()
   }
 
-  // 当前转场的「DOM 已更新」回调：afterEach 里等新页面渲染完成后 resolve，
-  // 浏览器随即捕获 new 快照并播放 ::view-transition-* 动画
   let finishViewTransition = null
 
-  router.beforeEach((to, from, next) => {
+  router.beforeEach((to) => {
     npStartDelayed()
+    document.title = pageTitle(to.meta?.title)
 
-    // 设置页面标题
-    const title = to.meta.title ? `${to.meta.title} - DessertShop` : 'DessertShop'
-    document.title = title
-
-    // 检查登录状态
     const userStore = useUserStore()
     userStore.initFromStorage()
 
-    // 未登录 → 只允许访问公开页面（/login 和 /m/* 移动端点餐页）
-    const isPublic = to.meta?.public || to.path === '/login' || to.path.startsWith('/m')
+    // 未登录：只允许访问公开页面（登录页、顾客商城 /m/*、404）
+    const isPublic = to.meta?.public || to.path === '/login' || isStore(to.path)
     if (!userStore.isLoggedIn && !isPublic) {
-      next('/login')
-      return
+      return { path: '/login', query: to.fullPath !== '/' && to.fullPath !== '/index' ? { redirect: to.fullPath } : undefined }
     }
 
-    // 已登录 → 不允许再访问 /login
+    // 已登录：不再进入登录页
     if (userStore.isLoggedIn && to.path === '/login') {
-      next('/')
-      return
+      return firstAllowedPath(userStore.can)
     }
 
-    next()
+    // 工作台页面：无权限时去第一个有权限的页面（都没有则显示 403 页）
+    const permission = requiredPermission(to)
+    if (userStore.isLoggedIn && permission && !userStore.can(permission)) {
+      const fallback = firstAllowedPath(userStore.can)
+      return fallback === to.path ? '/forbidden' : fallback
+    }
+    return true
   })
 
-  // View Transitions：包裹导航（beforeResolve 是重定向都定型后的最后一站）
+  // View Transitions：包裹导航（beforeResolve 是重定向定型后的最后一站）
   router.beforeResolve((to, from) => {
     if (!shouldUseViewTransition(to, from)) return
-    // vt-active 期间关闭 glass-pill 自身的 CSS 过渡，
-    // 让高亮块的位移完全交给 ::view-transition-group(nav-pill) 形变
-    document.documentElement.classList.add('vt-active')
     return new Promise((resolveNav) => {
       const transition = document.startViewTransition(
         () =>
@@ -94,15 +95,11 @@ export function setupRouterGuards(router) {
             resolveNav() // 旧快照已捕获 → 放行导航去更新 DOM
           })
       )
-      // 新页面渲染过慢（如低端设备首次加载大 chunk）时浏览器会放弃转场并让这些 promise reject；
-      // 导航本身不受影响，这里显式吞掉，避免控制台出现未处理的 rejection
+      // 新页面渲染过慢时浏览器会放弃转场并 reject；导航本身不受影响
       transition.ready.catch(() => {})
-      transition.finished
-        .catch(() => {})
-        .finally(() => {
-          document.documentElement.classList.remove('vt-active')
-          finishViewTransition = null
-        })
+      transition.finished.catch(() => {}).finally(() => {
+        finishViewTransition = null
+      })
     })
   })
 
@@ -111,7 +108,6 @@ export function setupRouterGuards(router) {
     if (finishViewTransition) {
       const domUpdated = finishViewTransition
       finishViewTransition = null
-      // 等 Vue 完成组件切换 + 一帧绘制，再让浏览器捕获 new 快照
       nextTick(() => requestAnimationFrame(() => domUpdated()))
     }
   })
@@ -122,6 +118,5 @@ export function setupRouterGuards(router) {
       finishViewTransition()
       finishViewTransition = null
     }
-    document.documentElement.classList.remove('vt-active')
   })
 }

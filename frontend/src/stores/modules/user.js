@@ -44,6 +44,24 @@ export const useUserStore = defineStore('user', () => {
 
   // 用户名（响应式 computed）
   const username = computed(() => userInfo.value?.username || '')
+  const displayName = computed(() => userInfo.value?.name || userInfo.value?.username || '')
+
+  // 角色码 / 权限码（登录响应下发，见后端 LoginInfo）
+  const roles = computed(() => (Array.isArray(userInfo.value?.roles) ? userInfo.value.roles : []))
+  const permissions = computed(() => (Array.isArray(userInfo.value?.permissions) ? userInfo.value.permissions : null))
+
+  /**
+   * 界面权限判断（只决定显示/隐藏，真正的鉴权在后端 @RequirePermission）
+   * @param {string|string[]} [code] 权限码；数组表示满足任意一个即可；不传视为无需权限
+   * 登录信息里没有 permissions 字段（RBAC 上线前的旧会话）时不在前端拦截，交由后端判定。
+   */
+  const can = (code) => {
+    if (!code || (Array.isArray(code) && code.length === 0)) return true
+    const owned = permissions.value
+    if (!owned) return true
+    const codes = Array.isArray(code) ? code : [code]
+    return codes.some((c) => owned.includes(c))
+  }
 
   return {
     token,
@@ -53,5 +71,9 @@ export const useUserStore = defineStore('user', () => {
     logout,
     isLoggedIn,
     username,
+    displayName,
+    roles,
+    permissions,
+    can,
   }
 })

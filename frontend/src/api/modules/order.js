@@ -2,8 +2,11 @@ import http from '@/utils/http'
 
 const blank = (v) => v === '' || v === null || v === undefined
 
-/** 分页查询订单（status 为 0「待支付」时也要带上，不能用 || 判空） */
-export const queryPageApi = (orderNo, customerName, status, begin, end, page, pageSize) =>
+/**
+ * 分页查询订单（status 为 0「待支付」时也要带上，不能用 || 判空）
+ * @param {object} [config] axios 配置，如 { silent: true } 不弹全局错误提示
+ */
+export const queryPageApi = (orderNo, customerName, status, begin, end, page, pageSize, config = {}) =>
   http.get('/orders', {
     params: {
       orderNo: orderNo || undefined,
@@ -14,6 +17,7 @@ export const queryPageApi = (orderNo, customerName, status, begin, end, page, pa
       page,
       pageSize,
     },
+    ...config,
   })
 
 /** 根据 ID 查询订单详情 */

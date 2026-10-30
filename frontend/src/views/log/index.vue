@@ -354,7 +354,7 @@ const handleExport = () => {
 }
 
 .cost-time.slow {
-  color: #ef6b6b;
+  color: var(--sw-danger);
   font-weight: 600;
 }
 
@@ -413,7 +413,7 @@ const handleExport = () => {
 }
 
 .detail-value.slow {
-  color: #ef6b6b;
+  color: var(--sw-danger);
 }
 
 .code-block {

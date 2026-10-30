@@ -1,11 +1,14 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, EditPen, Delete, Upload } from '@element-plus/icons-vue'
+import { Plus, Search, EditPen, Delete, UploadFilled } from '@element-plus/icons-vue'
 import { DESSERT_CATEGORIES, CATEGORY_COLORS, getLabelByValue } from '@/utils/constants'
 import { queryPageApi, addApi, updateApi, deleteByIdApi, updateStatusApi } from '@/api/modules/dessert'
 import { uploadImageApi, UPLOAD_ACCEPT, UPLOAD_MAX_MB } from '@/api/modules/upload'
+import { UNIFORM_PRODUCT_IMAGE } from '@/config/productImage'
+import { usePermission } from '@/composables/usePermission'
+import { formatPrice } from '@/utils/format'
 import ProductImg from '@/components/ProductImg.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -14,8 +17,14 @@ import SkeletonTable from '@/components/SkeletonTable.vue'
 /** 库存低于该值时在列表中标黄提醒（与首页库存预警口径接近） */
 const LOW_STOCK = 10
 
-// 搜索（支持从首页库存预警带 ?name= 定位到具体甜品）
+const { can } = usePermission()
+const canCreate = can('dessert:dessert:create')
+const canUpdate = can('dessert:dessert:update')
+const canDelete = can('dessert:dessert:delete')
+
+// 搜索（支持从首页库存预警带 ?name= 定位到具体甜品；?action=create 直接打开新增）
 const route = useRoute()
+const router = useRouter()
 const searchName = ref(typeof route.query.name === 'string' ? route.query.name : '')
 const searchCategory = ref('')
 
@@ -254,19 +263,27 @@ const stockTagType = (stock) => (stock <= 0 ? 'danger' : stock < LOW_STOCK ? 'wa
 
 onMounted(() => {
   loadData()
+  if (route.query.action === 'create' && canCreate) {
+    openAdd()
+    router.replace({ query: { ...route.query, action: undefined } })
+  }
 })
 </script>
 
 <template>
   <div class="page-container">
-    <PageHeader title="甜品管理" description="管理甜品的上新、价格、库存与上下架">
-      <template #actions>
+    <PageHeader title="甜品管理" description="上新、编辑商品信息与图片，管理库存与上下架">
+      <template v-if="canCreate" #actions>
         <el-button type="primary" @click="openAdd">
           <el-icon><Plus /></el-icon>
           新增甜品
         </el-button>
       </template>
     </PageHeader>
+
+    <p v-if="UNIFORM_PRODUCT_IMAGE" class="uniform-note">
+      顾客商城目前统一展示品牌招牌图；这里显示的是各甜品自己的图片，关闭统一展示后会在商城生效。
+    </p>
 
     <!-- 搜索栏 -->
     <div class="search-bar animate-fade-in-up delay-1">
@@ -314,7 +331,7 @@ onMounted(() => {
         <el-table-column prop="id" label="ID" width="60" align="center" />
         <el-table-column label="图片" width="80" align="center">
           <template #default="{ row }">
-            <ProductImg :item="row" :width="48" :alt="row.name" class="dessert-thumb" />
+            <ProductImg :item="row" :width="48" ratio="1/1" own :alt="row.name" class="dessert-thumb" />
           </template>
         </el-table-column>
         <el-table-column label="甜品名称" min-width="160" show-overflow-tooltip>
@@ -334,15 +351,10 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="原价" width="90" align="right">
+        <el-table-column label="售价" width="120" align="right">
           <template #default="{ row }">
-            <span v-if="row.originalPrice > row.price" class="price-original-col">¥{{ row.originalPrice.toFixed(2) }}</span>
-            <span v-else class="muted">—</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="现价" width="90" align="right">
-          <template #default="{ row }">
-            <span class="price-current-col">¥{{ row.price?.toFixed(2) }}</span>
+            <span class="price-current-col">{{ formatPrice(row.price) }}</span>
+            <span v-if="row.originalPrice > row.price" class="price-original-col">{{ formatPrice(row.originalPrice) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="库存" width="90" align="center">
@@ -353,29 +365,34 @@ onMounted(() => {
           </template>
         </el-table-column>
         <el-table-column prop="sales" label="销量" width="80" align="right" />
-        <el-table-column label="状态" width="80" align="center">
+        <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
             <el-switch
+              v-if="canUpdate"
               :model-value="row.status === 1"
               :loading="row._toggling"
               active-text="在售"
               inactive-text="下架"
               inline-prompt
               size="small"
+              :aria-label="`${row.name}：${row.status === 1 ? '在售' : '已下架'}`"
               @change="toggleStatus(row)"
             />
+            <el-tag v-else :type="row.status === 1 ? 'success' : 'info'" size="small">
+              {{ row.status === 1 ? '在售' : '已下架' }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" :width="canUpdate || canDelete ? 200 : 90" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" size="small" link @click="openEdit(row)">
+            <el-button v-if="canUpdate" type="primary" size="small" link @click="openEdit(row)">
               <el-icon><EditPen /></el-icon>
               编辑
             </el-button>
             <el-button size="small" link @click="$router.push(`/dessert/${row.id}`)">
               详情
             </el-button>
-            <el-button type="danger" size="small" link @click="handleDelete(row)">
+            <el-button v-if="canDelete" type="danger" size="small" link @click="handleDelete(row)">
               <el-icon><Delete /></el-icon>
               删除
             </el-button>
@@ -404,7 +421,7 @@ onMounted(() => {
       <EmptyState
         v-else
         title="暂无甜品数据"
-        description="点击右上角「新增甜品」按钮添加第一个甜品"
+        :description="canCreate ? '点击右上角「新增甜品」添加第一款甜品' : '还没有甜品，请联系有上新权限的同事添加'"
       />
 
       <!-- 分页 -->
@@ -515,23 +532,30 @@ onMounted(() => {
         </el-row>
         <el-form-item label="图片" prop="image">
           <div class="image-field">
-            <ProductImg :key="form.image" :item="{ image: form.image }" :width="96" class="image-preview" eager />
+            <div class="image-preview">
+              <ProductImg v-if="form.image" :key="form.image" :item="{ image: form.image }" :width="112" ratio="1/1" own eager alt="甜品图片预览" />
+              <span v-else class="image-preview__empty">暂无图片</span>
+            </div>
             <div class="image-field__body">
               <el-upload
+                class="image-drop"
+                drag
                 :show-file-list="false"
                 :accept="UPLOAD_ACCEPT.join(',')"
                 :before-upload="beforeImageUpload"
                 :http-request="uploadImage"
                 :disabled="uploading"
               >
-                <el-button :loading="uploading" size="small">
-                  <el-icon v-if="!uploading"><Upload /></el-icon>
-                  {{ form.image ? '更换图片' : '上传图片' }}
-                </el-button>
+                <el-icon class="image-drop__icon"><UploadFilled /></el-icon>
+                <p class="image-drop__text">
+                  <template v-if="uploading">正在上传…</template>
+                  <template v-else>拖入图片，或 <em>点击{{ form.image ? '更换' : '上传' }}</em></template>
+                </p>
+                <p class="image-drop__hint">JPG / PNG / WEBP / GIF，不超过 {{ UPLOAD_MAX_MB }}MB；建议 1:1 正方形、主体居中</p>
               </el-upload>
-              <el-input v-model="form.image" size="small" placeholder="或粘贴图片 URL（选填）" clearable />
-              <p class="image-hint">
-                JPG/PNG/WEBP，≤ {{ UPLOAD_MAX_MB }}MB，上传至阿里云 OSS。当前全站临时统一展示草莓蛋糕图，商品自己的图片在关闭统一模式后生效。
+              <el-input v-model="form.image" size="small" placeholder="或粘贴已上传的图片地址（选填）" clearable />
+              <p v-if="UNIFORM_PRODUCT_IMAGE" class="image-hint">
+                顾客商城目前统一展示品牌招牌图，这张图片会保存到商品资料中，关闭统一展示后在商城生效。
               </p>
             </div>
           </div>
@@ -569,11 +593,20 @@ onMounted(() => {
   margin-left: auto;
 }
 
+.uniform-note {
+  margin: -8px 0 16px;
+  padding: 10px 14px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-info-bg);
+  color: var(--sw-info);
+  font-size: 13px;
+}
+
 .dessert-thumb {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
-  object-fit: cover;
+  margin: 0 auto;
+  border-radius: var(--sw-r-sm);
 }
 
 .name-link {
@@ -606,13 +639,55 @@ onMounted(() => {
 }
 
 .image-preview {
-  width: 96px;
-  height: 96px;
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
   flex-shrink: 0;
-  border-radius: var(--radius-lg);
-  object-fit: cover;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
+  overflow: hidden;
+  border-radius: var(--sw-r-lg);
+  border: 1px solid var(--sw-border);
+  background: var(--sw-fill-soft);
+}
+
+.image-preview__empty {
+  font-size: 12px;
+  color: var(--sw-ink-4);
+}
+
+.image-drop :deep(.el-upload-dragger) {
+  padding: 14px 12px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-surface-2);
+}
+
+.image-drop :deep(.el-upload-dragger:hover),
+.image-drop :deep(.el-upload-dragger.is-dragover) {
+  border-color: var(--sw-ink-2);
+  background: var(--sw-blush-wash);
+}
+
+.image-drop__icon {
+  font-size: 26px;
+  color: var(--sw-ink-3);
+}
+
+.image-drop__text {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--sw-ink-2);
+}
+
+.image-drop__text em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--sw-ink);
+}
+
+.image-drop__hint {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--sw-ink-3);
 }
 
 .image-field__body {
@@ -631,13 +706,14 @@ onMounted(() => {
 }
 
 .price-original-col {
+  display: block;
   text-decoration: line-through;
-  color: var(--color-text-muted, #a3949b);
-  font-size: 13px;
+  color: var(--sw-ink-4);
+  font-size: 12px;
 }
 
 .price-current-col {
-  color: var(--color-primary-dark, #c9354a);
+  color: var(--sw-ink);
   font-weight: 600;
 }
 

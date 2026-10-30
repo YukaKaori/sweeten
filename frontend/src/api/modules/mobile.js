@@ -3,11 +3,12 @@ import http from '@/utils/http'
 const BASE = '/mobile'
 
 /**
- * 获取移动端商品列表
+ * 获取在售商品列表（后端已过滤下架商品，"all" 按销量降序）
  * @param {string} category - all | cake | bread | drink | dessert | icecream | snack | gift
+ * @param {object} [config] axios 配置，如 { silent: true } 不弹全局错误提示
  */
-export const getMobileProducts = (category = 'all') =>
-  http.get(`${BASE}/products`, { params: { category } })
+export const getMobileProducts = (category = 'all', config = {}) =>
+  http.get(`${BASE}/products`, { params: { category }, ...config })
 
 /**
  * 获取单个在售商品详情（已下架/不存在 → 404）

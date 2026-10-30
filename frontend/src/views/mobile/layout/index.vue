@@ -1,319 +1,821 @@
+<script setup>
+/**
+ * 喜甜 SWEETEN 顾客商城外框（/m/*，免登录）
+ * 桌面：品牌页头 + 导航 + 购物车抽屉；手机：精简页头 + 底部标签栏 + 购物车底部面板
+ */
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useCartStore } from '@/stores/modules/cart'
+import { useStoreUi } from '@/stores/modules/storeUi'
+import { BRAND, STORE_COPY } from '@/config/brand'
+import { formatPrice } from '@/utils/format'
+import BrandLogo from '@/components/brand/BrandLogo.vue'
+import SwIcon from '@/components/brand/SwIcon.vue'
+import CartPanel from '@/components/store/CartPanel.vue'
+
+const route = useRoute()
+const router = useRouter()
+const cart = useCartStore()
+const ui = useStoreUi()
+const year = new Date().getFullYear()
+
+// 这些页面自带底部操作栏，不显示标签栏 / 悬浮购物车条
+const FOCUSED_PAGES = ['mobileProduct', 'mobileCheckout', 'mobileSuccess']
+const focused = computed(() => FOCUSED_PAGES.includes(route.name))
+const onHome = computed(() => route.name === 'mobileHome')
+const showCartBar = computed(() => onHome.value && !cart.isEmpty)
+
+const tabs = [
+  { key: 'home', label: '首页', icon: 'home', to: '/m' },
+  { key: 'orders', label: '订单', icon: 'receipt', to: '/m/orders' },
+  { key: 'cart', label: '购物车', icon: 'bag' },
+  { key: 'profile', label: '我的', icon: 'user', to: '/m/profile' },
+]
+
+const activeTab = computed(() => {
+  if (route.name === 'mobileOrders') return 'orders'
+  if (route.name === 'mobileProfile') return 'profile'
+  if (route.name === 'mobileHome') return 'home'
+  return ''
+})
+
+function onTab(tab) {
+  if (tab.key === 'cart') ui.openCart()
+  else router.push(tab.to)
+}
+
+// 页头滚动后加发丝线
+const scrolled = ref(false)
+const onScroll = () => {
+  scrolled.value = window.scrollY > 8
+}
+
+// 加购时购物车角标轻跳一下
+const bump = ref(false)
+watch(() => cart.totalQty, (now, before) => {
+  if (now > before) {
+    bump.value = false
+    requestAnimationFrame(() => { bump.value = true })
+  }
+})
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+  // 兼容旧链接：/m/?cart=1 直接展开购物车
+  if (route.query.cart) {
+    ui.openCart()
+    router.replace({ path: route.path, query: {} })
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
+  ui.closeCart()
+})
+</script>
+
 <template>
-  <div class="m-layout" :class="{ dark: isDark }">
-    <!-- Liquid Glass Header -->
+  <div
+    class="store"
+    :class="{ 'is-focused': focused, 'has-cartbar': showCartBar }"
+  >
+    <a
+      class="store__skip"
+      href="#store-main"
+    >跳到主要内容</a>
+
+    <!-- ===== 页头 ===== -->
     <header
-      class="m-header"
-      :style="{
-        backdropFilter: `blur(${headerBlurAmount}px) saturate(200%)`,
-        WebkitBackdropFilter: `blur(${headerBlurAmount}px) saturate(200%)`,
-        background: isDark ? `rgba(28, 28, 30, ${headerOpacity})` : `rgba(245, 245, 247, ${headerOpacity})`
-      }"
+      class="sh"
+      :class="{ 'is-scrolled': scrolled }"
     >
-      <div class="m-header__inner">
-        <div class="m-brand" @click="$router.push('/m/')">
-          <span class="m-brand__icon">🍰</span>
-          <span class="m-brand__name">DessertShop</span>
-        </div>
-        <div class="m-header__actions">
-          <button class="m-icon-btn" @click="toggleDark" :title="isDark ? '浅色模式' : '深色模式'">
-            {{ isDark ? '☀️' : '🌙' }}
+      <div class="sh__inner">
+        <router-link
+          to="/m"
+          class="sh__logo"
+          :aria-label="`${BRAND.fullName} 首页`"
+        >
+          <BrandLogo
+            variant="horizontal"
+            :size="30"
+            class="sh__logo-full"
+          />
+          <BrandLogo
+            variant="horizontal"
+            :size="25"
+            class="sh__logo-compact"
+          />
+        </router-link>
+
+        <nav
+          class="sh__nav"
+          aria-label="商城导航"
+        >
+          <router-link
+            to="/m"
+            class="sh__link"
+            :class="{ 'is-active': onHome && !route.hash }"
+          >首页</router-link>
+          <router-link
+            :to="{ path: '/m', hash: '#menu' }"
+            class="sh__link"
+            :class="{ 'is-active': onHome && route.hash === '#menu' }"
+          >甜品菜单</router-link>
+          <router-link
+            to="/m/orders"
+            class="sh__link"
+            active-class="is-active"
+          >我的订单</router-link>
+          <router-link
+            to="/m/profile"
+            class="sh__link"
+            active-class="is-active"
+          >会员中心</router-link>
+        </nav>
+
+        <div class="sh__actions">
+          <button
+            type="button"
+            class="sh__cart"
+            :aria-label="cart.totalQty ? `购物车，${cart.totalQty} 件，合计 ${formatPrice(cart.totalAmount)}` : '购物车，空'"
+            @click="ui.openCart()"
+          >
+            <span class="sh__cart-icon">
+              <SwIcon
+                name="bag"
+                :size="21"
+              />
+              <span
+                v-if="cart.totalQty"
+                class="sh__badge sw-num"
+                :class="{ 'is-bump': bump }"
+                @animationend="bump = false"
+              >{{ cart.totalQty }}</span>
+            </span>
+            <span class="sh__cart-text">
+              <span>购物车</span>
+              <span
+                v-if="cart.totalQty"
+                class="sh__cart-sum sw-num"
+              >{{ formatPrice(cart.totalAmount) }}</span>
+            </span>
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Page Content -->
-    <main class="m-main" ref="mainRef" @scroll="onMainScroll">
-      <router-view v-slot="{ Component }">
-        <transition name="m-fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
+    <!-- ===== 内容 ===== -->
+    <main
+      id="store-main"
+      class="store__main"
+      tabindex="-1"
+    >
+      <router-view />
     </main>
 
-    <!-- Bottom Tab Bar · iOS Style -->
-    <nav class="bottom-nav" ref="bottomNav">
-      <div class="nav-slider" ref="navSlider"></div>
+    <!-- ===== 页脚 ===== -->
+    <footer
+      v-if="!focused"
+      class="sf"
+    >
+      <div class="sf__inner">
+        <div class="sf__brand">
+          <BrandLogo
+            variant="stacked"
+            :size="44"
+          />
+          <p class="sf__tagline sw-display">{{ BRAND.taglineCn }}</p>
+          <p class="sf__cat">{{ BRAND.category }}</p>
+        </div>
+        <div class="sf__cols">
+          <div class="sf__col">
+            <p class="sf__head">逛逛</p>
+            <router-link :to="{ path: '/m', hash: '#menu' }">今日菜单</router-link>
+            <router-link :to="{ path: '/m', hash: '#bestsellers' }">人气甜品</router-link>
+          </div>
+          <div class="sf__col">
+            <p class="sf__head">我的</p>
+            <router-link to="/m/orders">我的订单</router-link>
+            <router-link to="/m/profile">会员中心</router-link>
+          </div>
+          <div class="sf__col sf__col--wide">
+            <p class="sf__head">服务说明</p>
+            <p
+              v-for="p in STORE_COPY.promises"
+              :key="p.key"
+            >{{ p.title }} · {{ p.desc }}</p>
+            <p>{{ STORE_COPY.paymentNote }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="sf__bottom">
+        <span>© {{ year }} {{ BRAND.fullName }} · {{ BRAND.tagline }}</span>
+        <router-link
+          to="/login"
+          class="sf__staff"
+        >员工登录</router-link>
+      </div>
+    </footer>
+
+    <!-- ===== 手机：悬浮购物车条 ===== -->
+    <Transition name="rise">
+      <div
+        v-if="showCartBar"
+        class="cartbar"
+      >
+        <button
+          type="button"
+          class="cartbar__summary"
+          :aria-label="`查看购物车，${cart.totalQty} 件`"
+          @click="ui.openCart()"
+        >
+          <span class="cartbar__icon">
+            <SwIcon
+              name="bag"
+              :size="20"
+            />
+            <span class="cartbar__count sw-num">{{ cart.totalQty }}</span>
+          </span>
+          <span class="cartbar__total sw-num">{{ formatPrice(cart.totalAmount) }}</span>
+          <span class="cartbar__hint">配送费全免</span>
+        </button>
+        <router-link
+          to="/m/checkout"
+          class="cartbar__go"
+        >去结算</router-link>
+      </div>
+    </Transition>
+
+    <!-- ===== 手机：底部标签栏 ===== -->
+    <nav
+      v-if="!focused"
+      class="tabbar"
+      aria-label="商城主导航"
+    >
       <button
         v-for="tab in tabs"
         :key="tab.key"
-        class="tab"
-        :class="{ on: activeTab === tab.key }"
-        :ref="el => setTabRef(tab.key, el)"
-        @click="switchTab(tab)"
+        type="button"
+        class="tabbar__item"
+        :class="{ 'is-active': activeTab === tab.key }"
+        :aria-current="activeTab === tab.key ? 'page' : undefined"
+        @click="onTab(tab)"
       >
-        <span class="tb-emoji">{{ tab.emoji }}</span>
-        <span class="tb-label">{{ tab.label }}</span>
-        <span v-if="tab.key === 'cart' && cartQty" class="tb-badge">{{ cartQty }}</span>
+        <span class="tabbar__icon">
+          <SwIcon
+            :name="tab.icon"
+            :size="22"
+          />
+          <span
+            v-if="tab.key === 'cart' && cart.totalQty"
+            class="tabbar__badge sw-num"
+          >{{ cart.totalQty }}</span>
+        </span>
+        <span class="tabbar__label">{{ tab.label }}</span>
       </button>
     </nav>
 
-    <!-- Toast -->
-    <transition name="toast-fade">
-      <div v-if="toastMsg" class="global-toast">{{ toastMsg }}</div>
-    </transition>
+    <CartPanel />
+
+    <!-- ===== 轻提示 ===== -->
+    <div
+      class="toast-region"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <Transition name="toast">
+        <div
+          v-if="ui.toast"
+          :key="ui.toast.id"
+          class="toast"
+          :class="`is-${ui.toast.tone}`"
+        >
+          <SwIcon
+            v-if="ui.toast.tone === 'success'"
+            name="check"
+            :size="16"
+            :stroke="2"
+          />
+          <SwIcon
+            v-else-if="ui.toast.tone === 'warning'"
+            name="info"
+            :size="16"
+          />
+          {{ ui.toast.text }}
+        </div>
+      </Transition>
+    </div>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useCartStore } from '@/stores/modules/cart'
-
-const router = useRouter()
-const route = useRoute()
-const cartStore = useCartStore()
-
-const isDark = ref(localStorage.getItem('theme') === 'dark')
-const toastMsg = ref('')
-const bottomNav = ref(null)
-const navSlider = ref(null)
-const mainRef = ref(null)
-const tabRefs = {}
-
-// ========== Scroll-aware header ==========
-const scrollY = ref(0)
-const headerBlurAmount = computed(() => Math.min(scrollY.value / 80, 1) * 32)
-const headerOpacity = computed(() => {
-  const isDarkMode = isDark.value
-  const base = isDarkMode ? 0.72 : 0.68
-  return base + Math.min(scrollY.value / 80, 1) * 0.2
-})
-
-const onMainScroll = () => {
-  if (mainRef.value) {
-    scrollY.value = mainRef.value.scrollTop
-  }
-}
-
-const tabs = [
-  { key: 'home',  emoji: '🏠', label: '首页',   route: '/m/' },
-  { key: 'order', emoji: '📋', label: '订单',   route: '/m/orders' },
-  { key: 'cart',  emoji: '🛒', label: '购物车', route: '' },
-  { key: 'profile', emoji: '👤', label: '我的', route: '/m/profile' },
-]
-
-const activeTab = computed(() => {
-  const p = route.path
-  if (p === '/m/' || p === '/m') return 'home'
-  if (p.startsWith('/m/orders')) return 'order'
-  if (p.startsWith('/m/profile')) return 'profile'
-  return 'home'
-})
-
-const cartQty = computed(() => cartStore.totalQty)
-
-function setTabRef(key, el) { if (el) tabRefs[key] = el }
-
-function switchTab(tab) {
-  if (tab.key === 'cart') {
-    // 购物车面板挂在首页：在首页直接展开，其它页面带 ?cart=1 回首页再展开
-    if (window.__openCartSheet) window.__openCartSheet()
-    else if (cartStore.isEmpty) window.__showToast?.('购物车是空的，先去挑选甜品吧')
-    else router.push({ path: '/m/', query: { cart: 1 } })
-    return
-  }
-  router.push(tab.route)
-}
-
-function positionSlider() {
-  if (!navSlider.value || !bottomNav.value) return
-  const tab = tabRefs[activeTab.value]
-  if (!tab) return
-  const navRect = bottomNav.value.getBoundingClientRect()
-  const tabRect = tab.getBoundingClientRect()
-  navSlider.value.style.left  = (tabRect.left - navRect.left) + 'px'
-  navSlider.value.style.width = tabRect.width + 'px'
-}
-
-watch(activeTab, () => nextTick(positionSlider))
-
-function toggleDark() {
-  isDark.value = !isDark.value
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
-  document.documentElement.classList.toggle('dark', isDark.value)
-}
-
-// Global toast
-window.__showToast = (msg) => {
-  toastMsg.value = msg
-  setTimeout(() => toastMsg.value = '', 2000)
-}
-
-onMounted(() => {
-  nextTick(positionSlider)
-  window.addEventListener('resize', positionSlider)
-  if (isDark.value) document.documentElement.classList.add('dark')
-})
-</script>
-
 <style scoped>
-/* ============================================================
-   Apple-Inspired Mobile Layout · Liquid Glass
-   ============================================================ */
-
-:root {
-  --bg: #f5f5f7;
-  --card-glass: rgba(255,255,255,0.72);
-  --text: #1d1d1f;
-  --text-sec: #86868b;
-  --text-ter: #aeaeb2;
-  --hairline: rgba(0,0,0,0.06);
-  --accent: #d9574a;
-}
-
-/* Dark mode */
-.dark {
-  --bg: #1c1c1e;
-  --card-glass: rgba(44,44,46,0.72);
-  --text: #f5f5f7;
-  --text-sec: #98989d;
-  --text-ter: #636366;
-  --hairline: rgba(255,255,255,0.08);
-}
-
-.m-layout {
+.store {
+  --store-max: 1200px;
+  --store-pad: clamp(16px, 4vw, 40px);
+  --tabbar-h: 64px;
+  min-height: 100vh;
   min-height: 100dvh;
-  background:
-    radial-gradient(ellipse 70% 50% at 15% 5%,  rgba(217,87,74,0.05) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 45% at 85% 90%, rgba(217,87,74,0.03) 0%, transparent 55%),
-    var(--bg);
-  display: flex; flex-direction: column;
-  -webkit-font-smoothing: antialiased;
-  color: var(--text);
-  transition: background 0.4s;
+  display: flex;
+  flex-direction: column;
+  background: var(--sw-bg);
+  color: var(--sw-ink);
 }
 
-.dark .m-layout {
-  background:
-    radial-gradient(ellipse 70% 50% at 15% 5%,  rgba(217,87,74,0.08) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 45% at 85% 90%, rgba(217,87,74,0.05) 0%, transparent 55%),
-    var(--bg);
+.store__skip {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 1000;
+  padding: 8px 14px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-primary);
+  color: var(--sw-on-primary);
 }
 
-/* ── Header ── */
-.m-header {
-  position: sticky; top: 0; z-index: 100;
-  border-bottom: 0.5px solid var(--hairline);
-  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.7);
-  transition: background 0.2s ease, border-color 0.4s;
-}
-.dark .m-header {
-  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.06);
-}
-.m-header__inner {
-  max-width: 430px; margin: 0 auto; padding: 14px 18px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.m-brand { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.m-brand__icon {
-  font-size: 22px;
-  filter: drop-shadow(0 2px 5px rgba(217,87,74,0.25));
-  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
-}
-.m-brand:active .m-brand__icon { transform: scale(1.2) rotate(10deg); }
-.m-brand__name {
-  font-size: 18px; font-weight: 620; letter-spacing: -0.3px;
-  background: linear-gradient(135deg, #d9574a 20%, #b8453a 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.m-header__actions { display: flex; gap: 6px; }
-.m-icon-btn {
-  width: 36px; height: 36px; border-radius: 50%; border: none;
-  background: none; font-size: 18px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.2s;
-}
-.m-icon-btn:active { background: rgba(0,0,0,0.04); }
-
-/* ── Main — scrollable for scroll-aware header ── */
-.m-main {
-  flex: 1; max-width: 430px; width: 100%; margin: 0 auto;
-  padding-bottom: calc(82px + env(safe-area-inset-bottom, 16px));
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  /* Subtle fade at top when scrolled */
-  mask-image: linear-gradient(to bottom, transparent 0%, black 6px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 6px);
+.store__skip:focus {
+  top: 12px;
 }
 
-/* ── Bottom Tab Bar ── */
-.bottom-nav {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 430px; z-index: 100;
-  height: 82px;
-  padding: 6px 10px env(safe-area-inset-bottom, 16px);
-  background: rgba(245,245,247,0.70);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border-top: 0.5px solid var(--hairline);
-  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.6);
-  display: flex; justify-content: space-around;
+/* ---------- 页头 ---------- */
+.sh {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--sw-bg);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--sw-dur-2) var(--sw-ease);
+}
+
+.sh.is-scrolled {
+  border-bottom-color: var(--sw-border);
+}
+
+.sh__inner {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  max-width: var(--store-max);
+  height: 72px;
+  margin: 0 auto;
+  padding: 0 var(--store-pad);
+}
+
+.sh__logo {
+  display: inline-flex;
+  border-radius: var(--sw-r-sm);
+}
+
+.sh__logo-compact {
+  display: none;
+}
+
+.sh__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.sh__link {
   position: relative;
-  transition: background 0.4s;
-}
-.dark .bottom-nav { background: rgba(28,28,30,0.72); }
-.nav-slider {
-  position: absolute; top: 7px; height: 48px; border-radius: 16px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow:
-    0 2px 10px rgba(0,0,0,0.05),
-    0 0 0 0.5px rgba(0,0,0,0.03),
-    inset 0 0.5px 0 rgba(255,255,255,0.8);
-  /* Liquid spring transition */
-  transition: left 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
-              width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none; z-index: 0;
-}
-.dark .nav-slider {
-  background: rgba(58, 58, 60, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 2px 10px rgba(0,0,0,0.15),
-    0 0 0 0.5px rgba(255,255,255,0.06),
-    inset 0 0.5px 0 rgba(255,255,255,0.08);
-}
-.tab {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1px; padding: 0; background: none; border: none; cursor: pointer;
-  font-size: 10px; font-weight: 480;
-  color: #8e8e93; flex: 1; height: 52px;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 0.25s;
-}
-.dark .tab { color: #636366; }
-.tab .tb-emoji { font-size: 22px; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-.tab.on { color: var(--text); font-weight: 560; }
-.tab.on .tb-emoji { transform: translateY(-2px); }
-.tb-label { font-size: 10px; }
-.tb-badge {
-  position: absolute; top: 4px; right: calc(50% - 24px);
-  min-width: 17px; height: 17px; padding: 0 5px;
-  background: var(--accent); color: #fff; font-size: 10px; font-weight: 650;
-  border-radius: 9px; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 6px rgba(217,87,74,0.25);
-  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  padding: 8px 14px;
+  border-radius: var(--sw-r-pill);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sw-ink-2);
+  transition: color var(--sw-dur-1) var(--sw-ease), background-color var(--sw-dur-1) var(--sw-ease);
 }
 
-/* ── Global Toast ── */
-.global-toast {
-  position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
-  background: rgba(29,29,31,0.88); backdrop-filter: blur(20px);
-  color: #fff; padding: 10px 24px; border-radius: 999px;
-  font-size: 13px; font-weight: 500; z-index: 300;
-  border: 0.5px solid rgba(255,255,255,0.1); white-space: nowrap;
+.sh__link:hover {
+  color: var(--sw-ink);
+  background: var(--sw-fill-soft);
 }
-.toast-fade-enter-active, .toast-fade-leave-active { transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
-.toast-fade-enter-from, .toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(10px); }
 
-/* ── Page Transitions ── */
-.m-fade-enter-active, .m-fade-leave-active { transition: opacity 0.25s, transform 0.25s; }
-.m-fade-enter-from { opacity: 0; transform: translateY(10px); }
-.m-fade-leave-to { opacity: 0; transform: translateY(-10px); }
+.sh__link.is-active {
+  color: var(--sw-ink);
+  font-weight: 600;
+}
+
+.sh__link.is-active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--sw-cherry);
+}
+
+.sh__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sh__cart {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px 0 12px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-surface);
+  color: var(--sw-ink);
+  cursor: pointer;
+  transition: border-color var(--sw-dur-1) var(--sw-ease), background-color var(--sw-dur-1) var(--sw-ease);
+}
+
+.sh__cart:hover {
+  border-color: var(--sw-milktea);
+  background: var(--sw-blush-wash);
+}
+
+.sh__cart-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.sh__badge,
+.tabbar__badge,
+.cartbar__count {
+  position: absolute;
+  top: -6px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--sw-berry);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.sh__badge.is-bump {
+  animation: bump 0.4s var(--sw-ease);
+}
+
+@keyframes bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.sh__cart-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sh__cart-sum {
+  font-weight: 700;
+}
+
+/* ---------- 内容 ---------- */
+.store__main {
+  flex: 1;
+  width: 100%;
+  outline: none;
+}
+
+/* ---------- 页脚 ---------- */
+.sf {
+  margin-top: 72px;
+  border-top: 1px solid var(--sw-border);
+  background: var(--sw-surface);
+}
+
+.sf__inner {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 2fr;
+  gap: 48px;
+  max-width: var(--store-max);
+  margin: 0 auto;
+  padding: 56px var(--store-pad) 40px;
+}
+
+.sf__tagline {
+  margin-top: 22px;
+  font-size: 20px;
+  color: var(--sw-ink);
+}
+
+.sf__cat {
+  margin-top: 6px;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--sw-ink-3);
+}
+
+.sf__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 32px;
+}
+
+.sf__col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--sw-ink-2);
+}
+
+.sf__col a:hover {
+  color: var(--sw-accent);
+}
+
+.sf__col--wide p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sw-ink-3);
+}
+
+.sf__head {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sw-ink);
+}
+
+.sf__bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: var(--store-max);
+  margin: 0 auto;
+  padding: 18px var(--store-pad) 28px;
+  border-top: 1px solid var(--sw-border-soft);
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.sf__staff:hover {
+  color: var(--sw-ink);
+}
+
+/* ---------- 手机：标签栏 + 悬浮购物车条 ---------- */
+.tabbar,
+.cartbar {
+  display: none;
+}
+
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  z-index: 2100;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 420px);
+  padding: 11px 18px;
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-cocoa);
+  color: #fffefc;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--sw-shadow-md);
+}
+
+.toast.is-success .sw-icon {
+  color: var(--sw-blush);
+}
+
+.toast.is-warning .sw-icon {
+  color: #e9c98b;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity var(--sw-dur-2) var(--sw-ease), transform var(--sw-dur-2) var(--sw-ease);
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@media (max-width: 1023px) {
+  .sh__nav {
+    display: none;
+  }
+
+  .sh__inner {
+    justify-content: space-between;
+  }
+
+  .sf__inner {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+@media (max-width: 767px) {
+  .sh__inner {
+    height: 60px;
+  }
+
+  .sh__logo-full {
+    display: none;
+  }
+
+  .sh__logo-compact {
+    display: inline-flex;
+  }
+
+  .sh__cart {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+  }
+
+  .sh__cart-text {
+    display: none;
+  }
+
+  .sf {
+    margin-top: 48px;
+  }
+
+  .sf__inner {
+    padding: 40px var(--store-pad) 24px;
+  }
+
+  .sf__cols {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .sf__col--wide {
+    grid-column: 1 / -1;
+  }
+
+  .sf__bottom {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .store:not(.is-focused) .sf {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+
+  .store.has-cartbar .sf {
+    padding-bottom: calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom));
+  }
+
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 120;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--sw-surface);
+    border-top: 1px solid var(--sw-border);
+  }
+
+  .tabbar__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border: 0;
+    background: none;
+    color: var(--sw-ink-3);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tabbar__item.is-active {
+    color: var(--sw-ink);
+    font-weight: 600;
+  }
+
+  .tabbar__item.is-active .tabbar__icon::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -9px;
+    width: 18px;
+    height: 3px;
+    margin-left: -9px;
+    border-radius: 0 0 3px 3px;
+    background: var(--sw-cherry);
+  }
+
+  .tabbar__icon {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .cartbar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--tabbar-h) + 10px + env(safe-area-inset-bottom));
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 60px;
+    padding: 6px 6px 6px 8px;
+    border-radius: var(--sw-r-pill);
+    background: var(--sw-cocoa);
+    color: #fffefc;
+    box-shadow: var(--sw-shadow-lg);
+  }
+
+  .cartbar__summary {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 100%;
+    padding: 0 8px;
+    border: 0;
+    border-radius: var(--sw-r-pill);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .cartbar__icon {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .cartbar__count {
+    background: var(--sw-blush);
+    color: var(--sw-cocoa);
+  }
+
+  .cartbar__total {
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .cartbar__hint {
+    font-size: 12px;
+    color: rgba(255, 254, 252, 0.7);
+  }
+
+  .cartbar__go {
+    display: grid;
+    place-items: center;
+    height: 48px;
+    padding: 0 24px;
+    border-radius: var(--sw-r-pill);
+    background: var(--sw-blush);
+    color: var(--sw-cocoa);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .toast-region {
+    bottom: calc(var(--tabbar-h) + 20px + env(safe-area-inset-bottom));
+  }
+
+  .store.has-cartbar .toast-region {
+    bottom: calc(var(--tabbar-h) + 84px + env(safe-area-inset-bottom));
+  }
+
+  .store.is-focused .toast-region {
+    bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+}
+
+.rise-enter-active,
+.rise-leave-active {
+  transition: opacity var(--sw-dur-2) var(--sw-ease), transform var(--sw-dur-3) var(--sw-ease);
+}
+
+.rise-enter-from,
+.rise-leave-to {
+  opacity: 0;
+  transform: translateY(16px);
+}
 </style>

@@ -1,73 +1,59 @@
 <script setup>
+/**
+ * ⌘K / Ctrl+K 命令面板：快速跳转到工作台页面。
+ * 只列出当前员工有权限的页面（config/navigation.js）；父组件可通过 ref 调用 open()。
+ */
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-
 import { useRouter } from 'vue-router'
-import {
-  HomeFilled, Goods, Wallet, UserFilled, Avatar,
-  DataAnalysis, Document, Search, Position
-} from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/modules/user'
+import { NAV_ITEMS } from '@/config/navigation'
+import SwIcon from '@/components/brand/SwIcon.vue'
 
 const RECENT_KEY = 'dessertshop-recent-pages'
-const MAX_RECENT = 4
+const MAX_RECENT = 3
 
 const router = useRouter()
+const userStore = useUserStore()
 const visible = ref(false)
 const searchText = ref('')
 const inputRef = ref(null)
 const activeIndex = ref(0)
 
-// 命令列表
-const commands = [
-  { label: '首页', desc: '返回仪表盘', icon: HomeFilled, path: '/index', keywords: 'home 首页 仪表盘 dashboard' },
-  { label: '甜品管理', desc: '管理甜品商品', icon: Goods, path: '/dessert', keywords: 'dessert 甜品 商品 蛋糕 面包' },
-  { label: '价格管理', desc: '管理甜品价格和上下架', icon: Wallet, path: '/price', keywords: 'price 价格 甜品 dessert' },
-  { label: '订单管理', desc: '查看和管理订单', icon: Goods, path: '/order', keywords: 'order 订单' },
-  { label: '库存管理', desc: '管理原材料库存', icon: Document, path: '/inventory', keywords: 'inventory 库存 原料' },
-  { label: '客户管理', desc: '管理客户信息', icon: UserFilled, path: '/customer', keywords: 'customer 客户 会员' },
-  { label: '部门管理', desc: '管理组织架构', icon: UserFilled, path: '/dept', keywords: 'dept 部门 组织' },
-  { label: '员工管理', desc: '管理人员信息', icon: Avatar, path: '/emp', keywords: 'emp 员工 人事' },
-  { label: '数据报表', desc: '查看营业数据统计', icon: DataAnalysis, path: '/report', keywords: 'report 报表 数据 统计 分析' },
-  { label: '操作日志', desc: '查看系统操作记录', icon: Document, path: '/log', keywords: 'log 日志 审计' },
-]
+const commands = computed(() => NAV_ITEMS.filter((c) => userStore.can(c.permission)))
 
-// 最近访问页面
 const recents = ref([])
 const loadRecents = () => {
   try {
     recents.value = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
-  } catch { recents.value = [] }
+  } catch {
+    recents.value = []
+  }
 }
 const saveRecent = (path) => {
-  const filtered = recents.value.filter(p => p !== path)
-  recents.value = [path, ...filtered].slice(0, MAX_RECENT)
-  localStorage.setItem(RECENT_KEY, JSON.stringify(recents.value))
+  recents.value = [path, ...recents.value.filter((p) => p !== path)].slice(0, MAX_RECENT)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recents.value)) } catch { /* ignore */ }
 }
 loadRecents()
 
-// 获取最近访问的命令对象
-const recentCommands = computed(() => {
-  return recents.value
-    .map(path => commands.find(c => c.path === path))
-    .filter(Boolean)
-    .slice(0, 3)
-})
+const recentCommands = computed(() =>
+  recents.value.map((path) => commands.value.find((c) => c.path === path)).filter(Boolean)
+)
 
-// 过滤结果
 const filtered = computed(() => {
   const q = searchText.value.toLowerCase().trim()
-  if (!q) return commands
-  return commands.filter(cmd =>
-    cmd.label.toLowerCase().includes(q) ||
-    cmd.desc.toLowerCase().includes(q) ||
-    cmd.keywords.toLowerCase().includes(q)
+  if (!q) return commands.value
+  return commands.value.filter((c) =>
+    c.label.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q) || c.keywords.toLowerCase().includes(q)
   )
 })
 
-// 是否显示最近访问（搜索为空时）
 const showRecents = computed(() => !searchText.value.trim() && recentCommands.value.length > 0)
+/** 键盘导航的扁平列表：最近访问在前 */
+const flatList = computed(() => (showRecents.value ? [...recentCommands.value, ...filtered.value] : filtered.value))
 
-// 打开/关闭
+let lastFocus = null
 const open = () => {
+  lastFocus = document.activeElement
   visible.value = true
   searchText.value = ''
   activeIndex.value = 0
@@ -76,128 +62,144 @@ const open = () => {
 
 const close = () => {
   visible.value = false
+  nextTick(() => lastFocus?.focus?.())
 }
 
-const toggle = () => {
-  visible.value ? close() : open()
-}
-
-// 键盘事件
 const handleKeydown = (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    toggle()
+    visible.value ? close() : open()
   }
 }
 
 const handleInputKeydown = (e) => {
-  if (e.key === 'ArrowDown') {
+  const n = flatList.value.length
+  if (e.key === 'ArrowDown' && n) {
     e.preventDefault()
-    activeIndex.value = (activeIndex.value + 1) % filtered.value.length
-  } else if (e.key === 'ArrowUp') {
+    activeIndex.value = (activeIndex.value + 1) % n
+  } else if (e.key === 'ArrowUp' && n) {
     e.preventDefault()
-    activeIndex.value = (activeIndex.value - 1 + filtered.value.length) % filtered.value.length
+    activeIndex.value = (activeIndex.value - 1 + n) % n
   } else if (e.key === 'Enter') {
     e.preventDefault()
-    if (filtered.value[activeIndex.value]) {
-      execute(filtered.value[activeIndex.value])
-    }
+    const cmd = flatList.value[activeIndex.value]
+    if (cmd) execute(cmd)
   } else if (e.key === 'Escape') {
+    e.preventDefault()
     close()
   }
 }
 
-// 执行命令
 const execute = (cmd) => {
   saveRecent(cmd.path)
+  visible.value = false
   router.push(cmd.path)
-  close()
 }
 
 watch(searchText, () => {
   activeIndex.value = 0
 })
 
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
-})
+onMounted(() => document.addEventListener('keydown', handleKeydown))
+onUnmounted(() => document.removeEventListener('keydown', handleKeydown))
 
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
-})
+defineExpose({ open, close })
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="palette">
-      <div v-if="visible" class="command-overlay" @click.self="close">
-        <div class="command-palette glass-panel">
-          <!-- 搜索输入 -->
-          <div class="command-input-wrapper">
-            <el-icon :size="18" class="command-search-icon"><Search /></el-icon>
+      <div
+        v-if="visible"
+        class="palette-overlay"
+        @click.self="close"
+      >
+        <div
+          class="palette"
+          role="dialog"
+          aria-modal="true"
+          aria-label="快速跳转"
+        >
+          <div class="palette__search">
+            <SwIcon
+              name="search"
+              :size="18"
+            />
             <input
               ref="inputRef"
               v-model="searchText"
-              class="command-input"
-              placeholder="搜索页面、功能..."
+              class="palette__input"
+              placeholder="搜索页面，如「订单」「库存」"
+              aria-label="搜索页面"
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="palette-list"
               @keydown="handleInputKeydown"
-            />
-            <kbd class="command-kbd">ESC</kbd>
-          </div>
-
-          <!-- 结果列表 -->
-          <div class="command-results">
-            <!-- 最近访问（无搜索时显示）-->
-            <div v-if="showRecents" class="command-section">
-              <div class="command-section__title">最近访问</div>
-              <div
-                v-for="(cmd, index) in recentCommands"
-                :key="'recent-' + cmd.path"
-                class="command-item"
-                :class="{ active: index === activeIndex }"
-                @click="execute(cmd)"
-                @mouseenter="activeIndex = index"
-              >
-                <div class="command-item__icon">
-                  <el-icon :size="18"><component :is="cmd.icon" /></el-icon>
-                </div>
-                <div class="command-item__text">
-                  <span class="command-item__label">{{ cmd.label }}</span>
-                  <span class="command-item__desc">{{ cmd.desc }}</span>
-                </div>
-                <el-icon :size="14" class="command-item__arrow"><Position /></el-icon>
-              </div>
-            </div>
-
-            <!-- 搜索结果 -->
-            <div
-              v-for="(cmd, index) in filtered"
-              :key="cmd.path"
-              class="command-item"
-              :class="{ active: index === activeIndex }"
-              @click="execute(cmd)"
-              @mouseenter="activeIndex = index"
             >
-              <div class="command-item__icon">
-                <el-icon :size="18"><component :is="cmd.icon" /></el-icon>
-              </div>
-              <div class="command-item__text">
-                <span class="command-item__label">{{ cmd.label }}</span>
-                <span class="command-item__desc">{{ cmd.desc }}</span>
-              </div>
-              <el-icon :size="14" class="command-item__arrow"><Position /></el-icon>
-            </div>
-
-            <div v-if="filtered.length === 0 && !showRecents" class="command-empty">
-              没有找到匹配的结果
-            </div>
+            <kbd class="palette__kbd">ESC</kbd>
           </div>
 
-          <!-- 底部提示 -->
-          <div class="command-footer">
-            <span><kbd>↑↓</kbd> 导航</span>
+          <div
+            id="palette-list"
+            class="palette__list"
+            role="listbox"
+          >
+            <template v-if="showRecents">
+              <p class="palette__section">最近访问</p>
+              <button
+                v-for="(cmd, i) in recentCommands"
+                :key="'r' + cmd.path"
+                type="button"
+                role="option"
+                :aria-selected="activeIndex === i"
+                class="palette__item"
+                :class="{ 'is-active': activeIndex === i }"
+                @click="execute(cmd)"
+                @mouseenter="activeIndex = i"
+              >
+                <span class="palette__icon"><SwIcon
+                  :name="cmd.icon"
+                  :size="18"
+                /></span>
+                <span class="palette__text">
+                  <span class="palette__label">{{ cmd.label }}</span>
+                  <span class="palette__desc">{{ cmd.desc }}</span>
+                </span>
+              </button>
+              <p class="palette__section">全部页面</p>
+            </template>
+
+            <button
+              v-for="(cmd, i) in filtered"
+              :key="cmd.path"
+              type="button"
+              role="option"
+              :aria-selected="activeIndex === i + (showRecents ? recentCommands.length : 0)"
+              class="palette__item"
+              :class="{ 'is-active': activeIndex === i + (showRecents ? recentCommands.length : 0) }"
+              @click="execute(cmd)"
+              @mouseenter="activeIndex = i + (showRecents ? recentCommands.length : 0)"
+            >
+              <span class="palette__icon"><SwIcon
+                :name="cmd.icon"
+                :size="18"
+              /></span>
+              <span class="palette__text">
+                <span class="palette__label">{{ cmd.label }}</span>
+                <span class="palette__desc">{{ cmd.desc }}</span>
+              </span>
+            </button>
+
+            <p
+              v-if="!filtered.length"
+              class="palette__empty"
+            >没有找到「{{ searchText }}」相关的页面</p>
+          </div>
+
+          <div class="palette__foot">
+            <span><kbd>↑</kbd><kbd>↓</kbd> 选择</span>
             <span><kbd>↵</kbd> 打开</span>
-            <span><kbd>ESC</kbd> 关闭</span>
+            <span><kbd>Ctrl</kbd><kbd>K</kbd> 随时唤起</span>
           </div>
         </div>
       </div>
@@ -206,187 +208,155 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.command-overlay {
+.palette-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 3000;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 15vh;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
+  padding: 14vh 16px 16px;
+  background: rgba(36, 26, 22, 0.36);
 }
 
-.command-palette {
-  width: 560px;
-  max-height: 420px;
+.palette {
+  width: min(560px, 100%);
+  max-height: min(480px, 76vh);
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
   overflow: hidden;
-  animation: commandSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-xl);
+  background: var(--sw-surface);
+  box-shadow: var(--sw-shadow-lg);
 }
 
-@keyframes commandSlideIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* 输入区域 */
-.command-input-wrapper {
+.palette__search {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--glass-border);
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--sw-border-soft);
+  color: var(--sw-ink-3);
 }
 
-.command-search-icon {
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.command-input {
+.palette__input {
   flex: 1;
-  border: none;
-  outline: none;
+  border: 0;
+  outline: 0;
   background: transparent;
-  font-size: 16px;
-  color: var(--color-text-primary);
-  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--sw-ink);
 }
 
-.command-input::placeholder {
-  color: var(--color-text-muted);
+.palette__input::placeholder {
+  color: var(--sw-ink-4);
 }
 
-.command-kbd {
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  margin-right: 3px;
+  border: 1px solid var(--sw-border);
+  border-radius: 5px;
+  background: var(--sw-surface-2);
+  font-family: var(--sw-font-sans);
   font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  font-family: monospace;
+  color: var(--sw-ink-3);
 }
 
-/* 结果列表 */
-.command-results {
+.palette__kbd {
+  margin: 0;
+}
+
+.palette__list {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
 }
 
-.command-section {
-  margin-bottom: 4px;
+.palette__section {
+  padding: 10px 10px 6px;
+  font-size: 12px;
+  color: var(--sw-ink-3);
 }
 
-.command-section__title {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-text-muted);
-  padding: 6px 12px 4px;
-}
-
-.command-item {
+.palette__item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: var(--sw-r-md);
+  background: transparent;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease;
+  color: var(--sw-ink);
 }
 
-.command-item:hover,
-.command-item.active {
-  background: rgba(232, 99, 122, 0.08);
+.palette__item.is-active {
+  background: var(--sw-accent-soft);
 }
 
-.command-item__icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-primary);
-  flex-shrink: 0;
+.palette__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--sw-r-sm);
+  background: var(--sw-fill-soft);
+  color: var(--sw-ink-2);
 }
 
-.command-item__text {
-  flex: 1;
+.palette__item.is-active .palette__icon {
+  background: var(--sw-surface);
+  color: var(--sw-accent);
+}
+
+.palette__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  min-width: 0;
 }
 
-.command-item__label {
+.palette__label {
   font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
-.command-item__desc {
+.palette__desc {
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--sw-ink-3);
 }
 
-.command-item__arrow {
-  color: var(--color-text-muted);
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.command-item.active .command-item__arrow,
-.command-item:hover .command-item__arrow {
-  opacity: 1;
-}
-
-.command-empty {
+.palette__empty {
+  padding: 28px 12px;
   text-align: center;
-  padding: 32px;
-  color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--sw-ink-3);
 }
 
-/* 底部提示 */
-.command-footer {
+.palette__foot {
   display: flex;
-  gap: 16px;
-  padding: 10px 20px;
-  border-top: 1px solid var(--glass-border);
+  gap: 18px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--sw-border-soft);
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--sw-ink-3);
 }
 
-.command-footer kbd {
-  font-size: 11px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  font-family: monospace;
-  margin-right: 2px;
-}
-
-/* 过渡动画 */
-.palette-enter-active {
-  transition: opacity 0.2s ease;
-}
-
+.palette-enter-active,
 .palette-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity var(--sw-dur-2) var(--sw-ease);
+}
+
+.palette-enter-active .palette,
+.palette-leave-active .palette {
+  transition: transform var(--sw-dur-2) var(--sw-ease);
 }
 
 .palette-enter-from,
@@ -394,17 +364,13 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* 滚动条 */
-.command-results::-webkit-scrollbar {
-  width: 4px;
+.palette-enter-from .palette {
+  transform: translateY(-8px) scale(0.99);
 }
 
-.command-results::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.command-results::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 2px;
+@media (max-width: 640px) {
+  .palette__foot {
+    display: none;
+  }
 }
 </style>

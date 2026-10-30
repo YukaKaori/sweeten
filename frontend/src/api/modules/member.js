@@ -31,3 +31,20 @@ export const redeemCoupon = (memberId, phone, templateId) =>
  */
 export const getExchangeList = () =>
   http.get(`${BASE}/exchange-list`)
+
+// -------------------- 工作台 · 会员管理（需登录，见后端 MemberController） --------------------
+
+/** 分页查询会员（member:member:list） */
+export const queryMembersApi = ({ name = '', phone = '', level = '', page = 1, pageSize = 10 } = {}) =>
+  http.get('/members', {
+    params: {
+      name: name || undefined,
+      phone: phone || undefined,
+      level: level === '' || level === null ? undefined : level,
+      page,
+      pageSize,
+    },
+  })
+
+/** 会员积分流水（member:points:list） */
+export const queryMemberPointsLogApi = (id) => http.get(`/members/${id}/points-log`)

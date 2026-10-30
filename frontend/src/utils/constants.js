@@ -13,25 +13,29 @@ export const GENDER_LIST = [
   { label: '女', value: 2 }
 ]
 
-// 订单状态（前端模拟，数据库无此表）
+// 订单状态（与后端 orders.status 一致）
+// type：Element Plus 标签类型；tone：StatusBadge 的品牌色调；desc：给顾客看的进度说明
 export const ORDER_STATUS = [
-  { label: '待支付', value: 0, type: 'info' },
-  { label: '待接单', value: 1, type: 'warning' },
-  { label: '制作中', value: 2, type: '' },
-  { label: '配送中', value: 3, type: 'primary' },
-  { label: '已完成', value: 4, type: 'success' },
-  { label: '已取消', value: 5, type: 'danger' }
+  { label: '待支付', value: 0, type: 'info', tone: 'neutral', desc: '订单尚未支付' },
+  { label: '待接单', value: 1, type: 'warning', tone: 'warning', desc: '门店已收到订单，正在确认' },
+  { label: '制作中', value: 2, type: 'primary', tone: 'brand', desc: '甜品正在制作' },
+  { label: '配送中', value: 3, type: 'primary', tone: 'info', desc: '已出餐，正在配送' },
+  { label: '已完成', value: 4, type: 'success', tone: 'success', desc: '订单已完成，积分已发放' },
+  { label: '已取消', value: 5, type: 'danger', tone: 'muted', desc: '订单已取消' }
 ]
 
-// 甜品分类（与后端 Dessert.category 校验正则的 7 类一一对应；color 为全站统一的分类主题色）
+/** 顾客可见的履约进度（待接单 → 制作中 → 配送中 → 已完成） */
+export const ORDER_PROGRESS = [1, 2, 3, 4]
+
+// 甜品分类（与后端 Dessert.category 校验正则的 7 类一一对应；color 为工作台中的分类识别色，取自品牌色板）
 export const DESSERT_CATEGORIES = [
-  { label: '蛋糕', value: 'cake', color: '#e8637a' },
-  { label: '面包', value: 'bread', color: '#f0a35c' },
-  { label: '饮品', value: 'drink', color: '#6b8cce' },
-  { label: '甜点', value: 'dessert', color: '#5cb88a' },
-  { label: '冰淇淋', value: 'icecream', color: '#a78bfa' },
-  { label: '小食', value: 'snack', color: '#c98a5b' },
-  { label: '礼盒', value: 'gift', color: '#d06c9a' }
+  { label: '蛋糕', value: 'cake', color: '#b5605b', en: 'Cakes' },
+  { label: '面包', value: 'bread', color: '#9a6b2f', en: 'Bakery' },
+  { label: '饮品', value: 'drink', color: '#4e6a8c', en: 'Drinks' },
+  { label: '甜点', value: 'dessert', color: '#8a5a6b', en: 'Desserts' },
+  { label: '冰淇淋', value: 'icecream', color: '#5e7a57', en: 'Ice Cream' },
+  { label: '小食', value: 'snack', color: '#7a5a43', en: 'Treats' },
+  { label: '礼盒', value: 'gift', color: '#6b5d55', en: 'Gift Boxes' }
 ]
 
 // 分类 → 主题色

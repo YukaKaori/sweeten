@@ -3,9 +3,21 @@ import { ref, onMounted, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, EditPen, Delete } from '@element-plus/icons-vue'
 import { queryPageApi, addApi, updateApi, deleteApi, queryOrdersApi } from '@/api/modules/customer'
+import { usePermission } from '@/composables/usePermission'
+import { formatPrice, formatDateTime } from '@/utils/format'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
+import MemberPanel from './MemberPanel.vue'
+
+const { can } = usePermission()
+const canCreate = can('customer:customer:create')
+const canUpdate = can('customer:customer:update')
+const canDelete = can('customer:customer:delete')
+const canSeeOrders = can('customer:order:list')
+const canSeeMembers = can('member:member:list')
+const activeTab = ref('customers')
 
 const searchName = ref('')
 const searchPhone = ref('')
@@ -118,6 +130,8 @@ const handleDelete = async (row) => {
 const openDetail = async (row) => {
   detailCustomer.value = row
   detailDrawer.value = true
+  detailOrders.value = []
+  if (!canSeeOrders) return
   detailLoading.value = true
   try {
     const result = await queryOrdersApi(row.id, 1, 50)
@@ -133,17 +147,13 @@ const openDetail = async (row) => {
   }
 }
 
-// 订单状态
-const ORDER_STATUS_MAP = { 0: '待支付', 1: '待接单', 2: '制作中', 3: '配送中', 4: '已完成', 5: '已取消' }
-const ORDER_STATUS_TYPE = { 0: 'info', 1: 'warning', 2: '', 3: 'primary', 4: 'success', 5: 'danger' }
-
 onMounted(() => loadData())
 </script>
 
 <template>
   <div class="page-container">
-    <PageHeader title="客户管理" description="管理客户信息，查看消费记录和订单历史">
-      <template #actions>
+    <PageHeader title="客户管理" description="客户档案、订单历史，以及会员等级与积分">
+      <template v-if="canCreate && activeTab === 'customers'" #actions>
         <el-button type="primary" @click="openAdd">
           <el-icon><Plus /></el-icon>
           新增客户
@@ -151,6 +161,14 @@ onMounted(() => loadData())
       </template>
     </PageHeader>
 
+    <el-tabs v-if="canSeeMembers" v-model="activeTab" class="cm-tabs">
+      <el-tab-pane label="客户档案" name="customers" />
+      <el-tab-pane label="会员" name="members" lazy>
+        <MemberPanel />
+      </el-tab-pane>
+    </el-tabs>
+
+    <template v-if="activeTab === 'customers'">
     <!-- 搜索栏 -->
     <div class="search-bar animate-fade-in-up delay-1">
       <el-input v-model="searchName" placeholder="客户姓名..." clearable style="width: 180px" @keyup.enter="handleSearch">
@@ -177,9 +195,7 @@ onMounted(() => loadData())
         </el-table-column>
         <el-table-column label="性别" width="65" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.gender === 1 ? '' : 'danger'" size="small" effect="plain">
-              {{ row.gender === 1 ? '男' : '女' }}
-            </el-tag>
+            {{ row.gender === 1 ? '男' : row.gender === 2 ? '女' : '—' }}
           </template>
         </el-table-column>
         <el-table-column prop="phone" label="手机号" width="130" />
@@ -194,13 +210,13 @@ onMounted(() => loadData())
             <span class="remark-text">{{ row.remark || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" align="center" fixed="right">
+        <el-table-column v-if="canUpdate || canDelete" label="操作" width="160" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" size="small" link @click.stop="openEdit(row)">
+            <el-button v-if="canUpdate" type="primary" size="small" link @click.stop="openEdit(row)">
               <el-icon><EditPen /></el-icon>
               编辑
             </el-button>
-            <el-button type="danger" size="small" link @click.stop="handleDelete(row)">
+            <el-button v-if="canDelete" type="danger" size="small" link @click.stop="handleDelete(row)">
               <el-icon><Delete /></el-icon>
               删除
             </el-button>
@@ -208,7 +224,7 @@ onMounted(() => loadData())
         </el-table-column>
       </el-table>
 
-      <EmptyState v-else title="暂无客户数据" description="点击右上角「新增客户」添加第一个客户" />
+      <EmptyState v-else title="暂无客户数据" :description="canCreate ? '点击右上角「新增客户」添加第一个客户' : '还没有客户档案'" />
 
       <div v-if="total > pageSize" class="pagination-wrap">
         <el-pagination
@@ -223,6 +239,8 @@ onMounted(() => loadData())
         />
       </div>
     </div>
+
+    </template>
 
     <!-- 新增/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="480px" destroy-on-close>
@@ -257,7 +275,7 @@ onMounted(() => loadData())
     </el-dialog>
 
     <!-- 客户详情抽屉 -->
-    <el-drawer v-model="detailDrawer" :title="detailCustomer?.name + ' - 客户详情'" size="480px">
+    <el-drawer v-model="detailDrawer" :title="`${detailCustomer?.name || ''} · 客户详情`" size="min(480px, 100vw)">
       <template v-if="detailCustomer">
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="姓名">{{ detailCustomer.name }}</el-descriptions-item>
@@ -272,8 +290,9 @@ onMounted(() => loadData())
           <el-descriptions-item label="备注" :span="2">{{ detailCustomer.remark || '-' }}</el-descriptions-item>
         </el-descriptions>
 
-        <h4 class="section-subtitle">订单历史（{{ detailOrders.length }} 笔）</h4>
-        <div v-if="detailLoading" style="padding: 20px; text-align: center;">
+        <h4 class="section-subtitle">订单历史<template v-if="canSeeOrders">（{{ detailOrders.length }} 笔）</template></h4>
+        <p v-if="!canSeeOrders" class="no-perm">当前账号没有查看客户订单的权限。</p>
+        <div v-else-if="detailLoading" style="padding: 20px; text-align: center;">
           <el-icon class="is-loading" :size="20"><Refresh /></el-icon>
           <span style="margin-left: 8px; color: var(--color-text-muted)">加载中...</span>
         </div>
@@ -281,19 +300,17 @@ onMounted(() => loadData())
           <el-table-column prop="orderNo" label="订单号" width="150" show-overflow-tooltip />
           <el-table-column label="金额" width="80" align="right">
             <template #default="{ row }">
-              <span style="color: #e8637a; font-weight: 600;">¥{{ row.amount?.toFixed(2) || '0.00' }}</span>
+              <span class="order-amount sw-num">{{ formatPrice(row.amount) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="80" align="center">
+          <el-table-column label="状态" width="90">
             <template #default="{ row }">
-              <el-tag :type="ORDER_STATUS_TYPE[row.status] || 'info'" size="small">
-                {{ ORDER_STATUS_MAP[row.status] || '未知' }}
-              </el-tag>
+              <StatusBadge :status="row.status" size="sm" />
             </template>
           </el-table-column>
-          <el-table-column label="时间" width="110" align="center">
+          <el-table-column label="时间" min-width="130">
             <template #default="{ row }">
-              {{ row.createTime || '-' }}
+              {{ formatDateTime(row.createTime) || '-' }}
             </template>
           </el-table-column>
         </el-table>
@@ -330,7 +347,7 @@ onMounted(() => loadData())
 }
 
 .customer-name:hover {
-  color: var(--color-primary, #e8637a);
+  color: var(--sw-ink);
 }
 
 .remark-text {
@@ -358,5 +375,20 @@ onMounted(() => loadData())
   margin: 24px 0 0;
   padding-top: 16px;
   border-top: 1px solid var(--glass-border, rgba(45, 35, 39, 0.06));
+}
+
+.cm-tabs {
+  margin-bottom: 4px;
+}
+
+.order-amount {
+  font-weight: 600;
+  color: var(--sw-ink);
+}
+
+.no-perm {
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--sw-ink-3);
 }
 </style>

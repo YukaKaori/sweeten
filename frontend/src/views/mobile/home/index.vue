@@ -1,516 +1,886 @@
+<script setup>
+/**
+ * 商城首页：品牌主视觉 → 服务承诺 → 人气甜品 → 今日菜单（分类 / 搜索 / 排序）
+ * 商品数据全部来自后端在售商品（useCatalog），不使用演示数据。
+ */
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useCatalog } from '@/composables/useCatalog'
+import { STORE_COPY } from '@/config/brand'
+import { formatPrice, formatCount } from '@/utils/format'
+import { BRAND_HERO_IMAGE, PRODUCT_IMAGE_FOCUS } from '@/config/productImage'
+import ProductCard from '@/components/store/ProductCard.vue'
+import SwIcon from '@/components/brand/SwIcon.vue'
+
+const copy = STORE_COPY
+const route = useRoute()
+const router = useRouter()
+const { products, loading, error, load, categories, bestsellers } = useCatalog()
+
+const titleParts = copy.hero.title.split('，')
+const PROMISE_ICONS = { fresh: 'leaf', delivery: 'truck', points: 'star' }
+
+const activeCategory = ref(typeof route.query.category === 'string' ? route.query.category : 'all')
+const keyword = ref('')
+const sort = ref('popular')
+
+const heroPick = computed(() => bestsellers.value[0] || null)
+const heroLoaded = ref(false)
+
+const visible = computed(() => {
+  let list = products.value
+  if (activeCategory.value !== 'all') list = list.filter((p) => p.category === activeCategory.value)
+  const kw = keyword.value.trim().toLowerCase()
+  if (kw) {
+    list = list.filter((p) => p.name.toLowerCase().includes(kw) || (p.description || '').toLowerCase().includes(kw))
+  }
+  if (sort.value === 'price-asc') list = [...list].sort((a, b) => a.price - b.price)
+  else if (sort.value === 'price-desc') list = [...list].sort((a, b) => b.price - a.price)
+  // 售罄的放到最后，其余保持后端的销量顺序
+  return [...list].sort((a, b) => (a.stock === 0) - (b.stock === 0))
+})
+
+const activeLabel = computed(() => categories.value.find((c) => c.value === activeCategory.value)?.label || '全部')
+
+function pickCategory(value) {
+  activeCategory.value = value
+}
+
+function clearFilters() {
+  keyword.value = ''
+  activeCategory.value = 'all'
+}
+
+function goMenu() {
+  router.push({ path: '/m', hash: '#menu' })
+}
+
+onMounted(() => {
+  load()
+})
+</script>
+
 <template>
-  <div class="home-page">
-    <!-- Search Bar -->
-    <div class="search-bar-wrap">
-      <div class="search-bar" :class="{ focused: searchFocused }">
-        <span class="search-icon">🔍</span>
-        <input
-          ref="searchInput"
-          v-model="searchQuery"
-          class="search-input"
-          type="text"
-          placeholder="搜索甜品..."
-          @focus="searchFocused = true"
-          @blur="searchFocused = false"
-          @input="onSearch"
+  <div class="home store-page">
+    <!-- ===== 主视觉 ===== -->
+    <section
+      class="hero"
+      aria-labelledby="hero-title"
+    >
+      <div class="hero__inner">
+        <div class="hero__text">
+          <p class="hero__eyebrow sw-eyebrow">{{ copy.hero.eyebrow }}</p>
+          <h1
+            id="hero-title"
+            class="hero__title sw-display"
+          >
+            {{ titleParts[0] }}，<br>{{ titleParts[1] }}
+          </h1>
+          <p class="hero__lead">{{ copy.hero.lead }}</p>
+          <div class="hero__cta">
+            <button
+              type="button"
+              class="btn btn--primary"
+              @click="goMenu"
+            >
+              {{ copy.hero.cta }}
+              <SwIcon
+                name="arrow-right"
+                :size="18"
+              />
+            </button>
+            <router-link
+              to="/m/orders"
+              class="btn btn--secondary hero__cta-secondary"
+            >查看我的订单</router-link>
+          </div>
+          <router-link
+            v-if="heroPick"
+            :to="`/m/product/${heroPick.id}`"
+            class="hero__pick"
+          >
+            <span class="hero__pick-label">人气之选</span>
+            <span class="hero__pick-name">{{ heroPick.name }}</span>
+            <span class="hero__pick-meta sw-num">{{ formatPrice(heroPick.price) }} · 已售 {{ formatCount(heroPick.sales) }} 份</span>
+            <SwIcon
+              name="arrow-right"
+              :size="16"
+            />
+          </router-link>
+        </div>
+
+        <div class="hero__visual">
+          <img
+            class="hero__img"
+            :class="{ 'is-loaded': heroLoaded }"
+            :src="BRAND_HERO_IMAGE"
+            :style="{ objectPosition: PRODUCT_IMAGE_FOCUS }"
+            alt="喜甜招牌草莓奶油蛋糕"
+            fetchpriority="high"
+            decoding="async"
+            @load="heroLoaded = true"
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 服务承诺 ===== -->
+    <section
+      class="promises"
+      aria-label="服务说明"
+    >
+      <ul class="promises__list">
+        <li
+          v-for="p in copy.promises"
+          :key="p.key"
+          class="promise"
+        >
+          <span class="promise__icon"><SwIcon
+            :name="PROMISE_ICONS[p.key]"
+            :size="20"
+          /></span>
+          <span>
+            <span class="promise__title">{{ p.title }}</span>
+            <span class="promise__desc">{{ p.desc }}</span>
+          </span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ===== 人气甜品 ===== -->
+    <section
+      v-if="loading || bestsellers.length"
+      id="bestsellers"
+      class="section"
+      aria-labelledby="best-title"
+    >
+      <header class="section__head">
+        <div>
+          <p class="sw-eyebrow">{{ copy.sections.bestsellers.eyebrow }}</p>
+          <h2
+            id="best-title"
+            class="section__title sw-display"
+          >{{ copy.sections.bestsellers.title }}</h2>
+        </div>
+        <p class="section__note">按累计销量排序</p>
+      </header>
+
+      <div
+        v-if="loading && !bestsellers.length"
+        class="best-grid"
+      >
+        <div
+          v-for="i in 4"
+          :key="i"
+          class="skeleton-card is-tall"
+        ><span class="skeleton-shimmer"></span></div>
+      </div>
+      <div
+        v-else
+        class="best-grid"
+        role="list"
+      >
+        <ProductCard
+          v-for="(p, i) in bestsellers"
+          :key="p.id"
+          role="listitem"
+          :product="p"
+          variant="feature"
+          :rank="i + 1"
+          :eager="i < 2"
+          sizes="(min-width: 1200px) 280px, (min-width: 768px) 24vw, 62vw"
         />
-        <button v-if="searchQuery" class="search-clear" @click="clearSearch">✕</button>
       </div>
-    </div>
+    </section>
 
-    <!-- Hero Carousel -->
-    <div class="hero-wrap" v-if="!searchQuery">
-      <div class="hero" ref="heroRef"
-           @touchstart="onTouchStart" @touchend="onTouchEnd">
-        <div class="hero-track" :style="{ transform: `translateX(-${heroIdx * 100}%)` }">
-          <div class="hero-slide s1"><div class="hero-content">
-            <span class="hero-kicker">New Collection</span>
-            <h2>夏日新品<br>限时登场</h2>
-            <p class="hero-sub">精选时令鲜果，每日手作</p>
-          </div></div>
-          <div class="hero-slide s2"><div class="hero-content">
-            <span class="hero-kicker">Bespoke</span>
-            <h2>生日蛋糕<br>专属定制</h2>
-            <p class="hero-sub">提前 24 小时预约，为您匠心手作</p>
-          </div></div>
-          <div class="hero-slide s3"><div class="hero-content">
-            <span class="hero-kicker">Seasonal</span>
-            <h2>冰淇淋季<br>清爽来袭</h2>
-            <p class="hero-sub">意式 Gelato，低脂更丝滑</p>
-          </div></div>
+    <!-- ===== 今日菜单 ===== -->
+    <section
+      id="menu"
+      class="section menu"
+      aria-labelledby="menu-title"
+    >
+      <header class="section__head">
+        <div>
+          <p class="sw-eyebrow">{{ copy.sections.menu.eyebrow }}</p>
+          <h2
+            id="menu-title"
+            class="section__title sw-display"
+          >{{ copy.sections.menu.title }}</h2>
         </div>
-        <div class="hero-dots">
-          <span v-for="i in 3" :key="i" class="dot" :class="{ on: heroIdx === i-1 }"
-                @click="goSlide(i-1)"></span>
+        <div class="menu__tools">
+          <label class="search">
+            <SwIcon
+              name="search"
+              :size="17"
+            />
+            <span class="sw-visually-hidden">搜索甜品</span>
+            <input
+              v-model="keyword"
+              type="search"
+              class="search__input"
+              placeholder="搜索甜品、口味"
+              enterkeyhint="search"
+            >
+            <button
+              v-if="keyword"
+              type="button"
+              class="search__clear"
+              aria-label="清除搜索"
+              @click="keyword = ''"
+            >
+              <SwIcon
+                name="close"
+                :size="14"
+              />
+            </button>
+          </label>
+          <label class="sorter">
+            <span class="sw-visually-hidden">排序</span>
+            <select
+              v-model="sort"
+              class="sorter__select"
+            >
+              <option value="popular">人气优先</option>
+              <option value="price-asc">价格从低到高</option>
+              <option value="price-desc">价格从高到低</option>
+            </select>
+            <SwIcon
+              name="chevron-down"
+              :size="14"
+              class="sorter__caret"
+            />
+          </label>
         </div>
+      </header>
+
+      <div
+        class="chips"
+        role="tablist"
+        aria-label="甜品分类"
+      >
+        <button
+          type="button"
+          role="tab"
+          class="chip"
+          :class="{ 'is-active': activeCategory === 'all' }"
+          :aria-selected="activeCategory === 'all'"
+          @click="pickCategory('all')"
+        >
+          全部<span class="chip__count sw-num">{{ products.length }}</span>
+        </button>
+        <button
+          v-for="c in categories"
+          :key="c.value"
+          type="button"
+          role="tab"
+          class="chip"
+          :class="{ 'is-active': activeCategory === c.value }"
+          :aria-selected="activeCategory === c.value"
+          @click="pickCategory(c.value)"
+        >
+          {{ c.label }}<span class="chip__count sw-num">{{ c.count }}</span>
+        </button>
       </div>
-    </div>
 
-    <!-- Category Pills -->
-    <div class="cat-scroll" ref="catScrollRef" v-if="!searchQuery">
-      <button v-for="cat in categories" :key="cat.key" class="cat-pill"
-              :class="{ active: activeCategory === cat.key }"
-              @click="switchCategory(cat.key)">{{ cat.label }}</button>
-    </div>
+      <p
+        class="menu__summary"
+        aria-live="polite"
+      >
+        <template v-if="!loading && !error">
+          {{ keyword ? `「${keyword}」` : activeLabel }} · {{ visible.length }} 款
+        </template>
+      </p>
 
-    <!-- Section Header -->
-    <div class="section-head">
-      {{ searchQuery ? '搜索结果' : categoryTitle }}
-      <span class="count" v-if="!loading">({{ displayProducts.length }})</span>
-    </div>
-
-    <!-- Products -->
-    <div class="products-area" ref="productsArea">
-      <!-- Skeletons -->
-      <div v-if="loading" class="product-grid">
-        <div v-for="i in 6" :key="i" class="skeleton-card">
-          <div class="sk-img"></div><div class="sk-info"><div class="sk-line"></div><div class="sk-line short"></div><div class="sk-line tiny"></div></div>
-        </div>
+      <!-- 加载中 -->
+      <div
+        v-if="loading && !products.length"
+        class="menu-grid"
+        aria-busy="true"
+      >
+        <div
+          v-for="i in 8"
+          :key="i"
+          class="skeleton-card"
+        ><span class="skeleton-shimmer"></span></div>
       </div>
 
-      <!-- Empty -->
-      <div v-else-if="!displayProducts.length" class="empty-wrap">
-        <div class="empty-icon">{{ searchQuery ? '🔍' : '🍽️' }}</div>
-        <div class="empty-title">{{ searchQuery ? '未找到相关甜品' : '暂无商品' }}</div>
-        <div class="empty-desc">{{ searchQuery ? '试试其他关键词' : '看看其他分类吧' }}</div>
+      <!-- 加载失败 -->
+      <div
+        v-else-if="error && !products.length"
+        class="state"
+      >
+        <p class="state__title">甜品菜单暂时没有加载出来</p>
+        <p class="state__desc">{{ error }}</p>
+        <button
+          type="button"
+          class="btn btn--secondary btn--sm"
+          @click="load(true)"
+        >
+          <SwIcon
+            name="refresh"
+            :size="16"
+          /> 重新加载
+        </button>
       </div>
 
-      <!-- Product Grid -->
-      <div v-else class="product-grid">
-        <div v-for="(p, idx) in displayProducts" :key="p.id" class="product-card"
-             :class="{ 'sold-out': p.stock === 0 }"
-             @click="goDetail(p)">
-          <div class="img-area">
-            <ProductImg :item="p" :width="190" :alt="p.name" :eager="idx < 4" />
-            <div v-if="p.stock===0" class="sold-out-overlay"><span>售罄</span></div>
-          </div>
-          <div class="card-info">
-            <div class="card-name">{{ p.name }}</div>
-            <div class="card-desc">{{ p.description || '' }}</div>
-            <div class="card-row">
-              <div class="price-current"><span class="yen">¥</span>{{ p.price.toFixed(2) }}</div>
-              <div v-if="p.stock !== 0" class="stepper" @click.stop>
-                <template v-if="cartStore.getQty(p.id) > 0">
-                  <button class="step-btn minus" @click.stop="cartStore.decreaseItem(p.id)">−</button>
-                  <span class="step-qty">{{ cartStore.getQty(p.id) }}</span>
-                  <button class="step-btn plus" @click.stop="handleAdd(p, $event)">+</button>
-                </template>
-                <button v-else class="add-btn" @click.stop="handleAdd(p, $event)">+</button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- 没有结果 -->
+      <div
+        v-else-if="!visible.length"
+        class="state"
+      >
+        <p class="state__title">{{ keyword ? `没有找到与「${keyword}」相关的甜品` : '这个分类今天暂时没有在售甜品' }}</p>
+        <p class="state__desc">换个关键词，或看看其他分类吧。</p>
+        <button
+          type="button"
+          class="btn btn--secondary btn--sm"
+          @click="clearFilters"
+        >查看全部甜品</button>
       </div>
-    </div>
 
-    <!-- Fly animation dot -->
-    <div class="fly-dot" ref="flyDot"></div>
-
-    <!-- Floating Cart Pill -->
-    <transition name="pill-fade">
-      <div v-if="!cartStore.isEmpty" class="cart-pill-wrap" @click="toggleCartSheet">
-        <div class="cart-pill">
-          <div class="pill-icon-wrap"><span class="pill-icon">🛒</span><span class="pill-badge">{{ cartStore.totalQty }}</span></div>
-          <div class="pill-info"><div class="pill-total">¥{{ cartStore.totalAmount.toFixed(2) }}</div><div class="pill-hint">已选 {{ cartStore.totalQty }} 件</div></div>
-          <button class="pill-checkout" @click.stop="goCheckout">结算</button>
-        </div>
+      <div
+        v-else
+        class="menu-grid"
+        role="list"
+      >
+        <ProductCard
+          v-for="p in visible"
+          :key="p.id"
+          role="listitem"
+          :product="p"
+        />
       </div>
-    </transition>
-
-    <!-- Cart Bottom Sheet -->
-    <transition name="sheet">
-      <div v-if="showCartSheet" class="cart-sheet-mask" @click.self="toggleCartSheet">
-        <div class="cart-sheet">
-          <div class="sheet-handle"></div>
-          <div class="sheet-header"><h3>🛒 购物车</h3><button class="clear-btn" @click="cartStore.clear()">清空</button></div>
-          <div class="sheet-list">
-            <div v-if="cartStore.isEmpty" class="cart-empty"><span>🛒</span><p>购物车是空的</p></div>
-            <div v-for="item in cartStore.items" :key="item.id" class="cart-item">
-              <ProductImg class="ci-thumb" :item="item" :width="44" :alt="item.name" />
-              <div class="ci-mid"><div class="ci-name">{{ item.name }}</div><div class="ci-price">¥{{ item.price.toFixed(2) }}</div></div>
-              <div class="stepper">
-                <button @click.stop="cartStore.decreaseItem(item.id)">−</button>
-                <span>{{ item.qty }}</span>
-                <button :disabled="cartStore.remaining(item) <= 0" @click.stop="handleSheetAdd(item)">+</button>
-              </div>
-            </div>
-          </div>
-          <div class="sheet-footer">
-            <div class="ft-total">合计 <em>¥{{ cartStore.totalAmount.toFixed(2) }}</em></div>
-            <button class="ft-btn" :disabled="cartStore.isEmpty" @click="goCheckout">去结算</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    </section>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { getMobileProducts, getMobileCategories } from '@/api/modules/mobile'
-import { useCartStore } from '@/stores/modules/cart'
-import ProductImg from '@/components/ProductImg.vue'
-
-const router = useRouter()
-const route = useRoute()
-const cartStore = useCartStore()
-
-const loading = ref(true)
-const allProducts = ref([])
-const categories = ref([{ key:'all', label:'全部' }])
-const activeCategory = ref('all')
-const searchQuery = ref('')
-const searchFocused = ref(false)
-const showCartSheet = ref(false)
-const heroIdx = ref(0)
-const heroCount = 3
-let heroTimer = null
-const flyDot = ref(null)
-
-const categoryTitle = computed(() => {
-  const m = { all:'全部甜品', cake:'蛋糕', bread:'面包', drink:'饮品', dessert:'甜点', icecream:'冰淇淋', snack:'小食', gift:'礼盒' }
-  return m[activeCategory.value] || '全部甜品'
-})
-
-const displayProducts = computed(() => {
-  if (!searchQuery.value.trim()) return allProducts.value
-  const kw = searchQuery.value.trim().toLowerCase()
-  return allProducts.value.filter(p => p.name.toLowerCase().includes(kw) || (p.description||'').toLowerCase().includes(kw))
-})
-
-// ── Hero ──
-function goSlide(i) { heroIdx.value = i }
-function nextSlide() { heroIdx.value = (heroIdx.value+1) % heroCount }
-function startTimer() { clearInterval(heroTimer); heroTimer = setInterval(nextSlide, 4200) }
-let touchX = 0
-function onTouchStart(e) { touchX = e.touches[0].clientX; clearInterval(heroTimer) }
-function onTouchEnd(e) {
-  const dx = touchX - e.changedTouches[0].clientX
-  if (Math.abs(dx) > 40) goSlide(dx>0 ? (heroIdx.value+1)%heroCount : (heroIdx.value-1+heroCount)%heroCount)
-  startTimer()
-}
-
-// ── API ──
-async function loadCategories() {
-  try { const r = await getMobileCategories(); if (r?.code===1&&r.data) categories.value = r.data } catch { /* */ }
-}
-async function loadProducts(cat='all') {
-  loading.value = true
-  try { const r = await getMobileProducts(cat); if (r?.code===1) allProducts.value = r.data||[] } catch { allProducts.value=[] }
-  finally { loading.value = false }
-}
-function switchCategory(key) { if (activeCategory.value===key) return; activeCategory.value=key; loadProducts(key) }
-
-// ── Search ──
-let searchTimer
-function onSearch() {
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    if (searchQuery.value && activeCategory.value !== 'all') {
-      activeCategory.value = 'all'
-      loadProducts('all')
-    }
-  }, 300)
-}
-function clearSearch() { searchQuery.value = ''; searchFocused.value = false }
-
-// ── Cart ──
-function handleAdd(product, event) {
-  if (product.stock === 0) return
-  if (!cartStore.addItem(product)) {
-    window.__showToast?.(`「${product.name}」库存只有 ${product.stock} 件`)
-    return
-  }
-  // Fly animation
-  if (event && flyDot.value) {
-    const btn = event.target.closest('button')
-    if (btn) {
-      const btnRect = btn.getBoundingClientRect()
-      const pill = document.querySelector('.cart-pill-wrap')
-      if (pill) {
-        const pillRect = pill.getBoundingClientRect()
-        const dot = flyDot.value
-        dot.style.setProperty('--sx', btnRect.left + btnRect.width/2 + 'px')
-        dot.style.setProperty('--sy', btnRect.top + btnRect.height/2 + 'px')
-        dot.style.setProperty('--ex', pillRect.left + pillRect.width/2 + 'px')
-        dot.style.setProperty('--ey', pillRect.top + pillRect.height/2 + 'px')
-        dot.classList.remove('fly')
-        void dot.offsetWidth
-        dot.classList.add('fly')
-      }
-    }
-  }
-  window.__showToast?.('已加入购物车 🛒')
-}
-
-function handleSheetAdd(item) {
-  if (!cartStore.addItem(item)) window.__showToast?.('已达库存上限')
-}
-
-function toggleCartSheet() { showCartSheet.value = !showCartSheet.value }
-function goCheckout() { showCartSheet.value = false; router.push('/m/checkout') }
-function goDetail(product) { router.push(`/m/product/${product.id}`) }
-
-// Expose for bottom tab
-window.__openCartSheet = () => { showCartSheet.value = true }
-
-onMounted(async () => {
-  startTimer()
-  // 从其它页面点"购物车"进入时（/m/?cart=1）直接展开购物车
-  if (route.query.cart && !cartStore.isEmpty) {
-    showCartSheet.value = true
-    router.replace({ path: '/m/' })
-  }
-  await Promise.all([loadCategories(), loadProducts('all')])
-})
-
-onUnmounted(() => { clearInterval(heroTimer); window.__openCartSheet = undefined })
-</script>
-
 <style scoped>
-.home-page { padding-bottom: 20px; }
-
-/* ── Search ── */
-.search-bar-wrap { padding: 12px 18px 8px; }
-.search-bar {
-  display: flex; align-items: center; gap: 8px;
-  background: rgba(255,255,255,0.62);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 0.5px solid rgba(255,255,255,0.5);
-  border-radius: 999px; padding: 0 16px;
-  box-shadow:
-    0 8px 24px rgba(0,0,0,0.03),
-    inset 0 0.5px 0 rgba(255,255,255,0.5);
-  transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
-}
-.search-bar.focused {
-  background: rgba(255,255,255,0.88);
-  border-color: rgba(0,0,0,0.08);
-  box-shadow:
-    0 12px 32px rgba(0,0,0,0.06),
-    inset 0 0.5px 0 rgba(255,255,255,0.6);
-  transform: scale(1.01);
-}
-.search-icon { font-size: 14px; opacity: 0.5; }
-.search-input {
-  flex: 1; border: none; outline: none; padding: 11px 0;
-  font-size: 14px; background: transparent; color: #1d1d1f; font-weight: 500;
-}
-.search-input::placeholder { color: #aeaeb2; }
-.search-clear { background: none; border: none; font-size: 14px; color: #aeaeb2; cursor: pointer; padding: 4px; }
-
-/* ── Hero ── */
-.hero-wrap { margin: 4px 18px 18px; }
-.hero {
-  border-radius: 24px; height: 260px; position: relative; overflow: hidden;
-  box-shadow:
-    0 12px 40px rgba(0,0,0,0.08),
-    0 2px 6px rgba(0,0,0,0.04),
-    inset 0 1px 0 rgba(255,255,255,0.1);
-}
-.hero-track { display: flex; height: 100%; transition: transform 0.65s cubic-bezier(0.16,1,0.3,1); }
-.hero-slide { min-width: 100%; height: 100%; padding: 44px 32px; display: flex; align-items: flex-end; color: #fff; position: relative; overflow: hidden; }
-.hero-slide::before { content:''; position:absolute; top:-40%; right:-20%; width:280px; height:280px; border-radius:50%; background:rgba(255,255,255,0.06); filter:blur(60px); }
-.hero-slide.s1 { background:linear-gradient(155deg,#3d1c22,#8b3a44 35%,#c94d63 70%,#e8a0a8); }
-.hero-slide.s2 { background:linear-gradient(155deg,#2d1f14,#7a5230 35%,#c4844a 70%,#e8c89e); }
-.hero-slide.s3 { background:linear-gradient(155deg,#1a2c24,#3d7060 35%,#5b9e8a 70%,#a8d8c8); }
-.hero-content { position:relative; z-index:1; }
-.hero-kicker { display:block; font-size:10px; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; opacity:0.5; margin-bottom:8px; }
-.hero-slide h2 { color:#fff; font-size:34px; font-weight:640; letter-spacing:-0.6px; line-height:1.08; margin:0 0 6px; text-shadow:0 1px 2px rgba(0,0,0,0.08); }
-.hero-sub { font-size:13px; font-weight:440; opacity:0.72; letter-spacing:-0.1px; }
-.hero-dots { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); display:flex; gap:8px; }
-.hero-dots .dot { width:7px; height:7px; border-radius:4px; background:rgba(255,255,255,0.3); backdrop-filter:blur(8px); border:0.5px solid rgba(255,255,255,0.15); transition:all 0.5s cubic-bezier(0.16,1,0.3,1); cursor:pointer; }
-.hero-dots .dot.on { width:26px; background:rgba(255,255,255,0.85); }
-
-/* ── Categories ── */
-.cat-scroll { padding:2px 18px 14px; overflow-x:auto; display:flex; gap:8px; scrollbar-width:none; }
-.cat-scroll::-webkit-scrollbar { display:none; }
-.cat-pill {
-  flex-shrink:0; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:500; cursor:pointer;
-  white-space:nowrap; border:0.5px solid rgba(255,255,255,0.5);
-  background:rgba(255,255,255,0.68); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-  color:#86868b;
-  box-shadow:
-    0 4px 12px rgba(0,0,0,0.02),
-    inset 0 0.5px 0 rgba(255,255,255,0.6);
-  transition:all 0.35s cubic-bezier(0.16,1,0.3,1);
-}
-.cat-pill:active { transform:scale(0.92); }
-.cat-pill.active {
-  background:#1d1d1f; color:#fff; font-weight:560;
-  border-color:rgba(255,255,255,0.08);
-  box-shadow:
-    0 8px 24px rgba(0,0,0,0.15),
-    inset 0 1px 0 rgba(255,255,255,0.15);
-  transform:translateY(-1px);
+.store-page {
+  animation: fadeIn var(--sw-dur-3) var(--sw-ease) both;
 }
 
-/* ── Section ── */
-.section-head { padding:4px 18px 10px; font-size:19px; font-weight:640; letter-spacing:-0.35px; color:#1d1d1f; display:flex; align-items:baseline; gap:6px; }
-.section-head .count { font-size:13px; font-weight:480; color:#aeaeb2; }
+.home {
+  --pad: var(--store-pad, 20px);
+  --max: var(--store-max, 1200px);
+}
 
-/* ── Product Grid ── */
-.products-area { padding:0 4px; }
-.product-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:0 14px; }
+/* ---------- 主视觉 ---------- */
+.hero__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 72px);
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: clamp(24px, 4vw, 56px) var(--pad) clamp(32px, 4vw, 48px);
+}
 
-.skeleton-card { border-radius:18px; overflow:hidden; background:rgba(255,255,255,0.5); border:0.5px solid rgba(255,255,255,0.4); }
-.sk-img { aspect-ratio:1; background:linear-gradient(105deg,#ececee 25%,#f5f5f6 50%,#ececee 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
-.sk-info { padding:12px; }
-.sk-line { height:12px; border-radius:6px; margin-bottom:8px; background:linear-gradient(105deg,#ececee 25%,#f5f5f6 50%,#ececee 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
-.sk-line.short { width:58%; } .sk-line.tiny { width:36%; height:17px; margin-top:10px; }
-@keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+.hero__eyebrow {
+  color: var(--sw-berry);
+}
 
-.empty-wrap { text-align:center; padding:60px 24px; grid-column:1/-1; }
-.empty-icon { font-size:52px; margin-bottom:10px; opacity:0.7; }
-.empty-title { font-size:15px; font-weight:600; color:#1d1d1f; margin-bottom:4px; }
-.empty-desc { font-size:12px; color:#86868b; }
+.hero__title {
+  margin-top: 18px;
+  font-size: clamp(40px, 5.2vw, 68px);
+  line-height: 1.16;
+  letter-spacing: 0.04em;
+  color: var(--sw-ink);
+}
 
-.product-card {
-  border-radius:18px; overflow:hidden; cursor:pointer;
-  background:rgba(255,255,255,0.72); backdrop-filter:blur(18px) saturate(160%);
-  -webkit-backdrop-filter:blur(18px) saturate(160%);
-  border:0.5px solid rgba(255,255,255,0.55);
-  box-shadow:
-    0 8px 32px rgba(0,0,0,0.04),
-    0 2px 6px rgba(0,0,0,0.02),
-    inset 0 0.5px 0 rgba(255,255,255,0.7);
-  transition:all 0.45s cubic-bezier(0.16,1,0.3,1);
-  /* Liquid glass depth */
+.hero__lead {
+  max-width: 420px;
+  margin-top: 20px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--sw-ink-2);
+}
+
+.hero__cta {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.hero__visual {
   position: relative;
-}
-
-/* Glass specular sheen on product cards */
-.product-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    165deg,
-    rgba(255, 255, 255, 0.2) 0%,
-    transparent 50%
-  );
-  pointer-events: none;
-  z-index: 1;
-  border-radius: inherit;
-  transition: opacity 0.3s;
-}
-
-.product-card:active {
-  transform:scale(0.955);
-  box-shadow:
-    0 4px 12px rgba(0,0,0,0.03),
-    inset 0 0.5px 0 rgba(255,255,255,0.6);
-}
-.product-card.sold-out { opacity:0.6; }
-.img-area { aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(145deg,#fafafa,#f0f0f2); position:relative; overflow:hidden; }
-.img-area::after { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 40%,rgba(255,255,255,0.4) 0%,transparent 60%); pointer-events:none; }
-.img-area img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
-.ci-thumb { width:44px; height:44px; flex-shrink:0; border-radius:12px; object-fit:cover; background:#f0f0f2; }
-.stepper button:disabled { opacity:0.35; cursor:not-allowed; }
-.emoji-fallback { position:relative; z-index:1; font-size:60px; filter:drop-shadow(0 8px 16px rgba(217,87,74,0.12)); transition:transform 0.4s; }
-.product-card:active .emoji-fallback { transform:scale(1.08); }
-.sold-out-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; font-weight:650; z-index:2; }
-.card-info { padding:11px 13px 14px; }
-.card-name { font-size:13px; font-weight:580; color:#1d1d1f; margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.card-desc { font-size:11px; color:#86868b; margin-bottom:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.card-row { display:flex; align-items:center; justify-content:space-between; }
-.price-current { font-size:17px; font-weight:650; color:#1d1d1f; letter-spacing:-0.3px; }
-.price-current .yen { font-size:11px; font-weight:480; color:#86868b; }
-.stepper { display:flex; align-items:center; gap:8px; }
-.step-btn { width:26px; height:26px; border-radius:50%; border:none; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-.step-btn.minus { background:rgba(0,0,0,0.04); color:#1d1d1f; }
-.step-btn.plus { background:#d9574a; color:#fff; box-shadow:0 3px 8px rgba(217,87,74,0.25); }
-.step-btn:active { transform:scale(0.82); }
-.step-qty { font-size:13px; font-weight:650; min-width:16px; text-align:center; }
-.add-btn { width:30px; height:30px; border-radius:50%; border:none; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; background:rgba(217,87,74,0.08); color:#d9574a; transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-.add-btn:active { transform:scale(0.78); }
-
-/* ── Fly Animation ── */
-.fly-dot {
-  position:fixed; z-index:300; pointer-events:none;
-  width:16px; height:16px; border-radius:50%;
-  background:#d9574a; opacity:0;
-}
-.fly-dot.fly {
-  animation: fly-to-cart 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
-}
-@keyframes fly-to-cart {
-  0% { left:var(--sx); top:var(--sy); opacity:1; transform:scale(1); }
-  60% { opacity:1; transform:scale(1.3); }
-  100% { left:var(--ex); top:var(--ey); opacity:0; transform:scale(0.3); }
-}
-
-/* ── Cart Pill ── */
-.cart-pill-wrap { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:398px; z-index:95; cursor:pointer; }
-.cart-pill {
-  display:flex; align-items:center; gap:14px;
-  background:rgba(29,29,31,0.78);
-  backdrop-filter:blur(40px) saturate(220%);
-  -webkit-backdrop-filter:blur(40px) saturate(220%);
-  border-radius:999px; padding:8px 8px 8px 20px;
-  border:0.5px solid rgba(255,255,255,0.12);
-  box-shadow:
-    0 24px 56px rgba(0,0,0,0.2),
-    0 4px 12px rgba(0,0,0,0.08),
-    inset 0 1px 0 rgba(255,255,255,0.12);
-  transition:transform 0.3s, box-shadow 0.3s;
-  /* Liquid glass sheen */
-  position: relative;
+  max-width: 480px;
+  justify-self: end;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 24px;
   overflow: hidden;
+  background: var(--sw-fill);
+  box-shadow: var(--sw-shadow-md);
 }
 
-.cart-pill::before {
-  content: '';
+.hero__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s var(--sw-ease);
+}
+
+.hero__img.is-loaded {
+  opacity: 1;
+}
+
+/* 人气之选：放在文案区，不压在主视觉上（主视觉是品牌图，不对应具体商品） */
+.hero__pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin-top: 28px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-surface);
+  color: var(--sw-ink);
+  font-size: 13px;
+  transition: border-color var(--sw-dur-1) var(--sw-ease), background-color var(--sw-dur-1) var(--sw-ease);
+}
+
+.hero__pick:hover {
+  border-color: var(--sw-milktea);
+  background: var(--sw-blush-wash);
+}
+
+.hero__pick-label {
+  padding: 3px 9px;
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-blush-soft);
+  color: var(--sw-berry);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hero__pick-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hero__pick-meta {
+  color: var(--sw-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 服务承诺 ---------- */
+.promises {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 var(--pad);
+}
+
+.promises__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  list-style: none;
+  border-top: 1px solid var(--sw-border);
+  border-bottom: 1px solid var(--sw-border);
+}
+
+.promise {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 8px;
+}
+
+.promise + .promise {
+  padding-left: 28px;
+  border-left: 1px solid var(--sw-border-soft);
+}
+
+.promise__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--sw-blush-soft);
+  color: var(--sw-cocoa);
+  flex-shrink: 0;
+}
+
+.promise > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.promise__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.promise__desc {
+  font-size: 13px;
+  color: var(--sw-ink-3);
+}
+
+/* ---------- 区块 ---------- */
+.section {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: clamp(48px, 6vw, 72px) var(--pad) 0;
+  scroll-margin-top: 72px;
+}
+
+.section__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.section__title {
+  margin-top: 8px;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.25;
+  color: var(--sw-ink);
+}
+
+.section__note {
+  font-size: 13px;
+  color: var(--sw-ink-3);
+}
+
+.best-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+/* ---------- 菜单工具条 ---------- */
+.menu__tools {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  height: 44px;
+  padding: 0 12px 0 14px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-surface);
+  color: var(--sw-ink-3);
+  transition: border-color var(--sw-dur-1) var(--sw-ease), box-shadow var(--sw-dur-1) var(--sw-ease);
+}
+
+.search:focus-within {
+  border-color: var(--sw-ink-2);
+  box-shadow: 0 0 0 3px rgba(var(--ink-rgb), 0.08);
+}
+
+.search__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 14px;
+  color: var(--sw-ink);
+}
+
+.search__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search__input::placeholder {
+  color: var(--sw-ink-4);
+}
+
+.search__clear {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--sw-fill);
+  color: var(--sw-ink-2);
+  cursor: pointer;
+}
+
+.sorter {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sorter__select {
+  height: 44px;
+  padding: 0 36px 0 16px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-surface);
+  color: var(--sw-ink);
+  font-size: 14px;
+  font-family: inherit;
+  appearance: none;
+  cursor: pointer;
+}
+
+.sorter__caret {
   position: absolute;
-  top: 0; left: 20%; right: 20%; height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255,255,255,0.25),
-    transparent
-  );
+  right: 14px;
+  color: var(--sw-ink-3);
   pointer-events: none;
 }
 
-.cart-pill:active { transform:scale(0.975); }
-.pill-icon-wrap { position:relative; flex-shrink:0; }
-.pill-icon { font-size:22px; }
-.pill-badge { position:absolute; top:-8px; right:-8px; min-width:18px; height:18px; padding:0 4px; background:#d9574a; color:#fff; font-size:10px; font-weight:650; border-radius:9px; display:flex; align-items:center; justify-content:center; border:1.5px solid #1d1d1f; }
-.pill-info { flex:1; }
-.pill-total { font-size:18px; font-weight:650; color:#fff; letter-spacing:-0.3px; }
-.pill-hint { font-size:11px; color:rgba(255,255,255,0.4); }
-.pill-checkout { flex-shrink:0; border:none; background:rgba(255,255,255,0.14); color:#fff; font-size:14px; font-weight:590; padding:12px 22px; border-radius:999px; cursor:pointer; }
-.pill-fade-enter-active,.pill-fade-leave-active { transition:opacity 0.35s,transform 0.45s cubic-bezier(0.16,1,0.3,1); }
-.pill-fade-enter-from,.pill-fade-leave-to { opacity:0; transform:translateX(-50%) translateY(28px) scale(0.9); }
+.chips {
+  position: sticky;
+  top: 72px;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+  margin: 0 calc(var(--pad) * -1);
+  padding: 10px var(--pad);
+  overflow-x: auto;
+  background: var(--sw-bg);
+  scrollbar-width: none;
+}
 
-/* ── Cart Sheet ── */
-.cart-sheet-mask { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.32); backdrop-filter:blur(6px); display:flex; align-items:flex-end; justify-content:center; }
-.cart-sheet { width:100%; max-width:430px; max-height:64dvh; display:flex; flex-direction:column; background:rgba(255,255,255,0.86); backdrop-filter:blur(36px) saturate(200%); -webkit-backdrop-filter:blur(36px) saturate(200%); border-radius:24px 24px 0 0; overflow:hidden; border:0.5px solid rgba(255,255,255,0.55); border-bottom:none; box-shadow:0 -10px 40px rgba(0,0,0,0.08),inset 0 0.5px 0 rgba(255,255,255,0.7); padding-bottom:env(safe-area-inset-bottom,16px); }
-.sheet-handle { width:38px; height:4.5px; border-radius:3px; background:rgba(0,0,0,0.12); margin:10px auto; }
-.sheet-header { display:flex; justify-content:space-between; align-items:center; padding:0 20px 12px; }
-.sheet-header h3 { font-size:17px; font-weight:620; }
-.clear-btn { font-size:13px; color:#86868b; background:none; border:none; cursor:pointer; }
-.sheet-list { flex:1; overflow-y:auto; padding:4px 18px; display:flex; flex-direction:column; gap:8px; -webkit-overflow-scrolling:touch; }
-.cart-empty { text-align:center; padding:42px 0; font-size:44px; color:#d1d1d6; }
-.cart-empty p { font-size:13px; color:#999; }
-.cart-item { display:flex; align-items:center; gap:12px; padding:10px 6px; border-bottom:0.5px solid rgba(0,0,0,0.04); }
-.cart-item:last-child { border-bottom:none; }
-.ci-icon { font-size:34px; flex-shrink:0; }
-.ci-mid { flex:1; min-width:0; }
-.ci-name { font-size:14px; font-weight:560; }
-.ci-price { font-size:12px; color:#86868b; }
-.cart-item .stepper button { width:28px; height:28px; border-radius:50%; border:1px solid rgba(0,0,0,0.1); background:#fff; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
-.cart-item .stepper button:active { transform:scale(0.82); }
-.cart-item .stepper span { font-size:14px; font-weight:580; min-width:18px; text-align:center; }
-.sheet-footer { padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-top:0.5px solid rgba(0,0,0,0.06); }
-.ft-total { font-size:13px; color:#86868b; }
-.ft-total em { font-size:20px; font-weight:650; font-style:normal; }
-.ft-btn { padding:12px 30px; border-radius:999px; border:none; background:#1d1d1f; color:#fff; font-size:14px; font-weight:570; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.1); }
-.ft-btn:disabled { background:#d1d1d6; box-shadow:none; cursor:not-allowed; }
-.sheet-enter-active,.sheet-leave-active { transition:opacity 0.3s; }
-.sheet-enter-active .cart-sheet,.sheet-leave-active .cart-sheet { transition:transform 0.45s cubic-bezier(0.16,1,0.3,1); }
-.sheet-enter-from,.sheet-leave-to { opacity:0; }
-.sheet-enter-from .cart-sheet,.sheet-leave-to .cart-sheet { transform:translateY(100%); }
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-surface);
+  color: var(--sw-ink-2);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--sw-dur-1) var(--sw-ease), color var(--sw-dur-1) var(--sw-ease),
+    border-color var(--sw-dur-1) var(--sw-ease);
+}
+
+.chip:hover {
+  border-color: var(--sw-milktea);
+  color: var(--sw-ink);
+}
+
+.chip.is-active {
+  background: var(--sw-primary);
+  border-color: var(--sw-primary);
+  color: var(--sw-on-primary);
+}
+
+.chip__count {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.menu__summary {
+  min-height: 20px;
+  margin: 8px 0 16px;
+  font-size: 13px;
+  color: var(--sw-ink-3);
+}
+
+/* ---------- 状态 ---------- */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 16px;
+  border: 1px dashed var(--sw-border);
+  border-radius: var(--sw-r-lg);
+  text-align: center;
+}
+
+.state__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.state__desc {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--sw-ink-3);
+}
+
+.skeleton-card {
+  display: block;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--sw-r-lg);
+  overflow: hidden;
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-border-soft);
+}
+
+.skeleton-card.is-tall {
+  aspect-ratio: 4 / 6;
+}
+
+.skeleton-card .skeleton-shimmer {
+  display: block;
+  width: 100%;
+  height: 72%;
+  border-radius: 0;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1023px) {
+  .menu-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .best-grid {
+    gap: 16px;
+  }
+
+  .hero__title {
+    font-size: clamp(36px, 5.4vw, 52px);
+  }
+}
+
+@media (max-width: 767px) {
+  /* 手机主视觉：照片在上、文案在下（文字不压在照片上，保证可读） */
+  .hero__inner {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 8px var(--pad) 28px;
+  }
+
+  .hero__visual {
+    order: -1;
+    max-width: none;
+    aspect-ratio: 5 / 4;
+    border-radius: 20px;
+    box-shadow: none;
+  }
+
+  .hero__eyebrow {
+    font-size: 10px;
+  }
+
+  .hero__title {
+    margin-top: 10px;
+    font-size: 34px;
+  }
+
+  .hero__lead {
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .hero__cta {
+    margin-top: 20px;
+  }
+
+  .hero__cta .btn {
+    flex: 1;
+  }
+
+  .hero__cta-secondary {
+    display: none;
+  }
+
+  .hero__pick {
+    display: none;
+  }
+
+  .promises__list {
+    grid-template-columns: 1fr;
+    border-bottom: 0;
+  }
+
+  .promise {
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--sw-border-soft);
+  }
+
+  .promise + .promise {
+    padding-left: 4px;
+    border-left: 0;
+  }
+
+  .promise__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .section {
+    padding-top: 40px;
+    scroll-margin-top: 60px;
+  }
+
+  .section__head {
+    margin-bottom: 16px;
+  }
+
+  /* 人气甜品横向滑动（scroll-padding 让吸附位置与正文左边对齐） */
+  .best-grid {
+    display: flex;
+    gap: 12px;
+    margin: 0 calc(var(--pad) * -1);
+    padding: 0 var(--pad) 4px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--pad);
+    scrollbar-width: none;
+  }
+
+  .best-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .best-grid > * {
+    flex: 0 0 62%;
+    scroll-snap-align: start;
+  }
+
+  .menu__tools {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .search {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+  }
+
+  .sorter__select {
+    padding: 0 32px 0 14px;
+  }
+
+  .chips {
+    top: 60px;
+  }
+
+  .menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
 </style>

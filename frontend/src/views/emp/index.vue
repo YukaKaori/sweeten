@@ -7,9 +7,15 @@ import { Plus, EditPen, Delete, Search } from '@element-plus/icons-vue'
 import { JOB_LIST, GENDER_LIST } from '@/utils/constants'
 import { useUserStore } from '@/stores/modules/user'
 import { UPLOAD_ACCEPT, UPLOAD_MAX_MB } from '@/api/modules/upload'
+import { usePermission } from '@/composables/usePermission'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
+
+const { can } = usePermission()
+const canCreate = can('emp:emp:create')
+const canUpdate = can('emp:emp:update')
+const canDelete = can('emp:emp:delete')
 
 // 搜索表单
 const searchEmp = ref({ name: '', gender: '', date: [], begin: '', end: '' })
@@ -300,13 +306,13 @@ const getGenderLabel = (value) => value === 1 ? '男' : '女'
 <template>
   <div class="page-container">
     <!-- 页面头部 -->
-    <PageHeader title="员工管理" description="管理人员信息、考勤和工作经历">
-      <template #actions>
-        <el-button type="danger" plain @click="deleteByIds">
+    <PageHeader title="员工管理" description="员工资料、登录账号与工作经历">
+      <template v-if="canCreate || canDelete" #actions>
+        <el-button v-if="canDelete" type="danger" plain @click="deleteByIds">
           <el-icon><Delete /></el-icon>
           批量删除
         </el-button>
-        <el-button type="primary" @click="addEmp">
+        <el-button v-if="canCreate" type="primary" @click="addEmp">
           <el-icon><Plus /></el-icon>
           新增员工
         </el-button>
@@ -355,7 +361,7 @@ const getGenderLabel = (value) => value === 1 ? '男' : '女'
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column v-if="canDelete" type="selection" width="50" align="center" />
         <el-table-column type="index" label="#" width="60" align="center">
           <template #default="scope">
             <span class="row-index">{{ (currentPage - 1) * pageSize + scope.$index + 1 }}</span>
@@ -397,14 +403,14 @@ const getGenderLabel = (value) => value === 1 ? '男' : '女'
             <span class="time-text">{{ scope.row.updateTime }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column v-if="canUpdate || canDelete" label="操作" width="180" align="center" fixed="right">
           <template #default="scope">
             <div class="action-buttons">
-              <el-button type="primary" size="small" plain @click="edit(scope.row.id)">
+              <el-button v-if="canUpdate" type="primary" size="small" plain @click="edit(scope.row.id)">
                 <el-icon><EditPen /></el-icon>
                 编辑
               </el-button>
-              <el-button type="danger" size="small" plain @click="deleteById(scope.row.id)">
+              <el-button v-if="canDelete" type="danger" size="small" plain @click="deleteById(scope.row.id)">
                 <el-icon><Delete /></el-icon>
                 删除
               </el-button>
@@ -419,7 +425,7 @@ const getGenderLabel = (value) => value === 1 ? '男' : '女'
         title="暂无员工数据"
         description='点击"新增员工"按钮添加第一位员工'
       >
-        <template #action>
+        <template v-if="canCreate" #action>
           <el-button type="primary" @click="addEmp">
             <el-icon><Plus /></el-icon>
             新增员工

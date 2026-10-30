@@ -1,55 +1,82 @@
 <script setup>
+/**
+ * 工作台页头：标题 + 一句说明 + 右侧操作区（#actions）。可选 #meta 放标题下的统计信息。
+ */
 defineProps({
   title: { type: String, required: true },
-  description: { type: String, default: '' }
+  description: { type: String, default: '' },
 })
 </script>
 
 <template>
-  <div class="page-header animate-fade-in-up">
-    <div class="page-header-left">
-      <h1 class="page-title">{{ title }}</h1>
-      <p v-if="description" class="page-desc">{{ description }}</p>
+  <header class="page-header">
+    <div class="page-header__text">
+      <h1 class="page-header__title">{{ title }}</h1>
+      <p
+        v-if="description"
+        class="page-header__desc"
+      >{{ description }}</p>
+      <div
+        v-if="$slots.meta"
+        class="page-header__meta"
+      >
+        <slot name="meta" />
+      </div>
     </div>
-    <div class="page-header-right">
+    <div
+      v-if="$slots.actions"
+      class="page-header__actions"
+    >
       <slot name="actions" />
     </div>
-  </div>
+  </header>
 </template>
 
 <style scoped>
 .page-header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 24px;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
 }
 
-.page-header-left {
-  flex: 1;
+.page-header__text {
+  min-width: 0;
 }
 
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
-  line-height: 1.3;
-  /* View Transitions 共享元素：换页时新旧页标题平滑形变。
-     每页至多一个 PageHeader，名称全页面唯一 */
-  view-transition-name: page-title;
+.page-header__title {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--sw-ink);
 }
 
-.page-desc {
-  font-size: 14px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
+.page-header__desc {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--sw-ink-3);
 }
 
-.page-header-right {
+.page-header__meta {
+  margin-top: 10px;
+}
+
+.page-header__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    align-items: flex-start;
+  }
+
+  .page-header__title {
+    font-size: 20px;
+  }
 }
 </style>

@@ -1,15 +1,29 @@
 import { ref, computed } from 'vue'
 
 /**
- * useTheme —「奶油玻璃（浅）/ 霓虹甜品（暗）」双外观。
- * 说明：原先的 5 套配色预设（草莓/抹茶/黑巧/蓝莓/樱花）并无 CSS 落地，
- * 全部回退到同一套令牌，属失效装饰，已随品牌统一移除。
- * 现在只保留真实可用的「浅色 / 深色」两种外观。
+ * useTheme — 浅色（品牌标准）/ 可可夜（深色）两种外观
+ *
+ * 深色外观只用于门店工作台：顾客商城、登录页、404 始终保持品牌浅色。
+ * 工作台布局挂载时调用 enableTheme()、卸载时调用 disableTheme()；
+ * 首次加载时如果直接打开的就是工作台页面，initTheme() 会提前应用，避免闪烁。
  */
 
 const MODE_KEY = 'dessertshop-color-mode'
 
 const mode = ref('light')
+let active = false
+
+const isBrandSurface = (path) => path === '/login' || path === '/m' || path.startsWith('/m/') || path.endsWith('.html')
+
+const write = (dark, animate = true) => {
+  const html = document.documentElement
+  if (animate) html.classList.add('theme-transitioning')
+  if (dark) html.setAttribute('data-theme', 'dark')
+  else html.removeAttribute('data-theme')
+  if (animate) setTimeout(() => html.classList.remove('theme-transitioning'), 350)
+}
+
+const applyTheme = (animate = true) => write(active && mode.value === 'dark', animate)
 
 // 初始化：读取本地存储，否则跟随系统
 const initTheme = () => {
@@ -19,19 +33,20 @@ const initTheme = () => {
   } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
     mode.value = 'dark'
   }
-  applyTheme()
+  active = !isBrandSurface(window.location.pathname)
+  applyTheme(false)
 }
 
-// 应用外观
-const applyTheme = () => {
-  const html = document.documentElement
-  html.classList.add('theme-transitioning')
-  if (mode.value === 'dark') {
-    html.setAttribute('data-theme', 'dark')
-  } else {
-    html.removeAttribute('data-theme')
-  }
-  setTimeout(() => html.classList.remove('theme-transitioning'), 450)
+/** 进入工作台：应用用户选择的外观 */
+const enableTheme = () => {
+  active = true
+  applyTheme(false)
+}
+
+/** 离开工作台：恢复品牌浅色 */
+const disableTheme = () => {
+  active = false
+  applyTheme(false)
 }
 
 // 切换浅/深
@@ -41,7 +56,6 @@ const toggleMode = () => {
   applyTheme()
 }
 
-// 兼容旧接口
 const theme = computed(() => mode.value)
 const toggleTheme = toggleMode
 
@@ -60,7 +74,9 @@ export function useTheme() {
     theme,
     mode,
     initTheme,
-    toggleTheme, // 兼容旧接口
+    enableTheme,
+    disableTheme,
+    toggleTheme,
     toggleMode,
     applyTheme,
   }

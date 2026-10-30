@@ -1,125 +1,23 @@
-<template>
-  <div class="checkout-page">
-    <!-- Back Nav -->
-    <div class="page-nav">
-      <button class="back-btn" @click="goBack">
-        <span class="back-arrow">←</span> 返回
-      </button>
-      <h2 class="page-title">确认订单</h2>
-    </div>
-
-    <div v-if="syncNotice" class="sync-notice" role="status">{{ syncNotice }}</div>
-
-    <div v-if="cartStore.isEmpty" class="glass-card empty-card">
-      <p class="empty-title">购物车是空的</p>
-      <button class="empty-btn" @click="router.replace('/m/')">去挑选甜品</button>
-    </div>
-
-    <!-- Order Items Card -->
-    <div v-else class="glass-card">
-      <div class="card-title">🛒 购物明细</div>
-      <div class="order-items">
-        <div v-for="item in cartStore.items" :key="item.id" class="order-item">
-          <ProductImg class="oi-thumb" :item="item" :width="44" :alt="item.name" />
-          <div class="oi-info">
-            <p class="oi-name">{{ item.name }}</p>
-            <p class="oi-detail">¥{{ item.price.toFixed(2) }} × {{ item.qty }}</p>
-          </div>
-          <div class="oi-subtotal">¥{{ (item.price * item.qty).toFixed(2) }}</div>
-        </div>
-      </div>
-      <div class="order-divider"></div>
-      <div class="order-summary">
-        <span>共 {{ cartStore.totalQty }} 件商品</span>
-        <span class="summary-total">合计 <strong>¥{{ cartStore.totalAmount.toFixed(2) }}</strong></span>
-      </div>
-    </div>
-
-    <!-- Contact Form Card -->
-    <div class="glass-card">
-      <div class="card-title">📋 收货信息</div>
-      <div class="form">
-        <div class="form-field" :class="{ error: errors.customerName }">
-          <label class="form-label">姓名</label>
-          <input
-            v-model="form.customerName"
-            class="form-input"
-            type="text"
-            placeholder="请输入您的姓名"
-            @input="clearError('customerName')"
-          />
-          <p v-if="errors.customerName" class="form-error">{{ errors.customerName }}</p>
-        </div>
-        <div class="form-field" :class="{ error: errors.phone }">
-          <label class="form-label">手机号</label>
-          <input
-            v-model="form.phone"
-            class="form-input"
-            type="tel" maxlength="11"
-            placeholder="请输入手机号"
-            @input="clearError('phone')"
-          />
-          <p v-if="errors.phone" class="form-error">{{ errors.phone }}</p>
-        </div>
-        <div class="form-field" :class="{ error: errors.address }">
-          <label class="form-label">配送地址</label>
-          <input
-            v-model="form.address"
-            class="form-input"
-            type="text"
-            placeholder="街道、门牌号"
-            @input="clearError('address')"
-          />
-          <p v-if="errors.address" class="form-error">{{ errors.address }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Price Summary -->
-    <div class="glass-card price-card">
-      <div class="price-row">
-        <span>商品金额</span>
-        <span>¥{{ cartStore.totalAmount.toFixed(2) }}</span>
-      </div>
-      <div class="price-row">
-        <span>配送费</span>
-        <span class="price-free">免费</span>
-      </div>
-      <div class="price-row price-row--total">
-        <span>实付款</span>
-        <span class="price-final">¥{{ cartStore.totalAmount.toFixed(2) }}</span>
-      </div>
-    </div>
-
-    <p v-if="submitError" class="submit-error" role="alert">{{ submitError }}</p>
-
-    <!-- Submit -->
-    <div class="submit-area">
-      <button
-        class="submit-btn"
-        :class="{ loading: submitting }"
-        :disabled="submitting || syncing || cartStore.isEmpty"
-        @click="submitOrder"
-      >
-        <span v-if="submitting" class="loading-dots">
-          <span></span><span></span><span></span>
-        </span>
-        <span v-else>立即下单 · ¥{{ cartStore.totalAmount.toFixed(2) }}</span>
-      </button>
-    </div>
-  </div>
-</template>
-
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+/**
+ * 确认订单：收货信息 + 订单明细 + 金额
+ * 进入时按最新在售商品校正购物车；提交 POST /mobile/orders，后端按库内价格重算金额并原子扣库存。
+ * 本店尚未接入在线支付：提交后订单进入门店「待接单」，页面如实说明。
+ */
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/modules/cart'
-import { createMobileOrder, getMobileProducts } from '@/api/modules/mobile'
+import { useCatalog } from '@/composables/useCatalog'
+import { createMobileOrder } from '@/api/modules/mobile'
 import { saveMyOrder } from '@/stores/modules/myOrders'
+import { STORE_COPY } from '@/config/brand'
+import { formatPrice } from '@/utils/format'
 import ProductImg from '@/components/ProductImg.vue'
+import SwIcon from '@/components/brand/SwIcon.vue'
 
 const router = useRouter()
-const cartStore = useCartStore()
+const cart = useCartStore()
+const catalog = useCatalog()
 
 const submitting = ref(false)
 const syncing = ref(false)
@@ -128,25 +26,22 @@ const submitError = ref('')
 
 function goBack() {
   if (window.history.state?.back) router.back()
-  else router.replace('/m/')
+  else router.replace('/m')
 }
 
 // 购物车存在本机，价格/库存可能已变化：进入结算页时按最新在售商品校正一次
 async function syncCart() {
-  if (cartStore.isEmpty) return
+  if (cart.isEmpty) return
   syncing.value = true
   try {
-    const r = await getMobileProducts('all')
-    if (r?.code === 1 && Array.isArray(r.data)) {
-      const { removed, adjusted, repriced } = cartStore.syncWithProducts(r.data)
-      const notes = []
-      if (removed.length) notes.push(`${removed.join('、')} 已下架或售罄，已移出购物车`)
-      if (adjusted.length) notes.push(`${adjusted.join('、')} 库存不足，数量已调整`)
-      if (repriced.length) notes.push(`${repriced.join('、')} 价格有更新`)
-      syncNotice.value = notes.join('；')
-    }
-  } catch {
-    // 同步失败不阻断结算，下单时后端仍会核价与校验库存
+    await catalog.load(true)
+    if (catalog.error.value) return // 同步失败不阻断结算，下单时后端仍会核价与校验库存
+    const { removed, adjusted, repriced } = cart.syncWithProducts(catalog.products.value)
+    const notes = []
+    if (removed.length) notes.push(`${removed.join('、')} 已下架或售罄，已移出购物车`)
+    if (adjusted.length) notes.push(`${adjusted.join('、')} 库存不足，数量已调整`)
+    if (repriced.length) notes.push(`${repriced.join('、')} 价格有更新，请确认后再提交`)
+    syncNotice.value = notes.join('；')
   } finally {
     syncing.value = false
   }
@@ -166,25 +61,35 @@ const form = reactive({
   address: lastContact.address || '',
 })
 const errors = reactive({ customerName: '', phone: '', address: '' })
+const fieldRefs = { customerName: ref(null), phone: ref(null), address: ref(null) }
+const nameInput = fieldRefs.customerName
+const phoneInput = fieldRefs.phone
+const addressInput = fieldRefs.address
 
-function clearError(field) { errors[field] = '' }
-
-function validate() {
-  let valid = true
-  if (!form.customerName.trim()) { errors.customerName = '请输入姓名'; valid = false }
-  else if (form.customerName.trim().length > 50) { errors.customerName = '姓名不超过 50 个字符'; valid = false }
-
-  if (!form.phone) { errors.phone = '请输入手机号'; valid = false }
-  else if (!/^1[3-9]\d{9}$/.test(form.phone)) { errors.phone = '请输入正确的 11 位手机号'; valid = false }
-
-  if (!form.address.trim()) { errors.address = '请输入配送地址'; valid = false }
-  else if (form.address.trim().length > 200) { errors.address = '地址不超过 200 个字符'; valid = false }
-
-  return valid
+function clearError(field) {
+  errors[field] = ''
+  submitError.value = ''
 }
 
+function validate() {
+  errors.customerName = !form.customerName.trim()
+    ? '请填写收货人姓名'
+    : form.customerName.trim().length > 50 ? '姓名不超过 50 个字符' : ''
+  errors.phone = !form.phone
+    ? '请填写手机号'
+    : !/^1[3-9]\d{9}$/.test(form.phone) ? '请输入正确的 11 位手机号' : ''
+  errors.address = !form.address.trim()
+    ? '请填写配送地址'
+    : form.address.trim().length > 200 ? '地址不超过 200 个字符' : ''
+  const firstInvalid = ['customerName', 'phone', 'address'].find((f) => errors[f])
+  if (firstInvalid) fieldRefs[firstInvalid].value?.focus()
+  return !firstInvalid
+}
+
+const canSubmit = computed(() => !submitting.value && !syncing.value && !cart.isEmpty)
+
 async function submitOrder() {
-  if (submitting.value || !validate() || cartStore.isEmpty) return
+  if (!canSubmit.value || !validate()) return
   submitting.value = true
   submitError.value = ''
   try {
@@ -192,10 +97,8 @@ async function submitOrder() {
       customerName: form.customerName.trim(),
       phone: form.phone,
       address: form.address.trim(),
-      totalAmount: cartStore.totalAmount,
-      items: cartStore.items.map(i => ({
-        productId: i.id, productName: i.name, price: i.price, qty: i.qty,
-      })),
+      totalAmount: cart.totalAmount,
+      items: cart.items.map((i) => ({ productId: i.id, productName: i.name, price: i.price, qty: i.qty })),
     }
     const res = await createMobileOrder(payload)
     if (res?.code === 1) {
@@ -213,13 +116,14 @@ async function submitOrder() {
           customerName: payload.customerName, phone: payload.phone, address: payload.address,
         }))
       } catch { /* ignore */ }
-      cartStore.clear()
+      cart.clear()
+      catalog.load(true) // 库存已变化，刷新目录
       router.replace({ name: 'mobileSuccess', query: { orderNo, amount: String(amount) } })
     } else {
       submitError.value = res?.msg || '下单失败，请稍后重试'
     }
   } catch (e) {
-    // 后端给出的原因（库存不足 / 已下架 / 价格已更新）已由拦截器提示；同步一次购物车让顾客直接看到最新情况
+    // 后端原因（库存不足 / 已下架 / 价格已更新）已由拦截器提示；同步一次购物车让顾客看到最新情况
     submitError.value = e?.displayMessage || '下单失败，请稍后重试'
     if (e?.response?.status === 400) await syncCart()
   } finally {
@@ -228,134 +132,615 @@ async function submitOrder() {
 }
 </script>
 
+<template>
+  <div class="co store-page">
+    <header class="co__head">
+      <button
+        type="button"
+        class="co__back"
+        aria-label="返回"
+        @click="goBack"
+      >
+        <SwIcon
+          name="chevron-left"
+          :size="20"
+        />
+      </button>
+      <h1 class="co__title sw-display">{{ STORE_COPY.titles.checkout }}</h1>
+    </header>
+
+    <div
+      v-if="syncNotice"
+      class="co__notice"
+      role="status"
+    >
+      <SwIcon
+        name="info"
+        :size="16"
+      />
+      <span>{{ syncNotice }}</span>
+    </div>
+
+    <div
+      v-if="cart.isEmpty"
+      class="co__empty"
+    >
+      <p class="co__empty-title">购物车是空的</p>
+      <p class="co__empty-desc">先去挑选几款喜欢的甜品吧。</p>
+      <router-link
+        :to="{ path: '/m', hash: '#menu' }"
+        class="btn btn--primary btn--sm"
+      >浏览今日甜品</router-link>
+    </div>
+
+    <div
+      v-else
+      class="co__grid"
+    >
+      <!-- 收货信息 -->
+      <section
+        class="card co__form"
+        aria-labelledby="co-contact"
+      >
+        <h2
+          id="co-contact"
+          class="card__title"
+        >收货信息</h2>
+        <form
+          novalidate
+          @submit.prevent="submitOrder"
+        >
+          <div
+            class="field"
+            :class="{ 'has-error': errors.customerName }"
+          >
+            <label
+              for="co-name"
+              class="field__label"
+            >收货人</label>
+            <input
+              id="co-name"
+              ref="nameInput"
+              v-model="form.customerName"
+              class="field__input"
+              type="text"
+              autocomplete="name"
+              maxlength="50"
+              placeholder="怎么称呼您"
+              :aria-invalid="!!errors.customerName"
+              aria-describedby="co-name-err"
+              @input="clearError('customerName')"
+            >
+            <p
+              v-if="errors.customerName"
+              id="co-name-err"
+              class="field__error"
+            >{{ errors.customerName }}</p>
+          </div>
+          <div
+            class="field"
+            :class="{ 'has-error': errors.phone }"
+          >
+            <label
+              for="co-phone"
+              class="field__label"
+            >手机号</label>
+            <input
+              id="co-phone"
+              ref="phoneInput"
+              v-model="form.phone"
+              class="field__input sw-num"
+              type="tel"
+              inputmode="numeric"
+              autocomplete="tel"
+              maxlength="11"
+              placeholder="用于门店联系与查询订单"
+              :aria-invalid="!!errors.phone"
+              aria-describedby="co-phone-err"
+              @input="clearError('phone')"
+            >
+            <p
+              v-if="errors.phone"
+              id="co-phone-err"
+              class="field__error"
+            >{{ errors.phone }}</p>
+          </div>
+          <div
+            class="field"
+            :class="{ 'has-error': errors.address }"
+          >
+            <label
+              for="co-address"
+              class="field__label"
+            >配送地址</label>
+            <textarea
+              id="co-address"
+              ref="addressInput"
+              v-model="form.address"
+              class="field__input field__input--area"
+              rows="2"
+              autocomplete="street-address"
+              maxlength="200"
+              placeholder="小区 / 楼栋 / 门牌号"
+              :aria-invalid="!!errors.address"
+              aria-describedby="co-address-err"
+              @input="clearError('address')"
+            ></textarea>
+            <p
+              v-if="errors.address"
+              id="co-address-err"
+              class="field__error"
+            >{{ errors.address }}</p>
+          </div>
+          <p class="co__privacy">联系信息只保存在本机，方便下次自动填写。</p>
+        </form>
+
+        <div class="co__pay">
+          <SwIcon
+            name="card"
+            :size="20"
+          />
+          <div>
+            <p class="co__pay-title">支付方式</p>
+            <p class="co__pay-desc">{{ STORE_COPY.paymentNote }}</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 订单明细 -->
+      <aside
+        class="card co__summary"
+        aria-labelledby="co-items"
+      >
+        <h2
+          id="co-items"
+          class="card__title"
+        >
+          订单明细
+          <span class="card__count">{{ cart.totalQty }} 件</span>
+        </h2>
+        <ul class="co__items">
+          <li
+            v-for="item in cart.items"
+            :key="item.id"
+            class="co__item"
+          >
+            <span class="co__thumb"><ProductImg
+              :item="item"
+              :width="56"
+              ratio="1/1"
+              :alt="item.name"
+            /></span>
+            <span class="co__item-info">
+              <span class="co__item-name">{{ item.name }}</span>
+              <span class="co__item-unit sw-num">{{ formatPrice(item.price) }} × {{ item.qty }}</span>
+            </span>
+            <span class="co__item-total sw-num">{{ formatPrice(item.price * item.qty) }}</span>
+          </li>
+        </ul>
+        <dl class="co__sum">
+          <div><dt>商品金额</dt><dd class="sw-num">{{ formatPrice(cart.totalAmount) }}</dd></div>
+          <div><dt>配送费</dt><dd class="is-free">免费</dd></div>
+          <div class="is-total"><dt>应付合计</dt><dd class="sw-num">{{ formatPrice(cart.totalAmount) }}</dd></div>
+        </dl>
+        <p class="co__verify">金额以门店核算为准：提交时会按最新价格与库存再次核对。</p>
+
+        <p
+          v-if="submitError"
+          class="co__error"
+          role="alert"
+        >
+          <SwIcon
+            name="alert"
+            :size="16"
+          />
+          <span>{{ submitError }}</span>
+        </p>
+
+        <button
+          type="button"
+          class="btn btn--primary btn--block co__submit"
+          :disabled="!canSubmit"
+          @click="submitOrder"
+        >
+          <template v-if="submitting">正在提交…</template>
+          <template v-else-if="syncing">正在核对价格与库存…</template>
+          <template v-else>提交订单 · <span class="sw-num">{{ formatPrice(cart.totalAmount) }}</span></template>
+        </button>
+      </aside>
+    </div>
+
+    <!-- 手机：底部提交栏 -->
+    <div
+      v-if="!cart.isEmpty"
+      class="submitbar"
+    >
+      <div class="submitbar__sum">
+        <span class="submitbar__label">应付</span>
+        <span class="submitbar__total sw-num">{{ formatPrice(cart.totalAmount) }}</span>
+      </div>
+      <button
+        type="button"
+        class="btn btn--primary submitbar__btn"
+        :disabled="!canSubmit"
+        @click="submitOrder"
+      >
+        {{ submitting ? '正在提交…' : syncing ? '核对中…' : '提交订单' }}
+      </button>
+    </div>
+  </div>
+</template>
+
 <style scoped>
-.checkout-page { padding: 0 0 120px; }
-
-.sync-notice {
-  margin: 0 18px 14px; padding: 12px 16px; border-radius: 16px;
-  background: rgba(240,163,92,0.12); color: #9a5a17; font-size: 13px; line-height: 1.5;
-}
-.empty-card { text-align: center; padding: 32px 20px; }
-.empty-title { margin: 0 0 16px; font-size: 15px; color: #6e6e73; }
-.empty-btn {
-  border: none; border-radius: 999px; padding: 10px 22px;
-  background: #d9574a; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
-}
-.oi-thumb {
-  width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; object-fit: cover;
-  background: #f0f0f2;
-}
-.submit-error {
-  margin: 0 18px 12px; padding: 10px 14px; border-radius: 14px;
-  background: rgba(217,87,74,0.08); color: #b93f33; font-size: 13px; line-height: 1.5;
+.store-page {
+  animation: fadeIn var(--sw-dur-3) var(--sw-ease) both;
 }
 
-/* ── Nav ── */
-.page-nav {
-  display: flex; align-items: center; padding: 18px 18px 14px; gap: 12px;
+.co {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 16px var(--store-pad, 20px) 0;
 }
-.back-btn {
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 0.5px solid rgba(255,255,255,0.5);
-  border-radius: 999px; padding: 7px 18px;
-  font-size: 13px; font-weight: 600; color: #86868b; cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
-}
-.back-btn:active { transform: scale(0.95); }
-.back-arrow { font-size: 15px; }
-.page-title { font-size: 16px; font-weight: 640; color: #1d1d1f; margin: 0; letter-spacing: -0.2px; }
 
-/* ── Glass Card ── */
-.glass-card {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  margin: 0 18px 14px; border-radius: 22px; padding: 20px;
-  border: 0.5px solid rgba(255,255,255,0.5);
-  box-shadow: 0 4px 18px rgba(0,0,0,0.03), inset 0 0.5px 0 rgba(255,255,255,0.6);
+.co__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
 }
-.card-title { font-size: 14px; font-weight: 640; color: #1d1d1f; margin-bottom: 16px; letter-spacing: -0.15px; }
 
-/* ── Order Items ── */
-.order-items { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
-.order-item { display: flex; align-items: center; gap: 12px; }
-.oi-icon { font-size: 30px; flex-shrink: 0; }
-.oi-info { flex: 1; }
-.oi-name { font-size: 13px; font-weight: 580; color: #1d1d1f; margin: 0 0 3px; }
-.oi-detail { font-size: 12px; color: #aeaeb2; margin: 0; font-weight: 500; }
-.oi-subtotal { font-size: 14px; font-weight: 650; color: #1d1d1f; }
-.order-divider { border-top: 0.5px dashed rgba(0,0,0,0.06); margin-bottom: 12px; }
-.order-summary { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #86868b; }
-.summary-total strong { color: #1d1d1f; font-size: 17px; font-weight: 650; }
+.co__back {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-left: -10px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sw-ink);
+  cursor: pointer;
+}
 
-/* ── Form ── */
-.form { display: flex; flex-direction: column; gap: 14px; }
-.form-field { display: flex; flex-direction: column; gap: 5px; }
-.form-label { font-size: 11px; font-weight: 600; color: #86868b; letter-spacing: 0.03em; padding-left: 2px; }
-.form-input {
-  padding: 13px 16px; border: 1px solid rgba(0,0,0,0.06); border-radius: 14px;
-  font-size: 14px; font-family: inherit; color: #1d1d1f;
-  background: rgba(245,245,247,0.6); outline: none;
-  transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+.co__back:hover {
+  background: var(--sw-fill-soft);
 }
-.form-input:focus {
-  border-color: rgba(0,0,0,0.15); background: #fff;
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.02);
-}
-.form-input::placeholder { color: #c0b0b8; }
-.form-field.error .form-input { border-color: rgba(248,113,113,0.5); background: rgba(254,242,242,0.6); }
-.form-error { font-size: 11px; color: #f87171; margin: 0; font-weight: 500; }
 
-/* ── Price ── */
-.price-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #86868b; padding: 8px 0; }
-.price-free { color: #34c759; font-weight: 650; }
-.price-row--total { border-top: 0.5px dashed rgba(0,0,0,0.06); margin-top: 6px; padding-top: 14px; font-weight: 600; color: #1d1d1f; }
-.price-final { font-size: 22px; font-weight: 650; color: #1d1d1f; letter-spacing: -0.3px; }
+.co__title {
+  font-size: clamp(26px, 3vw, 32px);
+  color: var(--sw-ink);
+}
 
-/* ── Submit ── */
-.submit-area {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 430px;
-  padding: 16px 18px calc(16px + env(safe-area-inset-bottom, 0px));
-  background: rgba(245,245,247,0.60);
-  backdrop-filter: blur(28px) saturate(200%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%);
-  border-top: 0.5px solid rgba(0,0,0,0.05);
-  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.5);
-  z-index: 10;
+.co__notice {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-warning-bg);
+  color: var(--sw-warning);
+  font-size: 13px;
+  line-height: 1.6;
 }
-.submit-btn {
-  width: 100%; padding: 15px; border: none; border-radius: 16px;
-  background: #1d1d1f; color: #fff;
-  font-size: 16px; font-weight: 590; cursor: pointer;
-  letter-spacing: -0.15px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-  transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
-  display: flex; align-items: center; justify-content: center;
-  min-height: 52px; position: relative; overflow: hidden;
+
+.co__notice .sw-icon {
+  margin-top: 3px;
+  flex-shrink: 0;
 }
-.submit-btn::after {
-  content: ''; position: absolute; top: 0; left: -150%; width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
-  transform: skewX(-20deg);
-  animation: btn-shimmer 6s infinite ease-in-out;
+
+.co__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
 }
-@keyframes btn-shimmer {
-  0% { left: -150%; } 30% { left: 150%; } 100% { left: 150%; }
+
+.card {
+  padding: 24px;
+  border: 1px solid var(--sw-border-soft);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-surface);
 }
-.submit-btn:active:not(:disabled) { transform: scale(0.97); }
-.submit-btn:disabled { background: #d1d1d6; box-shadow: none; cursor: not-allowed; }
-.loading-dots { display: flex; gap: 6px; align-items: center; }
-.loading-dots span {
-  width: 7px; height: 7px; background: rgba(255,255,255,0.8); border-radius: 50%;
-  animation: bounce 1.2s infinite;
+
+.card__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  font-size: 17px;
+  font-weight: 600;
 }
-.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes bounce {
-  0%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-6px); }
+
+.card__count {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--sw-ink-3);
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sw-ink-2);
+}
+
+.field__input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--sw-border);
+  border-radius: 12px;
+  background: var(--sw-surface);
+  color: var(--sw-ink);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color var(--sw-dur-1) var(--sw-ease), box-shadow var(--sw-dur-1) var(--sw-ease);
+}
+
+.field__input--area {
+  resize: vertical;
+  min-height: 76px;
+}
+
+.field__input::placeholder {
+  color: var(--sw-ink-4);
+}
+
+.field__input:hover {
+  border-color: var(--el-border-color-hover);
+}
+
+.field__input:focus {
+  border-color: var(--sw-ink-2);
+  box-shadow: 0 0 0 3px rgba(var(--ink-rgb), 0.08);
+}
+
+.field.has-error .field__input {
+  border-color: var(--sw-danger);
+  box-shadow: 0 0 0 3px var(--sw-danger-bg);
+}
+
+.field__error {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--sw-danger);
+}
+
+.co__privacy {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.co__pay {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-fill-soft);
+  color: var(--sw-ink-2);
+}
+
+.co__pay .sw-icon {
+  margin-top: 2px;
+}
+
+.co__pay-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sw-ink);
+}
+
+.co__pay-desc {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sw-ink-3);
+}
+
+.co__summary {
+  position: sticky;
+  top: 96px;
+}
+
+.co__items {
+  list-style: none;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.co__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.co__item + .co__item {
+  border-top: 1px solid var(--sw-border-soft);
+}
+
+.co__thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--sw-r-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.co__item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.co__item-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.co__item-unit {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.co__item-total {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.co__sum {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sw-border);
+}
+
+.co__sum div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 14px;
+  color: var(--sw-ink-2);
+}
+
+.co__sum .is-free {
+  color: var(--sw-success);
+  font-weight: 600;
+}
+
+.co__sum .is-total {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--sw-border);
+  color: var(--sw-ink);
+  font-weight: 600;
+}
+
+.co__sum .is-total dd {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.co__verify {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.co__error {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-danger-bg);
+  color: var(--sw-danger);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.co__error .sw-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.co__submit {
+  margin-top: 18px;
+}
+
+.co__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 80px 16px;
+  text-align: center;
+}
+
+.co__empty-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.co__empty-desc {
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--sw-ink-3);
+}
+
+.submitbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .co {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .co__head {
+    margin-bottom: 16px;
+  }
+
+  .co__grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .co__summary {
+    position: static;
+    order: -1;
+  }
+
+  .card {
+    padding: 18px 16px;
+  }
+
+  .co__submit {
+    display: none;
+  }
+
+  .submitbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: var(--sw-surface);
+    border-top: 1px solid var(--sw-border);
+  }
+
+  .submitbar__sum {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .submitbar__label {
+    font-size: 12px;
+    color: var(--sw-ink-3);
+  }
+
+  .submitbar__total {
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .submitbar__btn {
+    flex: 1;
+  }
 }
 </style>

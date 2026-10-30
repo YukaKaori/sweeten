@@ -51,8 +51,11 @@ http.interceptors.response.use(
         window.location.href = '/login'
       }
     } else {
-      // 网络不可达时的 mock 降级仅限开发环境：生产环境若静默返回假数据，员工会把演示订单当成真实订单处理
-      const mockData = config.isDev ? resolveMockData(error.config?.url || '') : null
+      // 网络不可达时的 mock 降级：仅开发环境、且需显式开启 VITE_DEV_MOCK=true，并且只用于 GET 查询。
+      // 写操作（下单、改状态、删除…）永远不会被伪造成功；默认关闭，后端没起时页面如实显示错误状态。
+      const isGet = (error.config?.method || 'get').toLowerCase() === 'get'
+      const mockEnabled = config.isDev && import.meta.env.VITE_DEV_MOCK === 'true'
+      const mockData = mockEnabled && isGet ? resolveMockData(error.config?.url || '') : null
       if (mockData) {
         console.info(`[Mock] ${error.config?.url} → 使用本地 mock 数据`)
         return mockData

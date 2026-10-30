@@ -3,9 +3,15 @@ import { onMounted, ref } from 'vue'
 import { EditPen, Delete, Plus } from '@element-plus/icons-vue'
 import { queryAllApi, addApi, queryByIdApi, updateApi, deleteByIdApi } from '@/api/modules/dept'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { usePermission } from '@/composables/usePermission'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
+
+const { can } = usePermission()
+const canCreate = can('dept:dept:create')
+const canUpdate = can('dept:dept:update')
+const canDelete = can('dept:dept:delete')
 
 const deptList = ref([])
 const dialogFormVisible = ref(false)
@@ -110,8 +116,8 @@ const deleteById = async (id) => {
 <template>
   <div class="page-container">
     <!-- Page Header -->
-    <PageHeader title="部门管理" description="管理公司组织架构中的部门信息">
-      <template #actions>
+    <PageHeader title="部门管理" description="门店的组织架构与部门信息">
+      <template v-if="canCreate" #actions>
         <el-button type="primary" @click="addDept">
           <el-icon><Plus /></el-icon>
           新增部门
@@ -138,14 +144,14 @@ const deleteById = async (id) => {
             <span class="time-text">{{ scope.row.updateTime }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" align="center">
+        <el-table-column v-if="canUpdate || canDelete" label="操作" width="220" align="center">
           <template #default="scope">
             <div class="action-buttons">
-              <el-button type="primary" size="small" plain @click="edit(scope.row.id)">
+              <el-button v-if="canUpdate" type="primary" size="small" plain @click="edit(scope.row.id)">
                 <el-icon><EditPen /></el-icon>
                 编辑
               </el-button>
-              <el-button type="danger" size="small" plain @click="deleteById(scope.row.id)">
+              <el-button v-if="canDelete" type="danger" size="small" plain @click="deleteById(scope.row.id)">
                 <el-icon><Delete /></el-icon>
                 删除
               </el-button>
@@ -160,7 +166,7 @@ const deleteById = async (id) => {
         title="暂无部门数据"
         description='点击"新增部门"按钮创建第一个部门'
       >
-        <template #action>
+        <template v-if="canCreate" #action>
           <el-button type="primary" @click="addDept">
             <el-icon><Plus /></el-icon>
             新增部门

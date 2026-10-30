@@ -5,12 +5,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ChatDotRound, EditPen, Plus, Search } from '@element-plus/icons-vue'
 import { DESSERT_CATEGORIES, CATEGORY_COLORS } from '@/utils/constants'
 import { queryByCategoryApi, queryCategoryCountApi, updatePriceApi, updateStatusApi } from '@/api/modules/dessert'
+import { usePermission } from '@/composables/usePermission'
+import { formatPrice } from '@/utils/format'
 import ProductImg from '@/components/ProductImg.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 
 const router = useRouter()
+const { can } = usePermission()
+const canUpdate = can('dessert:dessert:update')
+const canCreate = can('dessert:dessert:create')
 
 // 当前分类
 const activeCategory = ref('cake')
@@ -153,9 +158,9 @@ const categoryColors = CATEGORY_COLORS
 
 <template>
   <div class="page-container">
-    <PageHeader title="价格管理" description="管理甜品价格和上下架状态">
-      <template #actions>
-        <el-button type="primary" @click="router.push('/dessert')">
+    <PageHeader title="价格管理" description="按分类调整售价与划线价，管理上下架">
+      <template v-if="canCreate" #actions>
+        <el-button type="primary" @click="router.push({ path: '/dessert', query: { action: 'create' } })">
           <el-icon><Plus /></el-icon>
           新增甜品
         </el-button>
@@ -167,7 +172,7 @@ const categoryColors = CATEGORY_COLORS
       <div
         v-for="cat in DESSERT_CATEGORIES"
         :key="cat.value"
-        class="category-tab glass-panel--hover"
+        class="category-tab"
         :class="{ active: activeCategory === cat.value }"
         :style="{ '--cat-color': categoryColors[cat.value] }"
         @click="switchCategory(cat.value)"
@@ -198,11 +203,11 @@ const categoryColors = CATEGORY_COLORS
       <div
         v-for="item in filteredList"
         :key="item.id"
-        class="dessert-card glass-panel--hover"
+        class="dessert-card"
         :class="{ disabled: item.status === 0 }"
       >
         <div class="card-image">
-          <ProductImg :item="item" :width="300" :alt="item.name" class="dessert-image" />
+          <ProductImg :item="item" sizes="(min-width: 1400px) 320px, (min-width: 768px) 30vw, 90vw" :alt="item.name" class="dessert-image" />
           <div class="card-badge" v-if="item.price < item.originalPrice">
             {{ Math.round((1 - item.price / item.originalPrice) * 100) }}% OFF
           </div>
@@ -218,18 +223,17 @@ const categoryColors = CATEGORY_COLORS
             <span class="sales" :class="{ 'stock-low': (item.stock ?? 0) < 10 }">库存 {{ item.stock ?? 0 }}</span>
           </div>
           <div class="price-row">
-            <span class="current-price">¥{{ item.price?.toFixed(2) }}</span>
-            <span v-if="item.price < item.originalPrice" class="original-price">¥{{ item.originalPrice?.toFixed(2) }}</span>
+            <span class="current-price sw-num">{{ formatPrice(item.price) }}</span>
+            <span v-if="item.price < item.originalPrice" class="original-price sw-num">{{ formatPrice(item.originalPrice) }}</span>
           </div>
           <div class="card-actions">
-            <el-button type="primary" size="small" plain @click="openEdit(item)">
+            <el-button v-if="canUpdate" type="primary" size="small" @click="openEdit(item)">
               <el-icon><EditPen /></el-icon>
               调价
             </el-button>
             <el-button
-              :type="item.status === 1 ? 'warning' : 'success'"
+              v-if="canUpdate"
               size="small"
-              plain
               :loading="item._toggling"
               @click="toggleStatus(item)"
             >
@@ -251,7 +255,7 @@ const categoryColors = CATEGORY_COLORS
     <EmptyState
       v-if="!loading && filteredList.length === 0"
       title="该分类暂无甜品"
-      description="请切换分类或新增甜品"
+      :description="canCreate ? '请切换分类，或去甜品管理上新' : '请切换其他分类看看'"
     />
 
     <!-- 调价对话框 -->
@@ -303,31 +307,31 @@ const categoryColors = CATEGORY_COLORS
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 2px solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
   cursor: pointer;
-  transition: all var(--transition-fast);
-  box-shadow: var(--glass-specular), var(--glass-shadow);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
   position: relative;
-  overflow: hidden;
 }
 
 .category-tab:hover {
-  border-color: var(--cat-color);
-  transform: translateY(-1px);
+  border-color: var(--el-border-color-hover);
 }
 
 .category-tab.active {
-  border-color: var(--cat-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--sw-primary);
+  background: var(--sw-primary);
 }
 
 .category-tab.active .cat-name {
-  color: var(--cat-color);
+  color: var(--sw-on-primary);
   font-weight: 600;
+}
+
+.category-tab.active .cat-count {
+  background: rgba(255, 254, 252, 0.18);
+  color: var(--sw-on-primary);
 }
 
 .cat-name {
@@ -365,21 +369,17 @@ const categoryColors = CATEGORY_COLORS
 }
 
 .dessert-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-radius: var(--radius-lg);
+  background: var(--sw-surface);
+  border-radius: var(--sw-r-lg);
   overflow: hidden;
-  box-shadow: var(--glass-specular), var(--glass-shadow);
-  border: 1px solid var(--glass-border);
-  transition: all var(--transition-spring);
+  border: 1px solid var(--sw-border-soft);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
   position: relative;
 }
 
 .dessert-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--glass-specular), var(--glass-shadow-hover);
-  border-color: rgba(232, 99, 122, 0.2);
+  box-shadow: var(--sw-shadow-md);
+  border-color: var(--sw-border);
 }
 
 .dessert-card.disabled {
@@ -388,7 +388,7 @@ const categoryColors = CATEGORY_COLORS
 
 .card-image {
   position: relative;
-  height: 140px;
+  height: 168px;
   overflow: hidden;
 }
 
@@ -401,7 +401,8 @@ const categoryColors = CATEGORY_COLORS
 }
 
 .stock-low {
-  color: var(--color-primary-dark);
+  color: var(--sw-berry);
+  font-weight: 600;
 }
 
 .dessert-image {
@@ -413,7 +414,7 @@ const categoryColors = CATEGORY_COLORS
 }
 
 .dessert-card:hover .dessert-image {
-  transform: scale(1.08);
+  transform: scale(1.03);
 }
 
 .card-badge {
@@ -441,7 +442,7 @@ const categoryColors = CATEGORY_COLORS
 }
 
 .status-indicator.active {
-  background: rgba(92, 184, 138, 0.9);
+  background: rgba(79, 110, 75, 0.92);
 }
 
 .card-body {
@@ -476,7 +477,7 @@ const categoryColors = CATEGORY_COLORS
 .current-price {
   font-size: 20px;
   font-weight: 700;
-  color: var(--color-primary-dark);
+  color: var(--sw-ink);
 }
 
 .original-price {

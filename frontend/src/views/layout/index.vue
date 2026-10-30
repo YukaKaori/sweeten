@@ -1,192 +1,97 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+/**
+ * 喜甜门店工作台 —— 外框布局（侧栏 + 页头 + 内容区）
+ * 侧栏只显示当前员工有权限的页面（config/navigation.js）；后端仍对每个接口做权限校验。
+ */
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/modules/user'
 import { useTheme } from '@/composables/useTheme'
 import { useMotionPref } from '@/composables/useMotionPref'
 import { supportsViewTransitions } from '@/router/guards'
-import { useGlassSpotlight } from '@/composables/useLiquidGlass'
+import { visibleNavGroups } from '@/config/navigation'
+import { BRAND } from '@/config/brand'
 import { getProfileApi, updatePasswordApi } from '@/api/modules/emp'
+import BrandLogo from '@/components/brand/BrandLogo.vue'
+import SwIcon from '@/components/brand/SwIcon.vue'
 import Breadcrumb from '@/components/Breadcrumb.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import NotificationPanel from '@/components/NotificationPanel.vue'
 import UserProfilePanel from '@/components/UserProfilePanel.vue'
-import {
-  HomeFilled,
-  Goods,
-  Wallet,
-  UserFilled,
-  Avatar,
-  DataAnalysis,
-  Document,
-  SwitchButton,
-  WarningFilled,
-  Moon,
-  Sunny,
-  User,
-  Lock,
-  Postcard,
-  Phone,
-  OfficeBuilding,
-  Male,
-  Female,
-  Expand,
-  Fold
-} from '@element-plus/icons-vue'
+
+const COLLAPSE_KEY = 'sw-sidebar-collapsed'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const { theme, toggleTheme } = useTheme()
-const isCollapsed = ref(false)
+userStore.initFromStorage()
+const { theme, toggleTheme, enableTheme, disableTheme } = useTheme()
+enableTheme() // 深色外观只在工作台内生效
+onUnmounted(disableTheme)
 
-// 换页转场：支持 View Transitions 且非 static 档时，交叉淡入交给
-// ::view-transition-*（见 base.css），内层 Vue <transition> 置空避免双重动画；
-// 否则回退原 page 淡入（static 档下其动画时长已被 reduced-motion 媒体查询归零）
+// 换页：支持 View Transitions 时交给 ::view-transition-*（base.css），内层 <transition> 置空避免双重动画
 const { isStatic } = useMotionPref()
-const pageTransition = computed(() =>
-  supportsViewTransitions && !isStatic.value ? 'vt-none' : 'page'
-)
+const pageTransition = computed(() => (supportsViewTransitions && !isStatic.value ? 'vt-none' : 'page'))
 
-// ========== 移动端响应式 ==========
-const MOBILE_BREAKPOINT = 768
-const isMobile = ref(false)
-const mobileSidebarOpen = ref(false)
-const themeSwitcherOpen = ref(false)
+const navGroups = computed(() => visibleNavGroups(userStore.can))
+const isActive = (path) => route.path === path || route.path.startsWith(`${path}/`)
 
-const checkMobile = () => {
-  isMobile.value = window.innerWidth < MOBILE_BREAKPOINT
-  // 切换回桌面时自动关闭移动端侧边栏
-  if (!isMobile.value) {
-    mobileSidebarOpen.value = false
-  }
+// ========== 侧栏：桌面折叠 / 窄屏抽屉 ==========
+const DRAWER_BREAKPOINT = 1024
+const collapsed = ref(localStorage.getItem(COLLAPSE_KEY) === '1')
+const isNarrow = ref(false)
+const drawerOpen = ref(false)
+
+const checkWidth = () => {
+  isNarrow.value = window.innerWidth < DRAWER_BREAKPOINT
+  if (!isNarrow.value) drawerOpen.value = false
 }
 
-const toggleMobileSidebar = () => {
-  mobileSidebarOpen.value = !mobileSidebarOpen.value
+const toggleCollapse = () => {
+  collapsed.value = !collapsed.value
+  localStorage.setItem(COLLAPSE_KEY, collapsed.value ? '1' : '0')
 }
 
-const closeMobileSidebar = () => {
-  mobileSidebarOpen.value = false
+const onKeydown = (e) => {
+  if (e.key === 'Escape' && drawerOpen.value) drawerOpen.value = false
 }
 
 onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-  document.addEventListener('click', onDocClick)
+  checkWidth()
+  window.addEventListener('resize', checkWidth)
+  document.addEventListener('keydown', onKeydown)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
-  document.removeEventListener('click', onDocClick)
+  window.removeEventListener('resize', checkWidth)
+  document.removeEventListener('keydown', onKeydown)
 })
-
-const onDocClick = (e) => {
-  // Close theme switcher when clicking outside
-  if (themeSwitcherOpen.value) {
-    const el = e.target.closest('.theme-switcher')
-    if (!el) themeSwitcherOpen.value = false
-  }
-}
-
-// ========== 滚动感知液态玻璃 Header ==========
-const scrollY = ref(0)
-const headerBlurAmount = computed(() => {
-  // Blur increases from 0 to 40px as user scrolls 0→120px
-  return Math.min(scrollY.value / 120, 1) * 40
-})
-const headerOpacity = computed(() => {
-  // Background goes from 0.6 to 0.85 as user scrolls
-  return 0.6 + Math.min(scrollY.value / 120, 1) * 0.25
-})
-
-const headerBg = computed(() => {
-  const isDark = theme.value === 'dark'
-  const base = isDark ? '18, 15, 12' : '255, 255, 255'
-  return `rgba(${base}, ${headerOpacity.value})`
-})
-
-const onContentScroll = (e) => {
-  scrollY.value = e.target.scrollTop
-}
-
-// 路由切换时关闭移动端侧边栏
-watch(() => route.path, () => {
-  closeMobileSidebar()
-})
-
-const activeMenu = computed(() => route.path)
-
-// ---- Liquid Glass Pill ----
-const navContainer = ref(null)
-const pillStyle = ref({})
-const pillReady = ref(false)
-const movingDirection = ref('')
-const prevTop = ref(0)
-let moveTimeout = null
-
-const updatePill = () => {
-  if (!navContainer.value) return
-  const activeEl = navContainer.value.querySelector('.nav-item.active')
-  if (!activeEl) {
-    pillReady.value = false
-    movingDirection.value = ''
-    return
-  }
-  const containerRect = navContainer.value.getBoundingClientRect()
-  const itemRect = activeEl.getBoundingClientRect()
-  const newTop = itemRect.top - containerRect.top
-  const newHeight = itemRect.height
-
-  // Detect motion direction & trigger physics class
-  if (pillReady.value && prevTop.value !== newTop) {
-    movingDirection.value = newTop > prevTop.value ? 'down' : 'up'
-    
-    if (moveTimeout) clearTimeout(moveTimeout)
-    moveTimeout = setTimeout(() => {
-      movingDirection.value = ''
-    }, 500) // matches our 0.5s CSS spring curve
-  }
-
-  prevTop.value = newTop
-
-  // Set pillStyle with hardware-accelerated transform translateY
-  pillStyle.value = {
-    transform: `translateY(${newTop}px)`,
-    height: `${newHeight}px`,
-  }
-  pillReady.value = true
-}
 
 watch(() => route.path, () => {
-  nextTick(() => updatePill())
+  drawerOpen.value = false
 })
 
-onMounted(() => {
-  userStore.initFromStorage()
-  nextTick(() => updatePill())
-})
+const sidebarCompact = computed(() => collapsed.value && !isNarrow.value)
 
-const toggleSidebar = () => {
-  isCollapsed.value = !isCollapsed.value
-  nextTick(() => updatePill())
-}
+// ========== 命令面板 ==========
+const paletteRef = ref(null)
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-// ---- 退出登录 ----
+// ========== 退出登录 ==========
 const logout = () => {
-  ElMessageBox.confirm('确定要退出登录吗？', '退出确认', {
-    confirmButtonText: '确认退出',
+  ElMessageBox.confirm('退出后需要重新登录才能使用工作台。', '退出登录', {
+    confirmButtonText: '退出',
     cancelButtonText: '取消',
     type: 'warning',
   }).then(() => {
     userStore.logout()
-    ElMessage.success('已安全退出')
+    ElMessage.success('已退出登录')
     router.push('/login')
   }).catch(() => {})
 }
 
-// ========== 个人信息弹窗 ==========
+// ========== 个人信息 ==========
 const profileVisible = ref(false)
 const profileLoading = ref(false)
 const profileData = ref(null)
@@ -217,10 +122,10 @@ const openProfile = async () => {
   }
 }
 
-const genderLabel = (g) => ({ 1: '男', 2: '女' }[g] || '未知')
-const JOB_MAP = { 1: '经理', 2: '副经理', 3: '实习', 4: '运营', 5: '财务' }
+const genderLabel = (g) => ({ 1: '男', 2: '女' }[g] || '未填写')
+const JOB_MAP = { 1: '经理', 2: '副经理', 3: '实习生', 4: '线上运营', 5: '财务出纳' }
 
-// ========== 修改密码弹窗 ==========
+// ========== 修改密码 ==========
 const passwordVisible = ref(false)
 const passwordLoading = ref(false)
 const passwordForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
@@ -235,21 +140,18 @@ const passwordRules = {
   oldPassword: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { min: 6, message: '密码长度不能少于 6 位', trigger: 'blur' },
   ],
   confirmPassword: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
-        if (value !== passwordForm.value.newPassword) {
-          callback(new Error('两次输入的密码不一致'))
-        } else {
-          callback()
-        }
+        if (value !== passwordForm.value.newPassword) callback(new Error('两次输入的密码不一致'))
+        else callback()
       },
-      trigger: 'blur'
-    }
-  ]
+      trigger: 'blur',
+    },
+  ],
 }
 
 const submitPassword = async () => {
@@ -263,7 +165,7 @@ const submitPassword = async () => {
     const userId = userStore.userInfo?.id
     const res = await updatePasswordApi(userId, passwordForm.value.oldPassword, passwordForm.value.newPassword)
     if (res.code) {
-      ElMessage.success('密码修改成功，请重新登录')
+      ElMessage.success('密码已修改，请用新密码重新登录')
       passwordVisible.value = false
       userStore.logout()
       router.push('/login')
@@ -271,7 +173,7 @@ const submitPassword = async () => {
       ElMessage.error(res.msg || '修改失败')
     }
   } catch {
-    ElMessage.error('修改失败')
+    // 拦截器已提示具体原因
   } finally {
     passwordLoading.value = false
   }
@@ -279,200 +181,228 @@ const submitPassword = async () => {
 </script>
 
 <template>
-  <div class="layout" :class="{ 'sidebar-collapsed': isCollapsed, 'mobile-sidebar-open': mobileSidebarOpen, 'is-mobile': isMobile }">
-    <!-- 移动端侧边栏遮罩 -->
-    <transition name="fade">
-      <div v-if="isMobile && mobileSidebarOpen" class="mobile-sidebar-backdrop" @click="closeMobileSidebar"></div>
-    </transition>
+  <div
+    class="ws"
+    :class="{ 'is-compact': sidebarCompact, 'is-narrow': isNarrow, 'drawer-open': drawerOpen }"
+  >
+    <a
+      class="ws__skip"
+      href="#ws-main"
+    >跳到主要内容</a>
 
-    <!-- Sidebar -->
-    <aside class="sidebar" :class="{ 'mobile-open': isMobile && mobileSidebarOpen }">
-      <div class="sidebar-header">
-        <div class="logo-area">
-          <div class="logo-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="14" fill="rgba(232,99,122,0.15)" stroke="var(--color-primary)" stroke-width="1.5"/>
-              <path d="M11 20c0-4.5 2.5-9 5-9s5 4.5 5 9" stroke="var(--color-primary)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-              <path d="M8 20h16" stroke="var(--color-primary)" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <transition name="fade">
-            <div v-if="!isCollapsed" class="logo-text">
-              <span class="logo-title">Dessert</span>
-              <span class="logo-sub">Shop</span>
-            </div>
-          </transition>
-        </div>
-        <button class="collapse-btn" @click="toggleSidebar">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path v-if="!isCollapsed" d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path v-else d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+    <Transition name="fade">
+      <div
+        v-if="isNarrow && drawerOpen"
+        class="ws__backdrop"
+        @click="drawerOpen = false"
+      ></div>
+    </Transition>
+
+    <!-- ===== 侧栏 ===== -->
+    <aside
+      class="sidebar"
+      :aria-hidden="isNarrow && !drawerOpen ? 'true' : undefined"
+      :inert="isNarrow && !drawerOpen ? true : undefined"
+    >
+      <div class="sidebar__brand">
+        <router-link
+          to="/"
+          class="sidebar__logo"
+          :aria-label="`${BRAND.fullName} 工作台首页`"
+        >
+          <BrandLogo
+            v-if="sidebarCompact"
+            variant="icon"
+            :size="36"
+          />
+          <BrandLogo
+            v-else
+            variant="horizontal"
+            :size="28"
+          />
+        </router-link>
+        <span
+          v-if="!sidebarCompact"
+          class="sidebar__caption"
+        >{{ BRAND.workspace }}</span>
+        <button
+          v-if="isNarrow"
+          type="button"
+          class="hdr-btn sidebar__close"
+          aria-label="关闭菜单"
+          @click="drawerOpen = false"
+        >
+          <SwIcon
+            name="close"
+            :size="18"
+          />
         </button>
       </div>
 
-      <nav class="sidebar-nav" ref="navContainer">
-        <!-- Liquid Glass Pill Indicator -->
-        <div 
-          class="glass-pill" 
-          :class="{ 
-            ready: pillReady, 
-            'moving-down': movingDirection === 'down', 
-            'moving-up': movingDirection === 'up' 
-          }" 
-          :style="pillStyle"
+      <nav
+        class="sidebar__nav"
+        aria-label="工作台导航"
+      >
+        <div
+          v-for="group in navGroups"
+          :key="group.title || 'root'"
+          class="nav-group"
         >
-          <div class="glass-pill-inner"></div>
-        </div>
-
-        <router-link to="/index" class="nav-item" :class="{ active: activeMenu === '/index' }">
-          <el-icon :size="20"><HomeFilled /></el-icon>
-          <transition name="fade">
-            <span v-if="!isCollapsed" class="nav-label">首页</span>
-          </transition>
-        </router-link>
-
-        <div class="nav-group">
-          <div v-if="!isCollapsed" class="nav-group-title">甜品管理</div>
-          <router-link to="/dessert" class="nav-item" :class="{ active: activeMenu === '/dessert' }">
-            <el-icon :size="20"><Goods /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">甜品管理</span>
-            </transition>
-          </router-link>
-          <router-link to="/price" class="nav-item" :class="{ active: activeMenu === '/price' }">
-            <el-icon :size="20"><Wallet /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">价格管理</span>
-            </transition>
-          </router-link>
-          <router-link to="/order" class="nav-item" :class="{ active: activeMenu === '/order' }">
-            <el-icon :size="20"><Goods /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">订单管理</span>
-            </transition>
-          </router-link>
-          <router-link to="/inventory" class="nav-item" :class="{ active: activeMenu === '/inventory' }">
-            <el-icon :size="20"><WarningFilled /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">库存管理</span>
-            </transition>
-          </router-link>
-        </div>
-
-        <div class="nav-group">
-          <div v-if="!isCollapsed" class="nav-group-title">系统管理</div>
-          <router-link to="/dept" class="nav-item" :class="{ active: activeMenu === '/dept' }">
-            <el-icon :size="20"><UserFilled /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">部门管理</span>
-            </transition>
-          </router-link>
-          <router-link to="/emp" class="nav-item" :class="{ active: activeMenu === '/emp' }">
-            <el-icon :size="20"><Avatar /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">员工管理</span>
-            </transition>
-          </router-link>
-          <router-link to="/customer" class="nav-item" :class="{ active: activeMenu === '/customer' }">
-            <el-icon :size="20"><Postcard /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">客户管理</span>
-            </transition>
-          </router-link>
-        </div>
-
-        <div class="nav-group">
-          <div v-if="!isCollapsed" class="nav-group-title">数据统计</div>
-          <router-link to="/report" class="nav-item" :class="{ active: activeMenu === '/report' }">
-            <el-icon :size="20"><DataAnalysis /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">数据报表</span>
-            </transition>
-          </router-link>
-          <router-link to="/log" class="nav-item" :class="{ active: activeMenu === '/log' }">
-            <el-icon :size="20"><Document /></el-icon>
-            <transition name="fade">
-              <span v-if="!isCollapsed" class="nav-label">操作日志</span>
-            </transition>
+          <p
+            v-if="group.title && !sidebarCompact"
+            class="nav-group__title"
+          >{{ group.title }}</p>
+          <div
+            v-else-if="group.title"
+            class="nav-group__rule"
+            aria-hidden="true"
+          ></div>
+          <router-link
+            v-for="item in group.items"
+            :key="item.path"
+            :to="item.path"
+            class="nav-item"
+            :class="{ 'is-active': isActive(item.path) }"
+            :aria-current="isActive(item.path) ? 'page' : undefined"
+            :title="sidebarCompact ? item.label : undefined"
+          >
+            <SwIcon
+              :name="item.icon"
+              :size="19"
+              class="nav-item__icon"
+            />
+            <span
+              v-if="!sidebarCompact"
+              class="nav-item__label"
+            >{{ item.label }}</span>
           </router-link>
         </div>
       </nav>
 
-      <div class="sidebar-footer">
-        <div class="nav-item logout-btn" @click="logout">
-          <el-icon :size="20"><SwitchButton /></el-icon>
-          <transition name="fade">
-            <span v-if="!isCollapsed" class="nav-label">退出登录</span>
-          </transition>
-        </div>
+      <div class="sidebar__foot">
+        <a
+          href="/m"
+          target="_blank"
+          rel="noopener"
+          class="nav-item"
+          :title="sidebarCompact ? '打开顾客商城' : undefined"
+        >
+          <SwIcon
+            name="bag"
+            :size="19"
+            class="nav-item__icon"
+          />
+          <span
+            v-if="!sidebarCompact"
+            class="nav-item__label"
+          >顾客商城</span>
+          <SwIcon
+            v-if="!sidebarCompact"
+            name="external"
+            :size="14"
+            class="nav-item__ext"
+          />
+        </a>
+        <button
+          v-if="!isNarrow"
+          type="button"
+          class="nav-item"
+          :aria-label="sidebarCompact ? '展开侧栏' : '收起侧栏'"
+          :title="sidebarCompact ? '展开侧栏' : undefined"
+          @click="toggleCollapse"
+        >
+          <SwIcon
+            name="sidebar"
+            :size="19"
+            class="nav-item__icon"
+          />
+          <span
+            v-if="!sidebarCompact"
+            class="nav-item__label"
+          >收起侧栏</span>
+        </button>
       </div>
     </aside>
 
-    <!-- Main Area -->
-    <div class="main-area">
-      <!-- Header — scroll-aware liquid glass -->
-      <header
-        class="header"
-        :style="{
-          backdropFilter: `blur(${headerBlurAmount}px) saturate(180%)`,
-          WebkitBackdropFilter: `blur(${headerBlurAmount}px) saturate(180%)`,
-          background: headerBg
-        }"
-      >
-        <div class="header-left">
-          <!-- 移动端汉堡菜单按钮 -->
-          <div class="mobile-hamburger" @click="toggleMobileSidebar">
-            <el-icon :size="20">
-              <Expand v-if="!mobileSidebarOpen" />
-              <Fold v-else />
-            </el-icon>
-          </div>
+    <!-- ===== 主区域 ===== -->
+    <div class="ws__main">
+      <header class="topbar">
+        <div class="topbar__left">
+          <button
+            v-if="isNarrow"
+            type="button"
+            class="hdr-btn"
+            aria-label="打开菜单"
+            :aria-expanded="drawerOpen"
+            @click="drawerOpen = true"
+          >
+            <SwIcon
+              name="menu"
+              :size="20"
+            />
+          </button>
+          <router-link
+            v-if="isNarrow"
+            to="/"
+            class="topbar__logo"
+            :aria-label="BRAND.fullName"
+          >
+            <BrandLogo
+              variant="mark"
+              :size="28"
+            />
+          </router-link>
           <Breadcrumb />
         </div>
-        <div class="header-right">
-          <!-- 外观切换（浅色 / 深色） -->
-          <div class="theme-switcher" @click.stop="themeSwitcherOpen = !themeSwitcherOpen">
-            <div class="theme-switcher__trigger" :title="theme === 'dark' ? '深色模式' : '浅色模式'">
-              <el-icon :size="18">
-                <Moon v-if="theme === 'dark'" />
-                <Sunny v-else />
-              </el-icon>
-            </div>
-            <transition name="fade">
-              <div v-if="themeSwitcherOpen" class="theme-switcher__dropdown glass-panel">
-                <div class="theme-switcher__section">
-                  <span class="theme-switcher__label">外观模式</span>
-                  <button
-                    class="theme-mode-btn"
-                    :class="{ active: theme === 'light' }"
-                    @click.stop="theme === 'dark' && toggleTheme()"
-                  >
-                    <el-icon :size="14"><Sunny /></el-icon>
-                    <span>浅色</span>
-                  </button>
-                  <button
-                    class="theme-mode-btn"
-                    :class="{ active: theme === 'dark' }"
-                    @click.stop="theme === 'light' && toggleTheme()"
-                  >
-                    <el-icon :size="14"><Moon /></el-icon>
-                    <span>深色</span>
-                  </button>
-                </div>
-              </div>
-            </transition>
-          </div>
+
+        <div class="topbar__right">
+          <button
+            type="button"
+            class="topbar__search"
+            @click="paletteRef?.open()"
+          >
+            <SwIcon
+              name="search"
+              :size="16"
+            />
+            <span class="topbar__search-text">搜索功能</span>
+            <kbd>{{ isMac ? '⌘' : 'Ctrl' }} K</kbd>
+          </button>
+          <button
+            type="button"
+            class="hdr-btn"
+            :aria-label="theme === 'dark' ? '切换到浅色外观' : '切换到深色外观'"
+            :title="theme === 'dark' ? '浅色外观' : '深色外观'"
+            @click="toggleTheme"
+          >
+            <SwIcon
+              :name="theme === 'dark' ? 'sun' : 'moon'"
+              :size="19"
+            />
+          </button>
           <NotificationPanel />
-          <div class="header-divider"></div>
-          <UserProfilePanel @open-profile="openProfile" @open-password="openPassword" @logout="logout" />
+          <span
+            class="topbar__sep"
+            aria-hidden="true"
+          ></span>
+          <UserProfilePanel
+            @open-profile="openProfile"
+            @open-password="openPassword"
+            @logout="logout"
+          />
         </div>
       </header>
 
-      <!-- Content — scroll-aware -->
-      <main class="content" @scroll="onContentScroll">
+      <main
+        id="ws-main"
+        class="ws__content"
+        tabindex="-1"
+      >
         <router-view v-slot="{ Component }">
-          <transition :name="pageTransition" mode="out-in">
+          <transition
+            :name="pageTransition"
+            mode="out-in"
+          >
             <component :is="Component" />
           </transition>
         </router-view>
@@ -480,561 +410,442 @@ const submitPassword = async () => {
     </div>
   </div>
 
-  <CommandPalette />
+  <CommandPalette ref="paletteRef" />
 
-  <!-- ========== 个人信息弹窗（顶层，不受 header 层级影响） ========== -->
-  <el-dialog v-model="profileVisible" title="个人信息" width="420px" destroy-on-close>
-    <div v-loading="profileLoading" class="profile-dialog">
-      <div v-if="profileError" class="profile-dialog__error">
-        <span>{{ profileError }}</span>
-      </div>
+  <!-- 个人信息 -->
+  <el-dialog
+    v-model="profileVisible"
+    title="个人信息"
+    width="420px"
+    destroy-on-close
+  >
+    <div
+      v-loading="profileLoading"
+      class="profile"
+    >
+      <p
+        v-if="profileError"
+        class="profile__error"
+      >{{ profileError }}</p>
       <template v-else-if="profileData">
-        <div class="profile-dialog__avatar">
-          <div class="profile-dialog__avatar-circle">
-            <img v-if="profileData.image" :src="profileData.image" alt="" class="profile-dialog__avatar-img" />
+        <div class="profile__head">
+          <span class="profile__avatar">
+            <img
+              v-if="profileData.image"
+              :src="profileData.image"
+              alt=""
+            />
             <span v-else>{{ (profileData.name || '?').charAt(0) }}</span>
-          </div>
-          <span class="profile-dialog__avatar-name">{{ profileData.name }}</span>
-          <span class="profile-dialog__avatar-job">{{ JOB_MAP[profileData.job] || '未知职位' }}</span>
-        </div>
-        <div class="profile-dialog__fields">
-          <div class="profile-field">
-            <el-icon :size="14"><User /></el-icon>
-            <span class="profile-field__label">账号</span>
-            <span class="profile-field__value">{{ profileData.username }}</span>
-          </div>
-          <div class="profile-field">
-            <el-icon :size="14"><Postcard /></el-icon>
-            <span class="profile-field__label">姓名</span>
-            <span class="profile-field__value">{{ profileData.name }}</span>
-          </div>
-          <div class="profile-field">
-            <el-icon :size="14">
-              <Male v-if="profileData.gender === 1" />
-              <Female v-else />
-            </el-icon>
-            <span class="profile-field__label">性别</span>
-            <span class="profile-field__value">{{ genderLabel(profileData.gender) }}</span>
-          </div>
-          <div class="profile-field">
-            <el-icon :size="14"><Phone /></el-icon>
-            <span class="profile-field__label">手机号</span>
-            <span class="profile-field__value">{{ profileData.phone || '-' }}</span>
-          </div>
-          <div class="profile-field">
-            <el-icon :size="14"><OfficeBuilding /></el-icon>
-            <span class="profile-field__label">部门</span>
-            <span class="profile-field__value">{{ profileData.deptName || '-' }}</span>
-          </div>
-          <div class="profile-field">
-            <el-icon :size="14"><Postcard /></el-icon>
-            <span class="profile-field__label">入职日期</span>
-            <span class="profile-field__value">{{ profileData.entryDate || '-' }}</span>
+          </span>
+          <div>
+            <p class="profile__name">{{ profileData.name }}</p>
+            <p class="profile__job">{{ JOB_MAP[profileData.job] || '未设置职位' }} · {{ profileData.deptName || '未分配部门' }}</p>
           </div>
         </div>
+        <dl class="profile__fields">
+          <div><dt>登录账号</dt><dd>{{ profileData.username }}</dd></div>
+          <div><dt>性别</dt><dd>{{ genderLabel(profileData.gender) }}</dd></div>
+          <div><dt>手机号</dt><dd>{{ profileData.phone || '—' }}</dd></div>
+          <div><dt>入职日期</dt><dd>{{ profileData.entryDate || '—' }}</dd></div>
+        </dl>
       </template>
     </div>
   </el-dialog>
 
-  <!-- ========== 修改密码弹窗（顶层） ========== -->
-  <el-dialog v-model="passwordVisible" title="修改密码" width="400px" destroy-on-close>
-    <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="80px" class="password-form">
-      <el-form-item label="原密码" prop="oldPassword">
-        <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入原密码" />
+  <!-- 修改密码 -->
+  <el-dialog
+    v-model="passwordVisible"
+    title="修改密码"
+    width="420px"
+    destroy-on-close
+  >
+    <el-form
+      ref="passwordFormRef"
+      :model="passwordForm"
+      :rules="passwordRules"
+      label-position="top"
+      @submit.prevent="submitPassword"
+    >
+      <el-form-item
+        label="原密码"
+        prop="oldPassword"
+      >
+        <el-input
+          v-model="passwordForm.oldPassword"
+          type="password"
+          show-password
+          autocomplete="current-password"
+          placeholder="请输入原密码"
+        />
       </el-form-item>
-      <el-form-item label="新密码" prop="newPassword">
-        <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码（至少6位）" />
+      <el-form-item
+        label="新密码"
+        prop="newPassword"
+      >
+        <el-input
+          v-model="passwordForm.newPassword"
+          type="password"
+          show-password
+          autocomplete="new-password"
+          placeholder="至少 6 位"
+        />
       </el-form-item>
-      <el-form-item label="确认密码" prop="confirmPassword">
-        <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+      <el-form-item
+        label="确认新密码"
+        prop="confirmPassword"
+      >
+        <el-input
+          v-model="passwordForm.confirmPassword"
+          type="password"
+          show-password
+          autocomplete="new-password"
+          placeholder="再次输入新密码"
+        />
       </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="passwordVisible = false">取消</el-button>
-      <el-button type="primary" :loading="passwordLoading" @click="submitPassword">确认修改</el-button>
+      <el-button
+        type="primary"
+        :loading="passwordLoading"
+        @click="submitPassword"
+      >确认修改</el-button>
     </template>
   </el-dialog>
 </template>
 
-<style lang="scss" scoped>
-/* ==============================================
-   Apple Liquid Glass Layout
-   ============================================== */
-
-.layout {
+<style scoped>
+.ws {
   display: flex;
   min-height: 100vh;
-  background: var(--color-bg-primary);
-  position: relative;
-
-  /* Subtle decorative wash behind the glass sidebar for blur to catch */
-  &::before {
-    content: '';
-    position: fixed;
-    top: -120px;
-    left: -80px;
-    width: 420px;
-    height: 600px;
-    background: radial-gradient(
-      ellipse at 30% 40%,
-      rgba(232, 99, 122, 0.06) 0%,
-      rgba(240, 163, 92, 0.04) 30%,
-      rgba(245, 240, 236, 0.03) 60%,
-      transparent 100%
-    );
-    pointer-events: none;
-    z-index: 0;
-    transition: background 0.4s ease;
-  }
+  background: var(--sw-bg);
 }
 
-/* ---- Sidebar — Apple Frosted Glass ---- */
-.sidebar {
-  width: 240px;
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  z-index: var(--z-sidebar);
-  transition: width var(--transition-base);
-  overflow: hidden;
-
-  /* White frosted glass — Apple-style translucent sidebar */
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-
-  /* Active nav text — dark for contrast on white pill */
-  --nav-active-color: rgba(0, 0, 0, 0.8);
-
-  /* Subtle warm inner shadow for depth */
-  box-shadow:
-    inset -8px 0 24px rgba(45, 35, 39, 0.04),
-    1px 0 0 rgba(0, 0, 0, 0.04);
-
-  /* Specular highlight along top edge */
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(232, 99, 122, 0.12) 30%,
-      rgba(232, 99, 122, 0.2) 50%,
-      rgba(232, 99, 122, 0.12) 70%,
-      transparent 100%
-    );
-    z-index: 1;
-  }
-
-  /* Subtle warm glow from top */
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.6) 0%,
-      rgba(255, 245, 242, 0.15) 20%,
-      transparent 60%,
-      transparent 100%
-    );
-    pointer-events: none;
-  }
-}
-
-.sidebar-collapsed .sidebar {
-  width: 72px;
-}
-
-.sidebar-header {
-  padding: 20px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  min-height: 68px;
-  position: relative;
-  z-index: 1;
-}
-
-.logo-area {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  overflow: hidden;
-  /* 持久元素：换页时保持稳定，不参与 root 交叉淡入 */
-  view-transition-name: app-logo;
-}
-
-.logo-icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logo-text {
-  display: flex;
-  flex-direction: column;
-  white-space: nowrap;
-}
-
-.logo-title {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  line-height: 1.2;
-}
-
-.logo-sub {
-  font-size: 11px;
-  color: var(--color-primary);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.collapse-btn {
-  background: rgba(0, 0, 0, 0.04);
-  border: none;
-  color: var(--color-text-muted);
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.08);
-    color: var(--color-text-primary);
-  }
-}
-
-/* ---- Navigation ---- */
-.sidebar-nav {
-  flex: 1;
-  padding: 12px 8px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  position: relative;
-  z-index: 1;
-}
-
-/* ---- iOS 26 Liquid Glass Pill ---- */
-.glass-pill {
+.ws__skip {
   position: absolute;
-  top: 0; /* Explicitly align with absolute baseline to fix padding offset */
-  left: 8px;
-  right: 8px;
-  z-index: 0;
-  border-radius: 12px;
-  pointer-events: none;
-  opacity: 0;
-  will-change: transform, height;
-  /* View Transitions 共享元素：换页时高亮块在导航项之间平滑滑动（全页唯一） */
-  view-transition-name: nav-pill;
-
-  /* Apple Spring Transition - hardware accelerated */
-  transition:
-    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-    height 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.4s ease;
-
-  &.ready {
-    opacity: 1;
-  }
+  left: 12px;
+  top: -48px;
+  z-index: 1000;
+  padding: 8px 14px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-primary);
+  color: var(--sw-on-primary);
+  font-size: 13px;
 }
 
-.glass-pill-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-
-  /* White glass capsule — luminous on light glass sidebar */
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(255, 255, 255, 0.88) 50%,
-    rgba(255, 255, 255, 0.82) 100%
-  );
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-
-  /* Crisp border for definition on white glass */
-  border: 1px solid rgba(0, 0, 0, 0.08);
-
-  /* Depth via shadows to separate from sidebar glass */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 0 0 1px rgba(0, 0, 0, 0.03),
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 8px 24px rgba(0, 0, 0, 0.08);
-
-  transform-origin: center;
-  will-change: transform;
+.ws__skip:focus {
+  top: 12px;
 }
 
-/* Liquid Motion Keyframes with Poisson Squeeze Ratio */
-.glass-pill.moving-down .glass-pill-inner {
-  animation: liquidStretchDown 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+/* ---------- 侧栏 ---------- */
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: var(--z-sidebar);
+  display: flex;
+  flex-direction: column;
+  width: var(--sw-sidebar-w);
+  background: var(--sw-surface);
+  border-right: 1px solid var(--sw-border-soft);
+  transition: width var(--sw-dur-2) var(--sw-ease), transform var(--sw-dur-3) var(--sw-ease);
+  view-transition-name: app-sidebar;
 }
 
-.glass-pill.moving-up .glass-pill-inner {
-  animation: liquidStretchUp 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+.is-compact .sidebar {
+  width: var(--sw-sidebar-w-collapsed);
 }
 
-@keyframes liquidStretchDown {
-  0% {
-    transform: scale(1) translateY(0);
-    transform-origin: top;
-  }
-  30% {
-    transform: scale(1.08) translateY(4px); /* Scales overall by 1.08x on click/transition */
-    transform-origin: top;
-  }
-  65% {
-    transform: scale(0.96) translateY(-2px); /* Snap-back compression */
-    transform-origin: top;
-  }
-  100% {
-    transform: scale(1) translateY(0);
-    transform-origin: top;
-  }
+.sidebar__brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 22px 22px 18px;
 }
 
-@keyframes liquidStretchUp {
-  0% {
-    transform: scale(1) translateY(0);
-    transform-origin: bottom;
-  }
-  30% {
-    transform: scale(1.08) translateY(-4px); /* Scales overall by 1.08x on click/transition */
-    transform-origin: bottom;
-  }
-  65% {
-    transform: scale(0.96) translateY(2px); /* Snap-back compression */
-    transform-origin: bottom;
-  }
-  100% {
-    transform: scale(1) translateY(0);
-    transform-origin: bottom;
-  }
+.is-compact .sidebar__brand {
+  align-items: center;
+  padding: 20px 0 14px;
 }
 
-.nav-group {
-  margin-bottom: 8px;
+.sidebar__logo {
+  display: inline-flex;
+  border-radius: var(--sw-r-sm);
 }
 
-.nav-group-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--color-text-muted);
-  padding: 16px 12px 8px;
-  font-weight: 600;
-  white-space: nowrap;
+.sidebar__caption {
+  padding-left: 36px; /* 与字标对齐（图形 28px + 间距） */
+  font-size: 12px;
+  color: var(--sw-ink-3);
+  letter-spacing: 0.08em;
+}
+
+.sidebar__close {
+  position: absolute;
+  top: 18px;
+  right: 12px;
+}
+
+.sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 12px 12px;
+}
+
+.is-compact .sidebar__nav {
+  padding: 4px 14px 12px;
+}
+
+.nav-group + .nav-group {
+  margin-top: 6px;
+}
+
+.nav-group__title {
+  padding: 14px 10px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sw-ink-3);
+  letter-spacing: 0.06em;
+}
+
+.nav-group__rule {
+  height: 1px;
+  margin: 10px 8px;
+  background: var(--sw-border-soft);
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  margin-bottom: 2px;
+  border: 0;
+  border-radius: var(--sw-r-md);
+  background: transparent;
+  color: var(--sw-ink-2);
   font-size: 14px;
   font-weight: 500;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
+  text-align: left;
   cursor: pointer;
-  text-decoration: none;
-  margin-bottom: 2px;
-  position: relative;
-  white-space: nowrap;
-  z-index: 1;
-  background: transparent !important;
-
-  &:hover {
-    color: var(--color-text-primary);
-    background: rgba(0, 0, 0, 0.03) !important;
-    transform: translateX(4px);
-  }
-
-  &.active {
-    color: var(--nav-active-color, rgba(0, 0, 0, 0.8)) !important;
-    background: transparent !important;
-    font-weight: 600;
-    text-shadow: none;
-
-    &:hover {
-      transform: none; /* Active item shouldn't slide on hover */
-    }
-  }
+  transition: background-color var(--sw-dur-1) var(--sw-ease), color var(--sw-dur-1) var(--sw-ease);
 }
 
-.nav-label {
-  white-space: nowrap;
+.is-compact .nav-item {
+  justify-content: center;
+  padding: 0;
 }
 
-.sidebar-footer {
-  padding: 12px 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  position: relative;
-  z-index: 1;
+.nav-item:hover {
+  background: var(--sw-fill-soft);
+  color: var(--sw-ink);
 }
 
-.logout-btn {
-  color: var(--color-text-muted);
-  background: transparent !important;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), color 0.3s ease;
-
-  &:hover {
-    color: #ef6b6b;
-    background: rgba(239, 107, 107, 0.06) !important;
-    transform: translateX(4px);
-  }
+.nav-item.is-active {
+  background: var(--sw-accent-soft);
+  color: var(--sw-ink);
+  font-weight: 600;
 }
 
-.sidebar-collapsed .nav-item:hover,
-.sidebar-collapsed .logout-btn:hover {
-  transform: scale(1.06) !important;
+.nav-item.is-active .nav-item__icon {
+  color: var(--sw-accent);
 }
 
-/* ---- Main Area ---- */
-.main-area {
+.nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sw-accent);
+}
+
+.is-compact .nav-item.is-active::before {
+  left: -14px;
+}
+
+.nav-item__label {
   flex: 1;
-  margin-left: 240px;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  transition: margin-left var(--transition-base);
+  white-space: nowrap;
 }
 
-.sidebar-collapsed .main-area {
-  margin-left: 72px;
+.nav-item__ext {
+  color: var(--sw-ink-4);
 }
 
-/* ---- Header — Scroll-Aware Liquid Glass ---- */
-.header {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
+.sidebar__foot {
+  padding: 10px 12px 16px;
+  border-top: 1px solid var(--sw-border-soft);
+}
+
+.is-compact .sidebar__foot {
+  padding: 10px 14px 16px;
+}
+
+/* ---------- 主区域 ---------- */
+.ws__main {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--sw-sidebar-w);
+  transition: margin-left var(--sw-dur-2) var(--sw-ease);
+}
+
+.is-compact .ws__main {
+  margin-left: var(--sw-sidebar-w-collapsed);
+}
+
+.topbar {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  flex-shrink: 0;
-
-  /* Dynamic values set via :style binding for scroll-aware blur */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 1px 3px rgba(45, 35, 39, 0.04);
-  transition: background 0.2s ease;
-  /* 持久元素：换页时页头保持稳定 */
-  view-transition-name: app-header;
-
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.6) 20%,
-      rgba(255, 255, 255, 0.6) 80%,
-      transparent
-    );
-  }
-}
-
-.header-right {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
+  height: var(--sw-header-h);
+  padding: 0 32px;
+  background: var(--sw-bg);
+  border-bottom: 1px solid var(--sw-border-soft);
+  view-transition-name: app-header;
 }
 
-.header-action {
-  position: relative;
-  width: 36px;
-  height: 36px;
+.topbar__left,
+.topbar__right {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  gap: 6px;
+  min-width: 0;
+}
 
-  &:hover {
-    background: rgba(45, 35, 39, 0.06);
-    color: var(--color-text-primary);
+.topbar__left {
+  gap: 10px;
+}
+
+.topbar__logo {
+  display: inline-flex;
+}
+
+.topbar__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  margin-right: 6px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-surface);
+  color: var(--sw-ink-3);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--sw-dur-1) var(--sw-ease), color var(--sw-dur-1) var(--sw-ease);
+}
+
+.topbar__search:hover {
+  border-color: var(--el-border-color-hover);
+  color: var(--sw-ink);
+}
+
+.topbar__search kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--sw-border);
+  border-radius: 5px;
+  background: var(--sw-surface-2);
+  font-family: var(--sw-font-sans);
+  font-size: 11px;
+  color: var(--sw-ink-3);
+}
+
+.topbar__sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  background: var(--sw-border);
+}
+
+.ws__content {
+  padding: 28px 32px 48px;
+  outline: none;
+  /* 注意：不要给内容区设置 view-transition-name —— 它会让内容区成为层叠上下文，
+     Element Plus 的抽屉 / 对话框（就地渲染）会被困在页头与侧栏之下 */
+}
+
+.ws__content > :deep(*) {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---------- 窄屏：侧栏变抽屉 ---------- */
+.is-narrow .sidebar {
+  width: min(300px, 86vw);
+  transform: translateX(-100%);
+  box-shadow: none;
+  z-index: calc(var(--z-header) + 10);
+}
+
+.is-narrow.drawer-open .sidebar {
+  transform: none;
+  box-shadow: var(--sw-shadow-lg);
+}
+
+.is-narrow .ws__main {
+  margin-left: 0;
+}
+
+.ws__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-header) + 5);
+  background: rgba(36, 26, 22, 0.4);
+}
+
+@media (max-width: 1024px) {
+  .topbar {
+    padding: 0 16px;
+  }
+
+  .ws__content {
+    padding: 20px 16px 40px;
   }
 }
 
-.notification-dot {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 7px;
-  height: 7px;
-  background: var(--color-primary);
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
+@media (max-width: 640px) {
+  .topbar__search {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    margin-right: 0;
+  }
+
+  .topbar__search-text,
+  .topbar__search kbd,
+  .topbar__sep,
+  .topbar :deep(.crumbs li:not(:last-child)) {
+    display: none;
+  }
 }
 
-.header-divider {
-  width: 1px;
-  height: 24px;
-  background: var(--color-border);
-}
-
-/* ---- Content — scrollable for scroll-aware header ---- */
-.content {
-  flex: 1;
-  padding: 24px 28px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  animation: fadeIn 0.3s ease;
-  /* Subtle inner shadow at top when scrolled */
-  mask-image: linear-gradient(to bottom, transparent 0%, black 8px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8px);
-  /* 内容区独立快照：换页交叉淡入 + 轻微上移（见 base.css ::view-transition-*） */
-  view-transition-name: page-content;
-}
-
-/* ---- Page Transition ---- */
+/* ---------- 转场 ---------- */
 .page-enter-active {
-  animation: fadeInUp 0.3s ease;
+  animation: fadeInUp var(--sw-dur-3) var(--sw-ease);
 }
 
 .page-leave-active {
-  animation: fadeIn 0.15s ease reverse;
+  animation: fadeIn var(--sw-dur-1) var(--sw-ease) reverse;
 }
 
-/* ---- Fade Transition ---- */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--sw-dur-2) var(--sw-ease);
 }
 
 .fade-enter-from,
@@ -1042,533 +853,76 @@ const submitPassword = async () => {
   opacity: 0;
 }
 
-/* ---- Scrollbar for sidebar ---- */
-.sidebar-nav::-webkit-scrollbar {
-  width: 4px;
+/* ---------- 个人信息弹窗 ---------- */
+.profile {
+  min-height: 180px;
 }
 
-.sidebar-nav::-webkit-scrollbar-track {
-  background: transparent;
+.profile__error {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--sw-ink-3);
 }
 
-.sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 2px;
-}
-
-/* ---- NProgress ---- */
-:global(#nprogress .bar) {
-  background: var(--color-primary) !important;
-  height: 3px !important;
-}
-
-:global(#nprogress .peg) {
-  box-shadow: 0 0 10px var(--color-primary), 0 0 5px var(--color-primary) !important;
-}
-
-/* ---- 个人信息弹窗 ---- */
-.profile-dialog {
-  min-height: 200px;
-}
-
-.profile-dialog__error {
+.profile__head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 160px;
-  color: var(--color-text-muted);
-  font-size: 14px;
+  gap: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--sw-border-soft);
 }
 
-.profile-dialog__avatar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 0 24px;
-}
-
-.profile-dialog__avatar-circle {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: 700;
-  box-shadow: 0 6px 20px rgba(232, 99, 122, 0.3);
+.profile__avatar {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
   overflow: hidden;
+  border-radius: 50%;
+  background: var(--sw-blush-soft);
+  color: var(--sw-cocoa);
+  font-size: 22px;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
-.profile-dialog__avatar-img {
+.profile__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 50%;
 }
 
-.profile-dialog__avatar-name {
-  font-size: 18px;
+.profile__name {
+  font-size: 17px;
   font-weight: 600;
-  color: var(--color-text-primary);
 }
 
-.profile-dialog__avatar-job {
+.profile__job {
+  margin-top: 2px;
   font-size: 13px;
-  color: var(--color-text-muted);
-  background: var(--color-bg-secondary);
-  padding: 2px 12px;
-  border-radius: 12px;
+  color: var(--sw-ink-3);
 }
 
-.profile-dialog__fields {
+.profile__fields div {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.profile-field {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  color: var(--color-text-muted);
-}
-
-.profile-field__label {
-  width: 60px;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.profile-field__value {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--sw-border-soft);
   font-size: 14px;
-  color: var(--color-text-primary);
+}
+
+.profile__fields div:last-child {
+  border-bottom: 0;
+}
+
+.profile__fields dt {
+  color: var(--sw-ink-3);
+}
+
+.profile__fields dd {
   font-weight: 500;
-}
-
-/* ---- 修改密码弹窗 ---- */
-.password-form {
-  padding-top: 8px;
-}
-
-/* ---- Mobile Hamburger ---- */
-.mobile-hamburger {
-  display: none;
-  width: 36px;
-  height: 36px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  margin-right: 4px;
-  flex-shrink: 0;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--color-text-primary);
-  }
-}
-
-/* ---- Mobile Sidebar Backdrop ---- */
-.mobile-sidebar-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: calc(var(--z-sidebar) - 1);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-/* ---- Responsive ---- */
-@media (max-width: 768px) {
-  .mobile-hamburger {
-    display: flex;
-  }
-
-  .mobile-sidebar-backdrop {
-    display: block;
-  }
-
-  /* 桌面端折叠按钮在移动端隐藏 */
-  .collapse-btn {
-    display: none;
-  }
-
-  .sidebar {
-    width: 260px;
-    transform: translateX(-100%);
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: calc(var(--z-sidebar) + 10);
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(48px) saturate(180%);
-    -webkit-backdrop-filter: blur(48px) saturate(180%);
-    box-shadow: 8px 0 40px rgba(45, 35, 39, 0.12);
-
-    &.mobile-open {
-      transform: translateX(0);
-    }
-  }
-
-  .sidebar-header {
-    padding: 20px 16px;
-  }
-
-  .main-area {
-    margin-left: 0 !important;
-  }
-
-  .content {
-    padding: 16px;
-  }
-
-  .header {
-    padding: 0 16px;
-  }
-
-  .header-right {
-    gap: 8px;
-  }
-
-  /* 移动端显示侧边栏文字 */
-  .nav-group-title,
-  .nav-label,
-  .logo-text {
-    display: initial;
-  }
-
-  /* 移动端暗色模式侧边栏（暖黑 + 金发丝） */
-  :global([data-theme="dark"] .sidebar) {
-    background: rgba(20, 16, 13, 0.94);
-    backdrop-filter: blur(48px) saturate(140%);
-    -webkit-backdrop-filter: blur(48px) saturate(140%);
-    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.45);
-  }
-}
-
-/* 小屏手机进一步优化 */
-@media (max-width: 480px) {
-  .sidebar {
-    width: 85vw;
-  }
-
-  .content {
-    padding: 12px;
-  }
-
-  .header {
-    padding: 0 12px;
-  }
-
-  .header-right {
-    gap: 4px;
-  }
-}
-
-/* ==============================================
-   Dark Mode Overrides —「黑金 Noir & Gold」
-   暖黑侧栏 + 金色渐变选中块 + 金发丝分隔线 + 金渐变 logo。
-   辉光上限：选中态一处 + logo 一处（不给每个 item 发光）。
-   ============================================== */
-:global([data-theme="dark"] .sidebar) {
-  /* 暖黑磨砂底（非金色实心） */
-  background: rgba(20, 16, 13, 0.82);
-  backdrop-filter: blur(40px) saturate(140%);
-  -webkit-backdrop-filter: blur(40px) saturate(140%);
-  /* 右侧 1px 金色发丝分隔线 */
-  border-right: 1px solid var(--gold-muted);
-  box-shadow:
-    inset -8px 0 24px rgba(0, 0, 0, 0.35),
-    1px 0 0 rgba(0, 0, 0, 0.4);
-
-  /* 选中项在金块上用深字，保证对比度 */
-  --nav-active-color: var(--color-text-inverse);
-}
-
-/* 伪元素必须与 :global 同层展开，不能用 & 嵌套（否则退化失效） */
-/* 顶部一条极细金色高光 */
-:global([data-theme="dark"] .sidebar::before) {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(212, 167, 71, 0.12) 30%,
-    rgba(240, 201, 108, 0.28) 50%,
-    rgba(212, 167, 71, 0.12) 70%,
-    transparent 100%
-  );
-}
-
-:global([data-theme="dark"] .sidebar::after) {
-  background: linear-gradient(
-    180deg,
-    rgba(240, 201, 108, 0.05) 0%,
-    transparent 32%,
-    transparent 100%
-  );
-}
-
-/* logo 文字：金色渐变（辉光两处之一） */
-:global([data-theme="dark"] .logo-title) {
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-bright) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: 0 0 18px var(--gold-glow);
-}
-
-:global([data-theme="dark"] .logo-sub) {
-  color: var(--gold);
-  opacity: 0.75;
-}
-
-/* 注意：必须把整个选择器放进 :global(...)。
-   写成 :global([data-theme="dark"]) .nav-item 时，Vue 会丢掉 .nav-item，
-   规则退化成 [data-theme=dark]{...} 只作用到 <html>，导致设置无效。 */
-:global([data-theme="dark"] .nav-group-title) {
-  /* 分组标题：暗淡金 */
-  color: rgba(212, 167, 71, 0.5);
-}
-
-:global([data-theme="dark"] .nav-item) {
-  /* 未选中：暖象牙白（非金），保证正文对比度 ≥ 4.5:1 */
-  color: var(--color-text-secondary) !important;
-}
-
-/* 未选中 hover：文字转金 + 极轻辉光（辉光随光标只有一处） */
-:global([data-theme="dark"] .nav-item:hover) {
-  color: var(--gold-bright) !important;
-  background: rgba(212, 167, 71, 0.08) !important;
-  text-shadow: 0 0 12px var(--gold-glow);
-}
-
-/* 选中项在金色药丸上保持深字，保证对比度（图标随 currentColor 变深） */
-:global([data-theme="dark"] .nav-item.active) {
-  color: var(--nav-active-color, #17130d) !important;
-  text-shadow: none;
-}
-
-:global([data-theme="dark"] .logout-btn) {
-  color: var(--color-text-muted);
-}
-
-:global([data-theme="dark"] .logout-btn:hover) {
-  color: #ef6b6b;
-  background: rgba(239, 107, 107, 0.1) !important;
-}
-
-:global([data-theme="dark"] .collapse-btn) {
-  background: rgba(212, 167, 71, 0.08);
-  color: rgba(212, 167, 71, 0.6);
-}
-
-:global([data-theme="dark"] .collapse-btn:hover) {
-  background: rgba(212, 167, 71, 0.16);
-  color: var(--gold-bright);
-}
-
-:global([data-theme="dark"] .sidebar-header) {
-  border-bottom-color: rgba(212, 167, 71, 0.12);
-}
-
-:global([data-theme="dark"] .sidebar-footer) {
-  border-top-color: rgba(212, 167, 71, 0.12);
-}
-
-/* 选中态高亮块：金色渐变 + 金外辉光（辉光两处之一） */
-:global([data-theme="dark"] .glass-pill-inner) {
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-bright) 100%);
-  border: 1px solid rgba(240, 201, 108, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 240, 200, 0.55),
-    0 0 0 1px rgba(212, 167, 71, 0.25),
-    0 2px 10px rgba(0, 0, 0, 0.35),
-    0 0 16px var(--gold-glow);
-}
-
-:global([data-theme="dark"] .sidebar-nav::-webkit-scrollbar-thumb) {
-  background: rgba(212, 167, 71, 0.18);
-}
-
-:global([data-theme="dark"] .header) {
-  border-bottom-color: rgba(212, 167, 71, 0.12);
-}
-
-:global([data-theme="dark"] .notification-dot) {
-  border-color: rgba(20, 16, 13, 0.9);
-}
-
-/* ---- Theme Switcher ---- */
-.theme-switcher {
-  position: relative;
-  z-index: var(--z-dropdown);
-}
-
-.theme-switcher__trigger {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 18px;
-  transition: all var(--transition-fast);
-  user-select: none;
-
-  &:hover {
-    background: rgba(45, 35, 39, 0.06);
-    transform: scale(1.08);
-  }
-  &:active { transform: scale(0.94); }
-}
-
-.theme-switcher__emoji {
-  line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-.theme-switcher__dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 260px;
-  padding: 16px;
-  z-index: calc(var(--z-dropdown) + 1);
-  overflow: visible;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(40px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: -6px;
-    right: 16px;
-    width: 12px;
-    height: 12px;
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    border-right: none;
-    border-bottom: none;
-    transform: rotate(45deg);
-  }
-}
-
-.theme-switcher__section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.theme-switcher__label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-}
-
-.theme-swatches {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.theme-swatch {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  border: 1.5px solid transparent;
-  background: var(--color-bg-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--color-text-secondary);
-
-  &:hover {
-    border-color: var(--color-primary-light);
-    background: var(--color-bg-secondary);
-    transform: translateX(2px);
-  }
-
-  &.active {
-    border-color: var(--color-primary);
-    background: linear-gradient(135deg, var(--color-primary-lighter), var(--color-bg-secondary));
-    color: var(--color-primary-dark);
-    font-weight: 600;
-    box-shadow: 0 2px 8px var(--shadow-glow);
-  }
-}
-
-.theme-swatch__emoji {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.theme-swatch__name {
-  font-size: 13px;
-}
-
-.theme-switcher__divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: 12px 0;
-}
-
-.theme-mode-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  border: 1.5px solid transparent;
-  background: var(--color-bg-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
-
-  &:last-child { margin-bottom: 0; }
-
-  &:hover {
-    border-color: var(--color-primary-light);
-    background: var(--color-bg-secondary);
-  }
-
-  &.active {
-    border-color: var(--color-primary);
-    background: linear-gradient(135deg, var(--color-primary-lighter), var(--color-bg-secondary));
-    color: var(--color-primary-dark);
-    font-weight: 600;
-  }
-}
-
-/* Dark mode adjustments for theme switcher dropdown */
-:global([data-theme="dark"] .theme-switcher__dropdown) {
-  background: rgba(23, 19, 16, 0.94);
-  border-color: var(--gold-muted);
-}
-
-:global([data-theme="dark"] .theme-switcher__dropdown::before) {
-  background: rgba(23, 19, 16, 0.94);
-  border-color: var(--gold-muted);
-  border-right: none;
-  border-bottom: none;
-}
-
-:global([data-theme="dark"] .theme-switcher__trigger:hover) {
-  background: rgba(212, 167, 71, 0.1);
+  color: var(--sw-ink);
 }
 </style>

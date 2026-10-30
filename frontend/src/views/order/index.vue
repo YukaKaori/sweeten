@@ -1,135 +1,144 @@
 <script setup>
+/**
+ * 订单管理：筛选 → 列表 / 看板 → 详情抽屉（状态流转、打印小票、删除）
+ * 状态流转由后端校验（PUT /orders/status）：取消时回补库存；完成时按实付金额发放积分。
+ * 操作按钮按当前员工权限显示（order:order:update / order:order:delete）。
+ */
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, View, Delete, Download, List, Grid } from '@element-plus/icons-vue'
+import { Search, Download, List, Grid } from '@element-plus/icons-vue'
 import {
   ORDER_STATUS,
   ORDER_STATUS_FLOW,
+  ORDER_PROGRESS,
   getLabelByValue,
-  getTypeByValue,
   parseOrderItems,
   formatOrderItems,
 } from '@/utils/constants'
 import { queryPageApi, queryByIdApi, deleteByIdApi, updateStatusApi } from '@/api/modules/order'
 import { exportCSV } from '@/composables/useExport'
+import { usePermission } from '@/composables/usePermission'
+import { formatPrice, formatDateTime, formatRelative } from '@/utils/format'
+import { BRAND } from '@/config/brand'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonTable from '@/components/SkeletonTable.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
+import BrandLogo from '@/components/brand/BrandLogo.vue'
+import SwIcon from '@/components/brand/SwIcon.vue'
+
+const route = useRoute()
+const { can } = usePermission()
+const canUpdate = can('order:order:update')
+const canDelete = can('order:order:delete')
+
+/** 流转到某状态时按钮上的动作文案 */
+const ACTION_LABELS = { 1: '转为待接单', 2: '接单制作', 3: '开始配送', 4: '确认完成', 5: '取消订单' }
+
+const initialStatus = route.query.status !== undefined && route.query.status !== '' ? Number(route.query.status) : ''
 
 // 搜索
 const searchForm = ref({
-  orderNo: '',
+  orderNo: typeof route.query.orderNo === 'string' ? route.query.orderNo : '',
   customerName: '',
-  status: '',
+  status: Number.isInteger(initialStatus) ? initialStatus : '',
   date: [],
   begin: '',
-  end: ''
+  end: '',
 })
 
-// 订单列表
 const orderList = ref([])
 const loading = ref(false)
+const loadFailed = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-// 详情抽屉
 const drawerVisible = ref(false)
 const currentOrder = ref(null)
-
-// 视图模式：'table' | 'kanban'
 const viewMode = ref('table')
 
-// Kanban 列定义
-const kanbanColumns = computed(() => {
-  return ORDER_STATUS.map(status => ({
+const kanbanColumns = computed(() =>
+  ORDER_STATUS.filter((s) => s.value !== 0 || orderList.value.some((o) => o.status === 0)).map((status) => ({
     ...status,
-    orders: orderList.value.filter(o => o.status === status.value),
+    orders: orderList.value.filter((o) => o.status === status.value),
   }))
+)
+
+const hasFilter = computed(() => {
+  const f = searchForm.value
+  return !!(f.orderNo || f.customerName || f.status !== '' || f.begin)
 })
 
-onMounted(() => {
-  search()
-})
-
-// 查询
 const search = async () => {
   loading.value = true
+  loadFailed.value = false
   try {
-    const result = await queryPageApi(
-      searchForm.value.orderNo,
-      searchForm.value.customerName,
-      searchForm.value.status,
-      searchForm.value.begin,
-      searchForm.value.end,
-      currentPage.value,
-      pageSize.value
-    )
+    const f = searchForm.value
+    const result = await queryPageApi(f.orderNo.trim(), f.customerName.trim(), f.status, f.begin, f.end, currentPage.value, pageSize.value)
     if (result.code) {
       orderList.value = result.data?.rows || []
       total.value = result.data?.total || 0
     } else {
+      loadFailed.value = true
       ElMessage.error(result.msg || '订单加载失败')
     }
   } catch {
-    // 拦截器已提示
+    loadFailed.value = true
   } finally {
     loading.value = false
   }
 }
 
-// 清空搜索
+const runSearch = () => {
+  currentPage.value = 1
+  search()
+}
+
+const pickStatus = (value) => {
+  searchForm.value.status = value
+  runSearch()
+}
+
 const clear = () => {
   searchForm.value = { orderNo: '', customerName: '', status: '', date: [], begin: '', end: '' }
-  currentPage.value = 1
-  search()
+  runSearch()
 }
 
-// 侦听日期变化
-watch(() => searchForm.value.date, (newVal) => {
-  if (newVal && newVal.length === 2) {
-    searchForm.value.begin = newVal[0]
-    searchForm.value.end = newVal[1]
-  } else {
-    searchForm.value.begin = ''
-    searchForm.value.end = ''
-  }
+watch(() => searchForm.value.date, (val) => {
+  const valid = val && val.length === 2
+  searchForm.value.begin = valid ? val[0] : ''
+  searchForm.value.end = valid ? val[1] : ''
 }, { deep: true })
 
-// 分页
-const handleSizeChange = () => {
-  currentPage.value = 1
-  search()
-}
-const handleCurrentChange = () => {
-  search()
-}
+const handleSizeChange = () => runSearch()
+const handleCurrentChange = () => search()
 
-// 查看详情
 const viewDetail = async (order) => {
   currentOrder.value = order
   drawerVisible.value = true
   const result = await queryByIdApi(order.id).catch(() => null)
-  if (result?.code && result.data) {
+  if (result?.code && result.data && currentOrder.value?.id === order.id) {
     currentOrder.value = result.data
   }
 }
 
-// 删除订单
-const deleteOrder = async (id) => {
+const deleteOrder = async (order) => {
   try {
-    await ElMessageBox.confirm('确认删除该订单吗？', '确认删除', {
-      confirmButtonText: '确认',
+    await ElMessageBox.confirm(`删除后无法恢复。确定删除订单 ${order.orderNo} 吗？`, '删除订单', {
+      confirmButtonText: '删除',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
     })
   } catch {
-    return // 取消
+    return
   }
   try {
-    const result = await deleteByIdApi(id)
+    const result = await deleteByIdApi(order.id)
     if (result.code) {
-      ElMessage.success('删除成功')
+      ElMessage.success('订单已删除')
+      if (currentOrder.value?.id === order.id) drawerVisible.value = false
       if (orderList.value.length === 1 && currentPage.value > 1) currentPage.value--
       search()
     } else {
@@ -144,32 +153,41 @@ const handleExport = () => {
   const columns = [
     { key: 'orderNo', label: '订单号' },
     { key: 'customerName', label: '客户' },
+    { key: 'phone', label: '电话' },
     { key: 'itemsText', label: '商品明细' },
     { key: 'amount', label: '金额' },
     { key: 'status', label: '状态' },
-    { key: 'createTime', label: '下单时间' }
+    { key: 'createTime', label: '下单时间' },
   ]
-  const rows = orderList.value.map(o => ({
+  const rows = orderList.value.map((o) => ({
     ...o,
     itemsText: formatOrderItems(o.items),
     status: getLabelByValue(ORDER_STATUS, o.status),
   }))
-  exportCSV(rows, columns, '订单数据')
+  exportCSV(rows, columns, '喜甜订单')
 }
 
-// 状态流转映射：每个状态可以流转到的目标状态（后端 PUT /orders/status 同样校验）
-const statusFlow = ORDER_STATUS_FLOW
+// ---------------- 状态流转 ----------------
 const statusUpdating = ref(false)
 
-// 调用状态流转接口；取消订单时后端会回补移动端订单扣减的库存
+/** 下一步（非取消）与取消，分开展示：主操作醒目、取消弱化 */
+const nextActions = (status) => (ORDER_STATUS_FLOW[status] || []).filter((v) => v !== 5)
+const canCancel = (status) => (ORDER_STATUS_FLOW[status] || []).includes(5)
+const canRemove = (order) => order.status === 4 || order.status === 5
+
+const confirmHint = (newStatus) => {
+  if (newStatus === 5) return '取消后，顾客下单时扣减的库存会自动回补；若已发放积分会一并扣回。'
+  if (newStatus === 4) return '完成后将按实付金额为顾客发放会员积分。'
+  return ''
+}
+
 const changeStatus = async (order, newStatus) => {
-  const statusLabel = getLabelByValue(ORDER_STATUS, newStatus)
   statusUpdating.value = true
   try {
     const result = await updateStatusApi(order.id, newStatus)
     if (result.code) {
-      ElMessage.success(`订单已变更为「${statusLabel}」`)
-      if (currentOrder.value?.id === order.id) currentOrder.value.status = newStatus
+      ElMessage.success(`订单 ${order.orderNo.slice(-6)} 已${newStatus === 5 ? '取消' : `更新为「${getLabelByValue(ORDER_STATUS, newStatus)}」`}`)
+      if (currentOrder.value?.id === order.id) currentOrder.value = { ...currentOrder.value, status: newStatus }
       search()
       return true
     }
@@ -182,77 +200,100 @@ const changeStatus = async (order, newStatus) => {
   return false
 }
 
-// 与后端约定一致：完成时发积分；取消时回补库存（若该单曾发过积分则扣回）
-const cancelHint = (newStatus) => {
-  if (newStatus === 5) return '取消后，顾客下单时扣减的库存会自动回补。'
-  if (newStatus === 4) return '完成后将按实付金额为顾客发放会员积分。'
+const updateOrderStatus = async (order, newStatus) => {
+  const hint = confirmHint(newStatus) || `确认后订单状态将更新为「${getLabelByValue(ORDER_STATUS, newStatus)}」。`
+  try {
+    await ElMessageBox.confirm(
+      `${order.customerName} · ${formatPrice(order.amount)}。${hint}`,
+      `${ACTION_LABELS[newStatus]} · 订单 ${order.orderNo.slice(-6)}`,
+      {
+        confirmButtonText: newStatus === 5 ? '确认取消订单' : '确认',
+        cancelButtonText: '返回',
+        type: newStatus === 5 ? 'warning' : 'info',
+      }
+    )
+  } catch {
+    return
+  }
+  await changeStatus(order, newStatus)
+}
+
+// ---------------- 进度 ----------------
+const progressSteps = ORDER_PROGRESS.map((v) => ORDER_STATUS.find((s) => s.value === v))
+const stepState = (order, value) => {
+  if (!order || order.status == null || order.status === 5 || order.status === 0) return ''
+  if (value < order.status) return 'is-done'
+  if (value === order.status) return order.status === 4 ? 'is-done' : 'is-current'
   return ''
 }
 
-// 只有已完成/已取消的订单可删除；进行中的订单需先取消（以回补库存）
-const canDelete = (order) => order.status === 4 || order.status === 5
-
-const getFlowActions = (status) => {
-  const targets = statusFlow[status] || []
-  return targets.map(val => ORDER_STATUS.find(s => s.value === val)).filter(Boolean)
+// ---------------- 打印小票 ----------------
+const printOrder = ref(null)
+const printTicket = async () => {
+  printOrder.value = currentOrder.value
+  document.body.classList.add('sw-printing')
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  window.print()
+  document.body.classList.remove('sw-printing')
 }
 
-// Kanban 拖拽状态变更（带确认提示）
-const kanbanStatusChange = async (order, newStatus) => {
-  const targets = statusFlow[order.status] || []
-  if (!targets.includes(newStatus) && order.status !== newStatus) {
-    ElMessage.warning('不允许此状态变更')
-    return
-  }
-  if (order.status === newStatus) return
+const orderLines = computed(() => parseOrderItems(currentOrder.value?.items))
+const printLines = computed(() => parseOrderItems(printOrder.value?.items))
 
-  const statusLabel = ORDER_STATUS.find(s => s.value === newStatus)?.label || newStatus
-  try {
-    await ElMessageBox.confirm(
-      `将订单 #${order.orderNo?.slice(-6)} 从「${getLabelByValue(ORDER_STATUS, order.status)}」移至「${statusLabel}」？${cancelHint(newStatus)}`,
-      '看板流转',
-      { confirmButtonText: '确认', cancelButtonText: '取消', type: newStatus === 5 ? 'warning' : 'info' }
-    )
-  } catch {
-    return // 取消
+onMounted(() => {
+  search()
+  // 从概览「订单队列」带订单号进来时，直接打开该订单
+  if (searchForm.value.orderNo) {
+    watch(orderList, (list) => {
+      const hit = list.find((o) => o.orderNo === searchForm.value.orderNo)
+      if (hit) viewDetail(hit)
+    }, { once: true })
   }
-  await changeStatus(order, newStatus)
-}
-
-const updateOrderStatus = async (order, newStatus) => {
-  const statusLabel = ORDER_STATUS.find(s => s.value === newStatus)?.label || newStatus
-  try {
-    await ElMessageBox.confirm(`确认将订单状态变更为「${statusLabel}」吗？${cancelHint(newStatus)}`, '状态变更', {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: newStatus === 5 ? 'warning' : 'info'
-    })
-  } catch {
-    return // 取消
-  }
-  await changeStatus(order, newStatus)
-}
+})
 </script>
 
 <template>
   <div class="page-container">
-    <PageHeader title="订单管理" description="查看和管理甜品订单，跟踪订单状态">
+    <PageHeader
+      title="订单管理"
+      description="接单、制作、配送与完成；取消订单会自动回补库存"
+    >
       <template #actions>
-        <el-button @click="handleExport">
+        <el-button
+          :disabled="!orderList.length"
+          @click="handleExport"
+        >
           <el-icon><Download /></el-icon>
-          导出
+          导出本页
         </el-button>
       </template>
     </PageHeader>
 
-    <!-- 搜索栏 -->
-    <div class="search-card glass-panel animate-fade-in-up delay-1">
-      <el-form :inline="true" :model="searchForm" class="search-form">
+    <!-- 筛选 -->
+    <section class="filters surface">
+      <el-form
+        :inline="true"
+        :model="searchForm"
+        class="filters__form"
+        @submit.prevent="runSearch"
+      >
         <el-form-item label="订单号">
-          <el-input v-model="searchForm.orderNo" placeholder="请输入订单号" clearable style="width: 180px" />
+          <el-input
+            v-model="searchForm.orderNo"
+            placeholder="支持部分匹配"
+            clearable
+            style="width: 190px"
+            @keyup.enter="runSearch"
+          />
         </el-form-item>
         <el-form-item label="客户">
-          <el-input v-model="searchForm.customerName" placeholder="请输入客户姓名" clearable style="width: 150px" />
+          <el-input
+            v-model="searchForm.customerName"
+            placeholder="客户姓名"
+            clearable
+            style="width: 150px"
+            @keyup.enter="runSearch"
+          />
         </el-form-item>
         <el-form-item label="下单日期">
           <el-date-picker
@@ -262,41 +303,55 @@ const updateOrderStatus = async (order, newStatus) => {
             range-separator="至"
             start-placeholder="开始"
             end-placeholder="结束"
-            style="width: 240px"
+            style="width: 250px"
           />
         </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 140px">
-            <el-option v-for="s in ORDER_STATUS" :key="s.value" :label="s.label" :value="s.value" />
-          </el-select>
-        </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="currentPage = 1; search()">
+          <el-button
+            type="primary"
+            native-type="submit"
+          >
             <el-icon><Search /></el-icon>
             查询
           </el-button>
-          <el-button @click="clear">清空</el-button>
+          <el-button
+            :disabled="!hasFilter"
+            @click="clear"
+          >清空</el-button>
         </el-form-item>
       </el-form>
-    </div>
+    </section>
 
-    <!-- 状态标签 + 视图切换 -->
-    <div class="status-tabs animate-fade-in-up delay-1">
-      <div class="status-tabs__left">
-        <el-check-tag
+    <!-- 状态 + 视图 -->
+    <div class="toolbar">
+      <div
+        class="status-tabs"
+        role="tablist"
+        aria-label="按状态筛选"
+      >
+        <button
           v-for="s in [{ label: '全部', value: '' }, ...ORDER_STATUS]"
           :key="s.value"
-          :checked="searchForm.status === s.value"
-          @change="searchForm.status = s.value; currentPage = 1; search()"
+          type="button"
+          role="tab"
+          class="status-tab"
+          :class="{ 'is-active': searchForm.status === s.value }"
+          :aria-selected="searchForm.status === s.value"
+          @click="pickStatus(s.value)"
         >
           {{ s.label }}
-        </el-check-tag>
+        </button>
       </div>
-      <div class="status-tabs__right">
-        <el-radio-group v-model="viewMode" size="small">
+      <div class="toolbar__right">
+        <span class="toolbar__count">共 {{ total }} 笔</span>
+        <el-radio-group
+          v-model="viewMode"
+          size="small"
+          aria-label="视图"
+        >
           <el-radio-button value="table">
             <el-icon :size="14"><List /></el-icon>
-            <span class="view-mode-label">表格</span>
+            <span class="view-mode-label">列表</span>
           </el-radio-button>
           <el-radio-button value="kanban">
             <el-icon :size="14"><Grid /></el-icon>
@@ -306,616 +361,907 @@ const updateOrderStatus = async (order, newStatus) => {
       </div>
     </div>
 
-    <!-- ========== Kanban 看板视图 ========== -->
-    <div v-if="viewMode === 'kanban'" class="kanban-container animate-fade-in-up delay-2">
-      <div
-        v-for="col in kanbanColumns"
-        :key="col.value"
-        class="kanban-column"
-        :class="`kanban-column--${col.value}`"
-      >
-        <div class="kanban-column__header">
-          <div class="kanban-column__title-row">
-            <span class="kanban-column__dot" :class="`dot--${col.value}`"></span>
-            <span class="kanban-column__title">{{ col.label }}</span>
-          </div>
-          <span class="kanban-column__count">{{ col.orders.length }}</span>
-        </div>
-
-        <div class="kanban-column__body">
-          <div
-            v-for="order in col.orders"
-            :key="order.id"
-            class="kanban-card glass-panel"
-            draggable="true"
-            @click="viewDetail(order)"
-          >
-            <div class="kanban-card__top">
-              <span class="kanban-card__no">#{{ order.orderNo?.slice(-6) }}</span>
-              <span class="kanban-card__amount">¥{{ (order.amount || 0).toFixed(0) }}</span>
-            </div>
-            <div class="kanban-card__customer">{{ order.customerName }}</div>
-            <div class="kanban-card__items">{{ formatOrderItems(order.items) }}</div>
-            <div class="kanban-card__time">{{ order.createTime?.slice(5) || '' }}</div>
-
-            <!-- 快捷流转按钮 -->
-            <div class="kanban-card__actions" @click.stop>
-              <el-button
-                v-for="action in getFlowActions(order.status)"
-                :key="action.value"
-                :type="action.value === 5 ? 'danger' : 'primary'"
-                size="small"
-                plain
-                class="kanban-action-btn"
-                :disabled="statusUpdating"
-                @click="kanbanStatusChange(order, action.value)"
+    <!-- 看板 -->
+    <div
+      v-if="viewMode === 'kanban'"
+      class="kanban"
+    >
+      <p class="kanban__note">看板显示当前页的 {{ orderList.length }} 笔订单</p>
+      <div class="kanban__cols">
+        <section
+          v-for="col in kanbanColumns"
+          :key="col.value"
+          class="kanban-col"
+        >
+          <header class="kanban-col__head">
+            <StatusBadge
+              :status="col.value"
+              size="sm"
+            />
+            <span class="kanban-col__count sw-num">{{ col.orders.length }}</span>
+          </header>
+          <div class="kanban-col__body">
+            <article
+              v-for="order in col.orders"
+              :key="order.id"
+              class="kcard"
+              tabindex="0"
+              @click="viewDetail(order)"
+              @keydown.enter="viewDetail(order)"
+            >
+              <div class="kcard__top">
+                <span class="kcard__no sw-num">#{{ order.orderNo?.slice(-6) }}</span>
+                <span class="kcard__amount sw-num">{{ formatPrice(order.amount) }}</span>
+              </div>
+              <p class="kcard__customer">{{ order.customerName }}</p>
+              <p class="kcard__items">{{ formatOrderItems(order.items) }}</p>
+              <p class="kcard__time">{{ formatRelative(order.createTime) }}</p>
+              <div
+                v-if="canUpdate && (nextActions(order.status).length || canCancel(order.status))"
+                class="kcard__actions"
+                @click.stop
               >
-                → {{ action.label }}
-              </el-button>
-            </div>
+                <el-button
+                  v-for="v in nextActions(order.status)"
+                  :key="v"
+                  type="primary"
+                  size="small"
+                  :disabled="statusUpdating"
+                  @click="updateOrderStatus(order, v)"
+                >
+                  {{ ACTION_LABELS[v] }}
+                </el-button>
+                <el-button
+                  v-if="canCancel(order.status)"
+                  size="small"
+                  text
+                  :disabled="statusUpdating"
+                  @click="updateOrderStatus(order, 5)"
+                >
+                  取消
+                </el-button>
+              </div>
+            </article>
+            <p
+              v-if="!col.orders.length"
+              class="kanban-col__empty"
+            >暂无</p>
           </div>
-
-          <div v-if="col.orders.length === 0" class="kanban-column__empty">
-            暂无订单
-          </div>
-        </div>
+        </section>
       </div>
     </div>
 
-    <!-- 表格 -->
-    <div v-else class="table-card glass-panel animate-fade-in-up delay-2">
-      <SkeletonTable v-if="loading" :rows="8" :columns="6" />
-      <el-table v-else :data="orderList" style="width: 100%">
-        <el-table-column type="index" label="#" width="60" align="center">
-          <template #default="scope">
-            <span class="row-index">{{ (currentPage - 1) * pageSize + scope.$index + 1 }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="orderNo" label="订单号" width="160">
-          <template #default="scope">
-            <span class="order-no">{{ scope.row.orderNo }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="customerName" label="客户" width="90" align="center" />
-        <el-table-column label="商品明细" min-width="200" show-overflow-tooltip>
-          <template #default="scope">
-            {{ formatOrderItems(scope.row.items) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额" width="100" align="right">
-          <template #default="scope">
-            <span class="amount">¥{{ (scope.row.amount || 0).toFixed(2) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="scope">
-            <el-tag :type="getTypeByValue(ORDER_STATUS, scope.row.status)" size="small" effect="plain">
-              {{ getLabelByValue(ORDER_STATUS, scope.row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="下单时间" width="170" align="center">
-          <template #default="scope">
-            <span class="time-text">{{ scope.row.createTime }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" align="center" fixed="right">
-          <template #default="scope">
-            <div class="action-buttons">
-              <el-button type="primary" size="small" plain @click="viewDetail(scope.row)">
-                <el-icon><View /></el-icon>
-                详情
-              </el-button>
-              <el-tooltip :disabled="canDelete(scope.row)" content="进行中的订单请先取消再删除" placement="top">
-                <span>
-                  <el-button
-                    type="danger"
-                    size="small"
-                    plain
-                    :disabled="!canDelete(scope.row)"
-                    aria-label="删除订单"
-                    @click="deleteOrder(scope.row.id)"
-                  >
-                    <el-icon><Delete /></el-icon>
-                  </el-button>
-                </span>
-              </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <EmptyState
-        v-if="!loading && orderList.length === 0"
-        title="暂无订单数据"
-        description="当客户下单后，订单将显示在这里"
+    <!-- 列表 -->
+    <section
+      v-else
+      class="table-card surface"
+    >
+      <SkeletonTable
+        v-if="loading"
+        :rows="8"
+        :columns="6"
       />
+      <template v-else>
+        <el-table
+          v-if="orderList.length"
+          :data="orderList"
+          style="width: 100%"
+          @row-dblclick="viewDetail"
+        >
+          <el-table-column
+            label="订单号"
+            min-width="190"
+          >
+            <template #default="{ row }">
+              <button
+                type="button"
+                class="order-no"
+                @click="viewDetail(row)"
+              >{{ row.orderNo }}</button>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="客户"
+            min-width="120"
+          >
+            <template #default="{ row }">
+              <span class="cell-strong">{{ row.customerName }}</span>
+              <span class="cell-sub sw-num">{{ row.phone }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="商品"
+            min-width="200"
+            show-overflow-tooltip
+          >
+            <template #default="{ row }">{{ formatOrderItems(row.items) }}</template>
+          </el-table-column>
+          <el-table-column
+            label="金额"
+            width="110"
+            align="right"
+          >
+            <template #default="{ row }"><span class="cell-strong sw-num">{{ formatPrice(row.amount) }}</span></template>
+          </el-table-column>
+          <el-table-column
+            label="状态"
+            width="110"
+          >
+            <template #default="{ row }"><StatusBadge
+              :status="row.status"
+              size="sm"
+            /></template>
+          </el-table-column>
+          <el-table-column
+            label="下单时间"
+            width="160"
+          >
+            <template #default="{ row }">
+              <span
+                class="cell-sub-only sw-num"
+                :title="formatDateTime(row.createTime)"
+              >{{ formatDateTime(row.createTime) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="操作"
+            :width="canUpdate ? 190 : 90"
+            align="right"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <div class="row-actions">
+                <el-button
+                  v-for="v in canUpdate ? nextActions(row.status) : []"
+                  :key="v"
+                  type="primary"
+                  size="small"
+                  :disabled="statusUpdating"
+                  @click="updateOrderStatus(row, v)"
+                >
+                  {{ ACTION_LABELS[v] }}
+                </el-button>
+                <el-button
+                  size="small"
+                  @click="viewDetail(row)"
+                >详情</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <!-- 分页 -->
-      <div class="pagination-wrapper" v-if="total > 0">
+        <EmptyState
+          v-else-if="loadFailed"
+          title="订单加载失败"
+          description="请检查网络后重试"
+        >
+          <template #action><el-button @click="search">重新加载</el-button></template>
+        </EmptyState>
+        <EmptyState
+          v-else-if="hasFilter"
+          title="没有符合条件的订单"
+          description="换个筛选条件试试"
+        >
+          <template #action><el-button @click="clear">清空筛选</el-button></template>
+        </EmptyState>
+        <EmptyState
+          v-else
+          title="还没有订单"
+          description="顾客在商城下单后，订单会出现在这里"
+        />
+      </template>
+
+      <div
+        v-if="total > 0"
+        class="pagination-wrapper"
+      >
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50]"
-          :background="true"
+          background
           layout="total, sizes, prev, pager, next, jumper"
           :total="total"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
       </div>
-    </div>
+    </section>
 
-    <!-- 订单详情抽屉 -->
-    <el-drawer v-model="drawerVisible" title="订单详情" size="480px" v-if="currentOrder">
-      <div class="order-detail">
-        <div class="detail-section">
-          <h4>基本信息</h4>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="detail-label">订单号</span>
-              <span class="detail-value">{{ currentOrder.orderNo }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">状态</span>
-              <el-tag :type="getTypeByValue(ORDER_STATUS, currentOrder.status)" size="small">
-                {{ getLabelByValue(ORDER_STATUS, currentOrder.status) }}
-              </el-tag>
-            </div>
-
-            <!-- 状态流转操作 -->
-            <div class="detail-item full" v-if="getFlowActions(currentOrder.status).length > 0">
-              <span class="detail-label">状态变更</span>
-              <div class="status-actions">
-                <el-button
-                  v-for="action in getFlowActions(currentOrder.status)"
-                  :key="action.value"
-                  :type="action.value === 5 ? 'danger' : 'primary'"
-                  size="small"
-                  plain
-                  :loading="statusUpdating"
-                  @click="updateOrderStatus(currentOrder, action.value)"
-                >
-                  变更为「{{ action.label }}」
-                </el-button>
-              </div>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">下单时间</span>
-              <span class="detail-value">{{ currentOrder.createTime }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">订单金额</span>
-              <span class="detail-value amount">¥{{ (currentOrder.amount || 0).toFixed(2) }}</span>
-            </div>
+    <!-- 详情抽屉 -->
+    <el-drawer
+      v-model="drawerVisible"
+      size="min(520px, 100vw)"
+      :with-header="false"
+    >
+      <div
+        v-if="currentOrder"
+        class="od"
+      >
+        <header class="od__head">
+          <div>
+            <p class="od__label">订单编号</p>
+            <h2 class="od__no sw-num">{{ currentOrder.orderNo }}</h2>
           </div>
+          <button
+            type="button"
+            class="hdr-btn"
+            aria-label="关闭"
+            @click="drawerVisible = false"
+          >
+            <SwIcon
+              name="close"
+              :size="18"
+            />
+          </button>
+        </header>
+
+        <div class="od__status">
+          <StatusBadge :status="currentOrder.status" />
+          <span class="od__time">下单于 {{ formatDateTime(currentOrder.createTime) }}</span>
         </div>
 
-        <div class="detail-section">
-          <h4>客户信息</h4>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="detail-label">客户姓名</span>
-              <span class="detail-value">{{ currentOrder.customerName }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">联系电话</span>
-              <span class="detail-value">{{ currentOrder.phone }}</span>
-            </div>
-            <div class="detail-item full">
-              <span class="detail-label">配送地址</span>
-              <span class="detail-value">{{ currentOrder.address }}</span>
-            </div>
-          </div>
+        <ol
+          v-if="currentOrder.status !== 5 && currentOrder.status !== 0"
+          class="track"
+          aria-label="订单进度"
+        >
+          <li
+            v-for="s in progressSteps"
+            :key="s.value"
+            :class="stepState(currentOrder, s.value)"
+          >
+            <span
+              class="track__dot"
+              aria-hidden="true"
+            ></span>
+            <span class="track__label">{{ s.label }}</span>
+          </li>
+        </ol>
+        <p
+          v-else-if="currentOrder.status === 5"
+          class="od__cancelled"
+        >订单已取消，相关库存已回补。</p>
+
+        <div
+          v-if="canUpdate && (nextActions(currentOrder.status).length || canCancel(currentOrder.status))"
+          class="od__actions"
+        >
+          <el-button
+            v-for="v in nextActions(currentOrder.status)"
+            :key="v"
+            type="primary"
+            :loading="statusUpdating"
+            @click="updateOrderStatus(currentOrder, v)"
+          >
+            {{ ACTION_LABELS[v] }}
+          </el-button>
+          <el-button
+            v-if="canCancel(currentOrder.status)"
+            :disabled="statusUpdating"
+            @click="updateOrderStatus(currentOrder, 5)"
+          >
+            取消订单
+          </el-button>
         </div>
 
-        <div class="detail-section">
-          <h4>商品明细</h4>
-          <ul class="detail-item-list">
-            <li v-for="(line, idx) in parseOrderItems(currentOrder.items)" :key="idx">
-              <span class="detail-item-list__name">{{ line.name }}</span>
-              <span class="detail-item-list__qty">{{ line.qty ? `×${line.qty}` : '' }}</span>
-              <span class="detail-item-list__price">{{ line.price != null ? `¥${(line.price * (line.qty || 1)).toFixed(2)}` : '' }}</span>
+        <section class="od__section">
+          <h3 class="od__title">商品明细</h3>
+          <ul class="od__lines">
+            <li
+              v-for="(line, idx) in orderLines"
+              :key="idx"
+            >
+              <span class="od__line-name">{{ line.name }}</span>
+              <span class="od__line-qty sw-num">{{ line.qty ? `× ${line.qty}` : '' }}</span>
+              <span class="od__line-price sw-num">{{ line.price != null ? formatPrice(line.price * (line.qty || 1)) : '' }}</span>
             </li>
-            <li v-if="!parseOrderItems(currentOrder.items).length" class="detail-item-list__empty">无明细</li>
+            <li
+              v-if="!orderLines.length"
+              class="od__line-empty"
+            >无明细</li>
           </ul>
-        </div>
+          <div class="od__total">
+            <span>订单金额</span>
+            <strong class="sw-num">{{ formatPrice(currentOrder.amount) }}</strong>
+          </div>
+        </section>
+
+        <section class="od__section">
+          <h3 class="od__title">收货信息</h3>
+          <dl class="od__info">
+            <div><dt>收货人</dt><dd>{{ currentOrder.customerName }}</dd></div>
+            <div><dt>联系电话</dt><dd class="sw-num">{{ currentOrder.phone }}</dd></div>
+            <div><dt>配送地址</dt><dd>{{ currentOrder.address || '—' }}</dd></div>
+          </dl>
+        </section>
+
+        <footer class="od__foot">
+          <el-button @click="printTicket">
+            <SwIcon
+              name="print"
+              :size="16"
+            />
+            <span style="margin-left: 6px">打印小票</span>
+          </el-button>
+          <el-tooltip
+            v-if="canDelete"
+            :disabled="canRemove(currentOrder)"
+            content="进行中的订单请先取消再删除（取消会回补库存）"
+            placement="top"
+          >
+            <span>
+              <el-button
+                type="danger"
+                plain
+                :disabled="!canRemove(currentOrder)"
+                @click="deleteOrder(currentOrder)"
+              >删除订单</el-button>
+            </span>
+          </el-tooltip>
+        </footer>
       </div>
     </el-drawer>
+
+    <!-- 打印用小票（仅打印时可见） -->
+    <Teleport to="body">
+      <div
+        v-if="printOrder"
+        class="sw-print-root"
+        aria-hidden="true"
+      >
+        <div class="ticket">
+          <div class="ticket__brand">
+            <BrandLogo
+              variant="stacked"
+              tone="mono"
+              :size="40"
+            />
+            <p class="ticket__tag">{{ BRAND.tagline }}</p>
+          </div>
+          <p class="ticket__row"><span>订单编号</span><span>{{ printOrder.orderNo }}</span></p>
+          <p class="ticket__row"><span>下单时间</span><span>{{ formatDateTime(printOrder.createTime) }}</span></p>
+          <p class="ticket__row"><span>订单状态</span><span>{{ getLabelByValue(ORDER_STATUS, printOrder.status) }}</span></p>
+          <hr>
+          <p
+            v-for="(line, idx) in printLines"
+            :key="idx"
+            class="ticket__row"
+          >
+            <span>{{ line.name }}{{ line.qty ? ` × ${line.qty}` : '' }}</span>
+            <span>{{ line.price != null ? formatPrice(line.price * (line.qty || 1)) : '' }}</span>
+          </p>
+          <hr>
+          <p class="ticket__row ticket__total"><span>合计</span><span>{{ formatPrice(printOrder.amount) }}</span></p>
+          <hr>
+          <p class="ticket__row"><span>收货人</span><span>{{ printOrder.customerName }}</span></p>
+          <p class="ticket__row"><span>电话</span><span>{{ printOrder.phone }}</span></p>
+          <p class="ticket__addr">{{ printOrder.address }}</p>
+          <p class="ticket__thanks">谢谢光临{{ BRAND.nameCn }}，{{ BRAND.taglineCn }}</p>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
-.detail-item-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.detail-item-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--color-border-light);
-  font-size: 14px;
-}
-
-.detail-item-list li:last-child {
-  border-bottom: none;
-}
-
-.detail-item-list__name {
-  flex: 1;
-  color: var(--color-text-primary);
-}
-
-.detail-item-list__qty,
-.detail-item-list__empty {
-  color: var(--color-text-muted);
-}
-
-.detail-item-list__price {
-  min-width: 72px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-secondary);
-}
-
 .page-container {
   max-width: 1400px;
   margin: 0 auto;
 }
 
-.search-card {
-  padding: 20px 24px;
+.filters {
+  padding: 16px 20px 0;
   margin-bottom: 16px;
 }
 
-.search-form :deep(.el-form-item) {
-  margin-bottom: 0;
+.filters__form :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
 }
 
 .status-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.status-tabs :deep(.el-check-tag) {
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-}
-
-.table-card {
-  padding: 4px;
-}
-
-.row-index {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.order-no {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 13px;
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.amount {
-  font-weight: 600;
-  color: var(--color-primary-dark);
-}
-
-.time-text {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.action-buttons {
   display: flex;
   gap: 6px;
-  justify-content: center;
-}
-
-.pagination-wrapper {
-  padding: 16px 20px;
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid var(--color-border-light);
-}
-
-/* 订单详情 */
-.order-detail {
-  padding: 0 4px;
-}
-
-.detail-section {
-  margin-bottom: 28px;
-}
-
-.detail-section h4 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.detail-item.full {
-  grid-column: 1 / -1;
-}
-
-.detail-label {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.detail-value {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  font-weight: 500;
-}
-
-.detail-items {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: 1.8;
-  background: var(--color-bg-primary);
-  padding: 12px 16px;
-  border-radius: var(--radius-md);
-}
-
-.status-actions {
-  display: flex;
-  gap: 8px;
   flex-wrap: wrap;
-  margin-top: 4px;
 }
 
-/* ============================================
-   Kanban Board Styles
-   ============================================ */
-.kanban-container {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-  min-height: 60vh;
-  overflow-x: auto;
-  padding-bottom: 16px;
-
-  @media (max-width: 1400px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  @media (max-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.kanban-column {
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  min-width: 200px;
-  max-height: calc(100vh - 280px);
-  overflow: hidden;
-}
-
-.kanban-column__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-  flex-shrink: 0;
-}
-
-.kanban-column__title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.kanban-column__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  &.dot--0 { background: #f0a35c; }
-  &.dot--1 { background: #6b8cce; }
-  &.dot--2 { background: #e8637a; }
-  &.dot--3 { background: #a78bfa; }
-  &.dot--4 { background: #5cb88a; }
-  &.dot--5 { background: #a3949b; }
-}
-
-.kanban-column__title {
+.status-tab {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-pill);
+  background: var(--sw-surface);
+  color: var(--sw-ink-2);
   font-size: 13px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.kanban-column__count {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-muted);
-  background: rgba(255, 255, 255, 0.4);
-  padding: 2px 8px;
-  border-radius: 99px;
-  min-width: 24px;
-  text-align: center;
-}
-
-.kanban-column__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.kanban-column__empty {
-  text-align: center;
-  padding: 32px 16px;
-  color: var(--color-text-muted);
-  font-size: 13px;
-  font-style: italic;
-}
-
-.kanban-card {
-  padding: 14px;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 12px;
-  transition: all var(--transition-fast);
-  animation: kanbanCardIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--glass-shadow-hover);
-    border-color: rgba(232, 99, 122, 0.2);
-    background: rgba(255, 255, 255, 0.85);
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
+  transition: background-color var(--sw-dur-1) var(--sw-ease), color var(--sw-dur-1) var(--sw-ease);
 }
 
-.kanban-card__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
+.status-tab:hover {
+  color: var(--sw-ink);
+  border-color: var(--el-border-color-hover);
 }
 
-.kanban-card__no {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-primary);
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-.kanban-card__amount {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.kanban-card__customer {
-  font-size: 13px;
+.status-tab.is-active {
+  background: var(--sw-primary);
+  border-color: var(--sw-primary);
+  color: var(--sw-on-primary);
   font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 3px;
 }
 
-.kanban-card__items {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 6px;
-}
-
-.kanban-card__time {
-  font-size: 10px;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 8px;
-}
-
-.kanban-card__actions {
+.toolbar__right {
   display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(45, 35, 39, 0.06);
-
-  .kanban-action-btn {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 6px;
-  }
-}
-
-@keyframes kanbanCardIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Status tabs layout */
-.status-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
 }
 
-.status-tabs__left {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.status-tabs__right {
-  flex-shrink: 0;
+.toolbar__count {
+  font-size: 13px;
+  color: var(--sw-ink-3);
 }
 
 .view-mode-label {
   margin-left: 4px;
+}
+
+.table-card {
+  padding: 4px 4px 0;
+  overflow: hidden;
+}
+
+.order-no {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--sw-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sw-ink);
+  cursor: pointer;
+}
+
+.order-no:hover {
+  color: var(--sw-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cell-strong {
+  display: block;
+  font-weight: 600;
+  color: var(--sw-ink);
+}
+
+.cell-sub {
+  display: block;
   font-size: 12px;
+  color: var(--sw-ink-3);
 }
 
-/* Dark mode kanban adjustments（整选择器入 :global，避免描述符被丢弃失效） */
-:global([data-theme="dark"] .kanban-column) {
-  background: rgba(48, 41, 54, 0.45);
-  border-color: rgba(255, 255, 255, 0.06);
+.cell-sub-only {
+  font-size: 13px;
+  color: var(--sw-ink-2);
 }
 
-:global([data-theme="dark"] .kanban-card) {
-  background: rgba(48, 41, 54, 0.6);
-  border-color: rgba(255, 255, 255, 0.08);
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
-:global([data-theme="dark"] .kanban-card:hover) {
-  background: rgba(48, 41, 54, 0.82);
-  border-color: rgba(240, 140, 158, 0.2);
+.row-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 
-:global([data-theme="dark"] .kanban-column__header) {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 16px;
+  border-top: 1px solid var(--sw-border-soft);
 }
 
-:global([data-theme="dark"] .kanban-card__actions) {
-  border-top-color: rgba(255, 255, 255, 0.06);
+/* ---------------- 看板 ---------------- */
+.kanban__note {
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.kanban__cols {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.kanban-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 50vh;
+  max-height: calc(100vh - 300px);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-fill-soft);
+  border: 1px solid var(--sw-border-soft);
+}
+
+.kanban-col__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+}
+
+.kanban-col__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sw-ink-3);
+}
+
+.kanban-col__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-col__empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--sw-ink-4);
+}
+
+.kcard {
+  padding: 12px;
+  border: 1px solid var(--sw-border-soft);
+  border-radius: var(--sw-r-md);
+  background: var(--sw-surface);
+  cursor: pointer;
+  transition: border-color var(--sw-dur-1) var(--sw-ease), box-shadow var(--sw-dur-1) var(--sw-ease);
+}
+
+.kcard:hover,
+.kcard:focus-visible {
+  border-color: var(--sw-border);
+  box-shadow: var(--sw-shadow-sm);
+}
+
+.kcard__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kcard__no {
+  font-family: var(--sw-font-mono);
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.kcard__amount {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kcard__customer {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.kcard__items {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kcard__time {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--sw-ink-4);
+}
+
+.kcard__actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--sw-border);
+}
+
+.kcard__actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+/* ---------------- 详情抽屉 ---------------- */
+.od {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.od__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.od__label {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.od__no {
+  margin-top: 2px;
+  font-family: var(--sw-font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.od__status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.od__time {
+  font-size: 13px;
+  color: var(--sw-ink-3);
+}
+
+.od__cancelled {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: var(--sw-r-md);
+  background: var(--sw-fill-soft);
+  font-size: 13px;
+  color: var(--sw-ink-2);
+}
+
+.track {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  list-style: none;
+  margin-top: 22px;
+}
+
+.track li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sw-ink-4);
+}
+
+.track li + li::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--sw-border);
+}
+
+.track li.is-done + li::before {
+  background: var(--sw-blush);
+}
+
+.track__dot {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--sw-border);
+  background: var(--sw-surface);
+}
+
+.track .is-done {
+  color: var(--sw-ink-2);
+}
+
+.track .is-done .track__dot {
+  border-color: var(--sw-blush);
+  background: var(--sw-blush);
+}
+
+.track .is-current {
+  color: var(--sw-ink);
+  font-weight: 600;
+}
+
+.track .is-current .track__dot {
+  border-color: var(--sw-cherry);
+  background: var(--sw-cherry);
+  box-shadow: 0 0 0 4px var(--sw-blush-soft);
+}
+
+.od__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.od__actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.od__section {
+  margin-top: 28px;
+}
+
+.od__title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.od__lines {
+  list-style: none;
+  border-top: 1px solid var(--sw-border-soft);
+}
+
+.od__lines li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--sw-border-soft);
+  font-size: 14px;
+}
+
+.od__line-name {
+  flex: 1;
+}
+
+.od__line-qty {
+  color: var(--sw-ink-3);
+}
+
+.od__line-price {
+  min-width: 72px;
+  text-align: right;
+}
+
+.od__line-empty {
+  color: var(--sw-ink-3);
+}
+
+.od__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 12px;
+  font-size: 14px;
+  color: var(--sw-ink-2);
+}
+
+.od__total strong {
+  font-size: 22px;
+  color: var(--sw-ink);
+}
+
+.od__info div {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.od__info dt {
+  width: 72px;
+  flex-shrink: 0;
+  color: var(--sw-ink-3);
+}
+
+.od__info dd {
+  color: var(--sw-ink);
+  word-break: break-all;
+}
+
+.od__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+@media (max-width: 640px) {
+  .filters__form :deep(.el-form-item) {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .filters__form :deep(.el-input),
+  .filters__form :deep(.el-date-editor) {
+    width: 100% !important;
+  }
+}
+
+/* ---------------- 打印小票（58/80mm 热敏纸或 A4 均可） ---------------- */
+.sw-print-root {
+  display: none;
+}
+
+@media print {
+  :global(body.sw-printing .sw-print-root) {
+    display: block !important;
+  }
+}
+
+.ticket {
+  width: 72mm;
+  margin: 0 auto;
+  padding: 4mm 0;
+  color: #000;
+  font-size: 11pt;
+  line-height: 1.5;
+  font-family: var(--sw-font-sans);
+}
+
+.ticket__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  color: #000;
+}
+
+.ticket__tag {
+  font-size: 8pt;
+  letter-spacing: 0.2em;
+}
+
+.ticket__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ticket__total {
+  font-size: 13pt;
+  font-weight: 700;
+}
+
+.ticket__addr {
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.ticket hr {
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px dashed #000;
+}
+
+.ticket__thanks {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 9pt;
 }
 </style>

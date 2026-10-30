@@ -1,417 +1,715 @@
-<template>
-  <div class="profile-page">
-    <!-- Member Card -->
-    <div class="member-card" v-if="profile.exists">
-      <!-- Level Banner -->
-      <div class="level-banner" :class="levelClass">
-        <div class="level-glow"></div>
-        <div class="level-banner-content">
-          <div class="member-avatar">{{ member.name?.charAt(0) || '😊' }}</div>
-          <div class="member-meta">
-            <h2 class="member-name">{{ member.name }}</h2>
-            <span class="level-badge">{{ profile.levelName }}</span>
-          </div>
-        </div>
-        <!-- Growth Progress -->
-        <div class="growth-bar-wrap" v-if="profile.growthProgress < 100">
-          <div class="growth-bar">
-            <div class="growth-fill" :style="{ width: profile.growthProgress + '%' }"></div>
-          </div>
-          <span class="growth-text">距下一级还需 {{ nextGrowthNeeded }} 成长值</span>
-        </div>
-        <div class="growth-bar-wrap" v-else>
-          <span class="growth-text max">🎉 已达最高等级</span>
-        </div>
-      </div>
-
-      <!-- Points & Stats -->
-      <div class="stats-row">
-        <div class="stat-item">
-          <span class="stat-value">{{ member.points || 0 }}</span>
-          <span class="stat-label">当前积分</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-value">¥{{ formatAmount(member.totalSpent) }}</span>
-          <span class="stat-label">累计消费</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <span class="stat-value">{{ member.orderCount || 0 }}</span>
-          <span class="stat-label">累计订单</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Non-member card -->
-    <div class="member-card guest-card" v-else>
-      <div class="guest-inner">
-        <div class="guest-icon">🍰</div>
-        <h2>加入 DessertShop 会员</h2>
-        <p>消费攒积分 · 升级享折扣 · 生日双倍积分</p>
-        <p class="guest-hint">下单后自动成为会员</p>
-      </div>
-    </div>
-
-    <!-- Coupon Section -->
-    <div class="section" v-if="profile.exists && coupons.length">
-      <div class="section-title">
-        <span>🎫 我的优惠券</span>
-        <span class="section-count">{{ coupons.length }}张</span>
-      </div>
-      <div class="coupon-list">
-        <div
-          v-for="c in coupons"
-          :key="c.id"
-          class="coupon-card"
-          :class="couponClass(c.couponType)"
-        >
-          <div class="cc-left">
-            <div class="cc-amount">
-              <template v-if="c.couponType === 2">
-                <span class="cc-num">{{ formatDiscount(c.discount) }}</span><span class="cc-unit">折</span>
-              </template>
-              <template v-else>
-                <span class="cc-unit">¥</span><span class="cc-num">{{ c.reduceAmount }}</span>
-              </template>
-            </div>
-            <div class="cc-condition" v-if="c.threshold > 0">满 ¥{{ c.threshold }} 可用</div>
-            <div class="cc-condition" v-else>无门槛</div>
-          </div>
-          <div class="cc-right">
-            <div class="cc-name">{{ c.couponName }}</div>
-            <div class="cc-expire">{{ formatExpire(c.expireAt) }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Points Exchange -->
-    <div class="section" v-if="profile.exists">
-      <div class="section-title">🎁 积分兑换</div>
-      <div class="exchange-list">
-        <div
-          v-for="t in exchangeList"
-          :key="t.id"
-          class="exchange-item"
-          :class="{ disabled: (member.points || 0) < (t.pointsCost || 0) }"
-        >
-          <div class="ex-info">
-            <div class="ex-name">{{ t.name }}</div>
-            <div class="ex-meta" v-if="t.threshold > 0">满 ¥{{ t.threshold }} 可用 · 有效期 {{ t.validDays }} 天</div>
-            <div class="ex-meta" v-else>无门槛 · 有效期 {{ t.validDays }} 天</div>
-          </div>
-          <button
-            class="ex-btn"
-            :disabled="(member.points || 0) < (t.pointsCost || 0)"
-            @click="doRedeem(t)"
-          >
-            <template v-if="t.pointsCost > 0">{{ t.pointsCost }} 积分</template>
-            <template v-else>免费</template>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Points History -->
-    <div class="section" v-if="profile.exists && pointsLog.length">
-      <div class="section-title">📋 积分记录</div>
-      <div class="log-list">
-        <div v-for="log in pointsLog" :key="log.id" class="log-item">
-          <div class="log-left">
-            <span class="log-icon">{{ typeIcon(log.type) }}</span>
-            <div>
-              <div class="log-reason">{{ log.reason }}</div>
-              <div class="log-time">{{ formatTime(log.createdAt) }}</div>
-            </div>
-          </div>
-          <span class="log-points" :class="log.points > 0 ? 'positive' : 'negative'">
-            {{ log.points > 0 ? '+' : '' }}{{ log.points }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Toast -->
-    <transition name="toast-fade">
-      <div v-if="toastMsg" class="toast-pop">{{ toastMsg }}</div>
-    </transition>
-  </div>
-</template>
-
 <script setup>
+/**
+ * 喜甜会员中心
+ * H5 没有登录体系：会员信息按「本机最近一次下单的手机号」查询（GET /mobile/member/profile）。
+ * 积分兑换优惠券走 POST /mobile/member/redeem（后端校验会员 ID 与手机号匹配、积分是否足够）。
+ */
 import { ref, computed, onMounted } from 'vue'
 import { getMemberProfile, getExchangeList, redeemCoupon } from '@/api/modules/member'
+import { useStoreUi } from '@/stores/modules/storeUi'
+import { BRAND, STORE_COPY } from '@/config/brand'
+import { formatCount, formatShortDateTime } from '@/utils/format'
+import BrandLogo from '@/components/brand/BrandLogo.vue'
+import SwIcon from '@/components/brand/SwIcon.vue'
+
+const ui = useStoreUi()
 
 const phone = ref('')
+const loading = ref(true)
+const loadFailed = ref(false)
 const profile = ref({ exists: false })
+const exchangeList = ref([])
+const confirmingId = ref(null)
+const redeemingId = ref(null)
+
 const member = computed(() => profile.value.member || {})
 const coupons = computed(() => profile.value.coupons || [])
 const pointsLog = computed(() => profile.value.recentPointsLog || [])
-const exchangeList = ref([])
-const toastMsg = ref('')
+const points = computed(() => member.value.points || 0)
+const isTopLevel = computed(() => (member.value.level || 0) >= 3)
+const growthPercent = computed(() => Math.min(Math.max(profile.value.growthProgress || 0, 0), 100))
+const growthNeeded = computed(() => Math.max((profile.value.nextLevelGrowth || 0) - (member.value.growth || 0), 0))
+const maskedPhone = computed(() => (phone.value ? `${phone.value.slice(0, 3)} **** ${phone.value.slice(-4)}` : ''))
 
-const levelClass = computed(() => {
-  const map = { 0: 'bronze', 1: 'silver', 2: 'gold', 3: 'diamond' }
-  return map[member.value.level] || 'bronze'
-})
+/** 折扣券 discount 为折后比例：0.9 → 9 折、0.88 → 8.8 折 */
+const formatDiscount = (d) => `${Number((Number(d) * 10).toFixed(1))}`
+const formatYuan = (v) => Number(v || 0).toFixed(0)
 
-const nextGrowthNeeded = computed(() => {
-  const g = member.value.growth || 0
-  const thresholds = [1000, 3000, 10000]
-  const level = member.value.level || 0
-  if (level >= 3) return 0
-  return thresholds[level] - g
-})
-
-function formatAmount(v) {
-  if (!v) return '0'
-  return Number(v).toFixed(0)
+function couponValue(c) {
+  return c.couponType === 2 ? { num: formatDiscount(c.discount), unit: '折', prefix: '' } : { num: formatYuan(c.reduceAmount), unit: '', prefix: '¥' }
 }
 
-function formatDiscount(d) {
-  if (!d) return ''
-  return ((1 - d) * 10).toFixed(0)
+function couponRule(threshold) {
+  return Number(threshold) > 0 ? `满 ¥${formatYuan(threshold)} 可用` : '无门槛'
 }
 
-function formatExpire(dateStr) {
+function expireText(dateStr) {
   if (!dateStr) return ''
+  const d = new Date(String(dateStr).replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return ''
+  const days = Math.ceil((d - Date.now()) / 86400000)
+  return days <= 0 ? '已过期' : `${d.getMonth() + 1}月${d.getDate()}日前有效 · 剩 ${days} 天`
+}
+
+const LOG_ICONS = { 1: 'bag', 2: 'gift', 3: 'sparkle', 4: 'tag', 5: 'clock', 6: 'edit' }
+
+async function loadProfile() {
+  if (!phone.value) return
+  loading.value = true
+  loadFailed.value = false
   try {
-    const d = new Date(dateStr)
-    const now = new Date()
-    const days = Math.ceil((d - now) / (1000 * 60 * 60 * 24))
-    return days <= 0 ? '已过期' : `有效期至 ${d.getMonth()+1}/${d.getDate()} (剩${days}天)`
-  } catch { return dateStr }
-}
-
-function formatTime(dateStr) {
-  if (!dateStr) return ''
-  try { return new Date(dateStr).toLocaleString('zh-CN') } catch { return dateStr }
-}
-
-function typeIcon(type) {
-  const map = { 1: '🛒', 2: '🎂', 3: '🎉', 4: '🎁', 5: '⏰', 6: '🔧' }
-  return map[type] || '📌'
-}
-
-function couponClass(type) {
-  const map = { 1: 'c-fixed', 2: 'c-discount', 3: 'c-cash' }
-  return map[type] || ''
-}
-
-function showToast(msg) {
-  toastMsg.value = msg
-  setTimeout(() => toastMsg.value = '', 2000)
-}
-
-async function loadProfile(p) {
-  try {
-    const res = await getMemberProfile(p)
-    if (res?.code === 1) profile.value = res.data
-  } catch { /* ignore */ }
+    const res = await getMemberProfile(phone.value)
+    if (res?.code === 1) profile.value = res.data || { exists: false }
+  } catch {
+    loadFailed.value = true
+  } finally {
+    loading.value = false
+  }
 }
 
 async function loadExchange() {
   try {
     const res = await getExchangeList()
-    if (res?.code === 1) exchangeList.value = res.data || []
-  } catch { /* ignore */ }
+    // 只有消耗积分的券才能兑换（后端对 pointsCost <= 0 的券返回「该券不支持积分兑换」；新人券、等级券为自动发放）
+    if (res?.code === 1) exchangeList.value = (res.data || []).filter((t) => (t.pointsCost || 0) > 0)
+  } catch {
+    exchangeList.value = []
+  }
 }
 
-async function doRedeem(template) {
-  if (!profile.value.exists) return
-  if ((member.value.points || 0) < (template.pointsCost || 0)) {
-    showToast('积分不足')
+async function redeem(t) {
+  if (!profile.value.exists || redeemingId.value) return
+  if (points.value < (t.pointsCost || 0)) {
+    ui.showToast('积分不足', 'warning')
     return
   }
+  // 积分兑换不可撤销：先确认一次
+  if (confirmingId.value !== t.id) {
+    confirmingId.value = t.id
+    return
+  }
+  redeemingId.value = t.id
   try {
-    // 以已查询到的会员手机号做归属校验（后端要求 memberId 与手机号匹配）
-    const res = await redeemCoupon(member.value.id, member.value.phone, template.id)
+    const res = await redeemCoupon(member.value.id, member.value.phone, t.id)
     if (res?.code === 1) {
-      showToast('兑换成功！🎉')
-      await loadProfile(phone.value)
+      ui.showToast(`已兑换「${t.name}」`, 'success')
+      await loadProfile()
     } else {
-      showToast(res?.msg || '兑换失败')
+      ui.showToast(res?.msg || '兑换失败', 'warning')
     }
-  } catch {
-    showToast('网络异常')
+  } catch (e) {
+    ui.showToast(e?.displayMessage || '网络异常，请稍后重试', 'warning')
+  } finally {
+    redeemingId.value = null
+    confirmingId.value = null
   }
 }
 
 onMounted(async () => {
-  // Try to get phone from last order's localStorage or prompt
-  const cached = localStorage.getItem('last_order_phone') || ''
-  if (cached) {
-    phone.value = cached
-    await loadProfile(cached)
-  }
-  await loadExchange()
+  phone.value = localStorage.getItem('last_order_phone') || ''
+  if (!phone.value) loading.value = false
+  await Promise.all([loadProfile(), loadExchange()])
 })
-
-// Expose for parent to trigger
-defineExpose({ loadProfile })
 </script>
 
+<template>
+  <div class="member store-page">
+    <header class="member__head">
+      <h1 class="member__title sw-display">{{ STORE_COPY.titles.member }}</h1>
+      <p
+        v-if="maskedPhone"
+        class="member__sub"
+      >按本机最近一次下单的手机号 <span class="sw-num">{{ maskedPhone }}</span> 显示</p>
+    </header>
+
+    <!-- 加载中 -->
+    <div
+      v-if="loading"
+      class="mcard is-loading"
+      aria-busy="true"
+    ><span class="skeleton-shimmer"></span></div>
+
+    <!-- 会员卡 -->
+    <section
+      v-else-if="profile.exists"
+      class="mcard"
+      aria-label="会员卡"
+    >
+      <div class="mcard__top">
+        <BrandLogo
+          variant="horizontal"
+          tone="inverse"
+          :size="22"
+        />
+        <span class="mcard__level">{{ profile.levelName }}</span>
+      </div>
+      <p class="mcard__name">{{ member.name }}</p>
+      <div class="mcard__points">
+        <span class="mcard__points-num sw-num">{{ formatCount(points) }}</span>
+        <span class="mcard__points-label">可用积分</span>
+      </div>
+      <div class="mcard__growth">
+        <div
+          class="mcard__bar"
+          role="progressbar"
+          :aria-valuenow="growthPercent"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-label="会员成长进度"
+        >
+          <span :style="{ width: `${growthPercent}%` }"></span>
+        </div>
+        <p class="mcard__growth-text">
+          <template v-if="isTopLevel">已是最高等级，感谢一路相伴</template>
+          <template v-else>成长值 {{ formatCount(member.growth) }} · 再积累 {{ formatCount(growthNeeded) }} 升级</template>
+        </p>
+      </div>
+    </section>
+
+    <!-- 非会员 / 失败 -->
+    <section
+      v-else
+      class="guest"
+    >
+      <BrandLogo
+        variant="mark"
+        :size="44"
+      />
+      <h2 class="guest__title">{{ loadFailed ? '会员信息暂时无法加载' : `成为${BRAND.nameCn}会员` }}</h2>
+      <p
+        v-if="loadFailed"
+        class="guest__desc"
+      >请检查网络后刷新页面。</p>
+      <template v-else>
+        <p class="guest__desc">在喜甜下单即自动成为会员，无需另外注册。</p>
+        <ul class="guest__list">
+          <li><SwIcon
+            name="star"
+            :size="17"
+          />订单完成后，按实付金额累积积分</li>
+          <li><SwIcon
+            name="tag"
+            :size="17"
+          />积分可兑换满减券、折扣券</li>
+          <li><SwIcon
+            name="sparkle"
+            :size="17"
+          />累积成长值，升级银卡、金卡、钻石会员</li>
+        </ul>
+        <router-link
+          :to="{ path: '/m', hash: '#menu' }"
+          class="btn btn--primary btn--sm"
+        >去挑选甜品</router-link>
+      </template>
+    </section>
+
+    <!-- 会员统计 -->
+    <dl
+      v-if="profile.exists"
+      class="stats"
+    >
+      <div><dt>累计消费</dt><dd class="sw-num">¥{{ formatCount(Math.round(member.totalSpent || 0)) }}</dd></div>
+      <div><dt>累计订单</dt><dd class="sw-num">{{ formatCount(member.orderCount) }}</dd></div>
+      <div><dt>可用优惠券</dt><dd class="sw-num">{{ coupons.length }}</dd></div>
+    </dl>
+
+    <!-- 优惠券 -->
+    <section
+      v-if="profile.exists && coupons.length"
+      class="block"
+      aria-labelledby="coupon-title"
+    >
+      <h2
+        id="coupon-title"
+        class="block__title"
+      >我的优惠券 <span>{{ coupons.length }} 张</span></h2>
+      <ul class="coupons">
+        <li
+          v-for="c in coupons"
+          :key="c.id"
+          class="coupon"
+        >
+          <div class="coupon__value">
+            <span class="coupon__num sw-num"><small v-if="couponValue(c).prefix">{{ couponValue(c).prefix }}</small>{{ couponValue(c).num }}<small>{{ couponValue(c).unit }}</small></span>
+            <span class="coupon__rule">{{ couponRule(c.threshold) }}</span>
+          </div>
+          <div class="coupon__info">
+            <p class="coupon__name">{{ c.couponName }}</p>
+            <p class="coupon__exp">{{ expireText(c.expireAt) }}</p>
+          </div>
+        </li>
+      </ul>
+      <p class="block__note">目前在线下单暂不支持使用优惠券抵扣。</p>
+    </section>
+
+    <!-- 积分兑换 -->
+    <section
+      v-if="profile.exists && exchangeList.length"
+      class="block"
+      aria-labelledby="exchange-title"
+    >
+      <h2
+        id="exchange-title"
+        class="block__title"
+      >积分兑换 <span>可用 {{ formatCount(points) }} 积分</span></h2>
+      <ul class="exchange">
+        <li
+          v-for="t in exchangeList"
+          :key="t.id"
+          class="exchange__item"
+          :class="{ 'is-short': points < (t.pointsCost || 0) }"
+        >
+          <div class="exchange__info">
+            <p class="exchange__name">{{ t.name }}</p>
+            <p class="exchange__meta">{{ couponRule(t.threshold) }} · 领取后 {{ t.validDays }} 天内有效</p>
+          </div>
+          <button
+            type="button"
+            class="btn btn--sm"
+            :class="confirmingId === t.id ? 'btn--primary' : 'btn--soft'"
+            :disabled="points < (t.pointsCost || 0) || redeemingId === t.id"
+            @click="redeem(t)"
+          >
+            <template v-if="redeemingId === t.id">兑换中…</template>
+            <template v-else-if="confirmingId === t.id">确认兑换</template>
+            <template v-else>{{ t.pointsCost }} 积分</template>
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 积分记录 -->
+    <section
+      v-if="profile.exists && pointsLog.length"
+      class="block"
+      aria-labelledby="log-title"
+    >
+      <h2
+        id="log-title"
+        class="block__title"
+      >积分记录 <span>最近 {{ pointsLog.length }} 条</span></h2>
+      <ul class="log">
+        <li
+          v-for="log in pointsLog"
+          :key="log.id"
+          class="log__item"
+        >
+          <span class="log__icon"><SwIcon
+            :name="LOG_ICONS[log.type] || 'star'"
+            :size="17"
+          /></span>
+          <span class="log__text">
+            <span class="log__reason">{{ log.reason }}</span>
+            <span class="log__time">{{ formatShortDateTime(log.createdAt) }}</span>
+          </span>
+          <span
+            class="log__points sw-num"
+            :class="log.points > 0 ? 'is-plus' : 'is-minus'"
+          >{{ log.points > 0 ? '+' : '' }}{{ log.points }}</span>
+        </li>
+      </ul>
+    </section>
+  </div>
+</template>
+
 <style scoped>
-.profile-page { padding: 16px 18px 120px; display: flex; flex-direction: column; gap: 16px; }
-
-/* ── Member Card ── */
-.member-card {
-  border-radius: 24px; overflow: hidden;
-  background: rgba(255,255,255,0.75);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 0.5px solid rgba(255,255,255,0.55);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.04), inset 0 0.5px 0 rgba(255,255,255,0.6);
+.store-page {
+  animation: fadeIn var(--sw-dur-3) var(--sw-ease) both;
 }
 
-/* Level Banner */
-.level-banner {
-  position: relative; overflow: hidden; padding: 24px 20px 20px;
-}
-.level-glow {
-  position: absolute; top: -50%; right: -20%; width: 200px; height: 200px;
-  border-radius: 50%; filter: blur(40px); opacity: 0.3;
-}
-.level-banner.bronze { background: linear-gradient(145deg, #f5f0ec 0%, #e8ddd3 100%); }
-.level-banner.bronze .level-glow { background: rgba(180,140,100,0.4); }
-.level-banner.silver  { background: linear-gradient(145deg, #eef2f7 0%, #d4dce8 100%); }
-.level-banner.silver  .level-glow { background: rgba(140,160,200,0.4); }
-.level-banner.gold    { background: linear-gradient(145deg, #fdf6e8 0%, #f0dcb0 100%); }
-.level-banner.gold    .level-glow { background: rgba(220,180,80,0.4); }
-.level-banner.diamond { background: linear-gradient(145deg, #f0e8fc 0%, #d4c0f0 100%); }
-.level-banner.diamond .level-glow { background: rgba(160,120,220,0.4); }
-
-.level-banner-content {
-  display: flex; align-items: center; gap: 14px; position: relative; z-index: 1;
-}
-.member-avatar {
-  width: 52px; height: 52px; border-radius: 50%;
-  background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.8);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 650; flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-}
-.member-name { font-size: 18px; font-weight: 650; color: #1d1d1f; margin: 0; letter-spacing: -0.2px; }
-.level-badge {
-  display: inline-block; margin-top: 4px;
-  padding: 3px 10px; border-radius: 999px;
-  font-size: 10px; font-weight: 650;
-  background: rgba(255,255,255,0.6);
-  color: rgba(0,0,0,0.55);
-  letter-spacing: 0.04em;
+.member {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px var(--store-pad, 16px) 0;
 }
 
-/* Growth bar */
-.growth-bar-wrap { margin-top: 16px; position: relative; z-index: 1; }
-.growth-bar {
-  height: 5px; border-radius: 3px;
-  background: rgba(0,0,0,0.06); overflow: hidden;
+.member__head {
+  margin-bottom: 20px;
 }
-.growth-fill {
-  height: 100%; border-radius: 3px;
-  background: linear-gradient(90deg, #d9574a, #e88a7e);
-  transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
-}
-.growth-text { font-size: 11px; color: rgba(0,0,0,0.4); margin-top: 6px; display: block; }
-.growth-text.max { color: rgba(0,0,0,0.35); }
 
-/* Stats */
-.stats-row {
-  display: flex; align-items: center; padding: 18px 20px;
-  border-top: 0.5px solid rgba(0,0,0,0.04);
+.member__title {
+  font-size: clamp(26px, 3vw, 32px);
+  color: var(--sw-ink);
 }
-.stat-item { flex: 1; text-align: center; }
-.stat-value { display: block; font-size: 20px; font-weight: 650; color: #1d1d1f; letter-spacing: -0.3px; }
-.stat-label { font-size: 11px; color: #aeaeb2; margin-top: 3px; display: block; }
-.stat-divider { width: 0.5px; height: 32px; background: rgba(0,0,0,0.06); }
 
-/* Guest */
-.guest-card { border-radius: 24px; }
-.guest-inner { padding: 48px 24px; text-align: center; }
-.guest-icon { font-size: 56px; margin-bottom: 16px; filter: drop-shadow(0 6px 12px rgba(217,87,74,0.12)); }
-.guest-inner h2 { font-size: 18px; font-weight: 650; color: #1d1d1f; margin: 0 0 10px; letter-spacing: -0.2px; }
-.guest-inner p { font-size: 13px; color: #aeaeb2; margin: 0 0 4px; }
-.guest-hint { font-size: 12px; color: #d9574a; margin-top: 8px; }
+.member__sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--sw-ink-3);
+}
 
-/* ── Section ── */
-.section {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border-radius: 22px; padding: 20px;
-  border: 0.5px solid rgba(255,255,255,0.5);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.02), inset 0 0.5px 0 rgba(255,255,255,0.6);
+/* ---- 会员卡 ---- */
+.mcard {
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  border-radius: var(--sw-r-xl);
+  background: var(--sw-cocoa);
+  color: #fffefc;
+  box-shadow: var(--sw-shadow-md);
 }
-.section-title { font-size: 15px; font-weight: 640; color: #1d1d1f; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.15px; }
-.section-count { font-size: 11px; font-weight: 500; color: #aeaeb2; }
 
-/* ── Coupons ── */
-.coupon-list { display: flex; flex-direction: column; gap: 10px; }
-.coupon-card {
-  display: flex; border-radius: 16px; overflow: hidden;
-  border: 0.5px solid rgba(255,255,255,0.5);
+.mcard::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  bottom: -60px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 28px solid rgba(230, 164, 161, 0.14);
+  pointer-events: none;
 }
-.cc-left {
-  width: 100px; flex-shrink: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; padding: 14px 8px;
-}
-.c-fixed .cc-left { background: linear-gradient(145deg, #fff2ec, #fde8de); }
-.c-discount .cc-left { background: linear-gradient(145deg, #f0ecfb, #e6def8); }
-.c-cash .cc-left { background: linear-gradient(145deg, #ecf8f0, #daf0e4); }
-.cc-num { font-size: 28px; font-weight: 700; color: #1d1d1f; letter-spacing: -1px; line-height: 1; }
-.cc-unit { font-size: 14px; font-weight: 600; color: #1d1d1f; }
-.cc-condition { font-size: 10px; color: #aeaeb2; margin-top: 4px; font-weight: 500; }
-.cc-right {
-  flex: 1; padding: 14px; display: flex; flex-direction: column; justify-content: center;
-  background: rgba(255,255,255,0.5);
-}
-.cc-name { font-size: 14px; font-weight: 600; color: #1d1d1f; margin-bottom: 4px; }
-.cc-expire { font-size: 11px; color: #aeaeb2; }
 
-/* ── Exchange ── */
-.exchange-list { display: flex; flex-direction: column; gap: 8px; }
-.exchange-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px; border-radius: 16px;
-  background: rgba(245,245,247,0.6);
-  border: 0.5px solid rgba(0,0,0,0.04);
-  transition: opacity 0.2s;
+.mcard.is-loading {
+  height: 200px;
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-border-soft);
+  box-shadow: none;
 }
-.exchange-item.disabled { opacity: 0.5; }
-.ex-info { flex: 1; min-width: 0; }
-.ex-name { font-size: 13px; font-weight: 600; color: #1d1d1f; margin-bottom: 3px; }
-.ex-meta { font-size: 11px; color: #aeaeb2; }
-.ex-btn {
-  flex-shrink: 0; margin-left: 12px;
-  padding: 8px 18px; border-radius: 999px; border: none;
-  background: #d9574a; color: #fff;
-  font-size: 12px; font-weight: 600; cursor: pointer;
-  transition: all 0.2s;
-}
-.ex-btn:active:not(:disabled) { transform: scale(0.95); }
-.ex-btn:disabled { background: #d1d1d6; cursor: not-allowed; }
 
-/* ── Points Log ── */
-.log-list { display: flex; flex-direction: column; gap: 10px; }
-.log-item { display: flex; align-items: center; justify-content: space-between; }
-.log-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.log-icon { font-size: 18px; flex-shrink: 0; }
-.log-reason { font-size: 13px; color: #1d1d1f; font-weight: 500; }
-.log-time  { font-size: 11px; color: #aeaeb2; margin-top: 1px; }
-.log-points { font-size: 15px; font-weight: 650; flex-shrink: 0; }
-.log-points.positive { color: #34c759; }
-.log-points.negative { color: #d9574a; }
-
-/* ── Toast ── */
-.toast-pop {
-  position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
-  background: rgba(29,29,31,0.88); backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  color: #fff; padding: 10px 24px; border-radius: 999px;
-  font-size: 13px; font-weight: 500; z-index: 300;
-  border: 0.5px solid rgba(255,255,255,0.1);
+.mcard.is-loading::after {
+  display: none;
 }
-.toast-fade-enter-active, .toast-fade-leave-active { transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
-.toast-fade-enter-from, .toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(10px); }
+
+.mcard.is-loading .skeleton-shimmer {
+  display: block;
+  height: 100%;
+  border-radius: var(--sw-r-md);
+}
+
+.mcard__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mcard__level {
+  padding: 4px 12px;
+  border-radius: var(--sw-r-pill);
+  background: rgba(230, 164, 161, 0.2);
+  color: var(--sw-blush);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.mcard__name {
+  margin-top: 28px;
+  font-size: 16px;
+  color: rgba(255, 254, 252, 0.86);
+}
+
+.mcard__points {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.mcard__points-num {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.mcard__points-label {
+  font-size: 13px;
+  color: rgba(255, 254, 252, 0.7);
+}
+
+.mcard__growth {
+  position: relative;
+  z-index: 1;
+  margin-top: 18px;
+}
+
+.mcard__bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 254, 252, 0.16);
+}
+
+.mcard__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sw-blush);
+  transition: width 0.6s var(--sw-ease);
+}
+
+.mcard__growth-text {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 254, 252, 0.72);
+}
+
+/* ---- 非会员 ---- */
+.guest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 24px;
+  border: 1px solid var(--sw-border-soft);
+  border-radius: var(--sw-r-xl);
+  background: var(--sw-surface);
+  text-align: center;
+}
+
+.guest__title {
+  margin-top: 16px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.guest__desc {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--sw-ink-3);
+}
+
+.guest__list {
+  list-style: none;
+  margin: 20px 0 24px;
+  text-align: left;
+}
+
+.guest__list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--sw-ink-2);
+}
+
+.guest__list .sw-icon {
+  color: var(--sw-berry);
+}
+
+/* ---- 统计 ---- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 16px;
+  border: 1px solid var(--sw-border-soft);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-surface);
+}
+
+.stats div {
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.stats div + div {
+  border-left: 1px solid var(--sw-border-soft);
+}
+
+.stats dt {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.stats dd {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ---- 区块 ---- */
+.block {
+  margin-top: 28px;
+}
+
+.block__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.block__title span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--sw-ink-3);
+}
+
+.block__note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.coupons {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.coupon {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--sw-border-soft);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-surface);
+}
+
+.coupon__value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  padding: 14px 8px;
+  border-right: 1px dashed var(--sw-milktea);
+  background: var(--sw-blush-wash);
+  flex-shrink: 0;
+}
+
+.coupon__num {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--sw-berry);
+}
+
+.coupon__num small {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.coupon__rule {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--sw-ink-3);
+}
+
+.coupon__info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.coupon__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.coupon__exp {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.exchange {
+  list-style: none;
+  border: 1px solid var(--sw-border-soft);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-surface);
+}
+
+.exchange__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.exchange__item + .exchange__item {
+  border-top: 1px solid var(--sw-border-soft);
+}
+
+.exchange__item.is-short .exchange__name {
+  color: var(--sw-ink-3);
+}
+
+.exchange__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.exchange__meta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.log {
+  list-style: none;
+  border: 1px solid var(--sw-border-soft);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-surface);
+}
+
+.log__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.log__item + .log__item {
+  border-top: 1px solid var(--sw-border-soft);
+}
+
+.log__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--sw-fill-soft);
+  color: var(--sw-ink-2);
+  flex-shrink: 0;
+}
+
+.log__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.log__reason {
+  font-size: 14px;
+}
+
+.log__time {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.log__points {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.log__points.is-plus {
+  color: var(--sw-success);
+}
+
+.log__points.is-minus {
+  color: var(--sw-berry);
+}
+
+@media (max-width: 480px) {
+  .mcard {
+    padding: 20px;
+  }
+
+  .mcard__points-num {
+    font-size: 34px;
+  }
+
+  .stats dd {
+    font-size: 17px;
+  }
+}
 </style>

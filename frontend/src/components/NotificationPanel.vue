@@ -1,264 +1,312 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Bell, WarningFilled, Loading } from '@element-plus/icons-vue'
+/**
+ * 页头通知：上架甜品的库存预警（后端 GET /dashboard/stock-alert，库存 < 20）。
+ * 没有查看权限时不显示铃铛；点击某条可直接跳到甜品管理并定位该商品。
+ */
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { queryStockAlertApi } from '@/api/modules/dashboard'
+import { useUserStore } from '@/stores/modules/user'
+import SwIcon from '@/components/brand/SwIcon.vue'
+
+const LOW_STOCK_THRESHOLD = 20 // 与后端 DashboardServiceImpl.selectLowStockAlerts(20) 一致
+const SEEN_KEY = 'sw-stock-alerts-seen'
+
+const router = useRouter()
+const userStore = useUserStore()
+const enabled = computed(() => userStore.can('dashboard:stats:read'))
+const canOpenDessert = computed(() => userStore.can('dessert:dessert:list'))
 
 const visible = ref(false)
 const loading = ref(false)
+const failed = ref(false)
+const alerts = ref([])
+const seen = ref(sessionStorage.getItem(SEEN_KEY) || '')
 
-// 从后端获取的库存预警通知
-const notifications = ref([])
+const signature = computed(() => alerts.value.map((a) => `${a.name}:${a.stock}`).join('|'))
+const unread = computed(() => alerts.value.length > 0 && signature.value !== seen.value)
 
-// 从后端加载库存预警数据
-const loadNotifications = async () => {
+const load = async () => {
+  if (!enabled.value) return
   loading.value = true
+  failed.value = false
   try {
     const res = await queryStockAlertApi()
-    if (res.code && Array.isArray(res.data)) {
-      notifications.value = res.data.map((item, index) => ({
-        id: index + 1,
-        type: 'warning',
-        title: '库存预警',
-        message: `${item.name} 库存不足，剩余 ${item.stock} 件`,
-        read: false
-      }))
-    }
+    alerts.value = res?.code && Array.isArray(res.data) ? res.data : []
   } catch {
-    notifications.value = []
+    failed.value = true
   } finally {
     loading.value = false
   }
 }
 
-const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
-
 const toggle = () => {
   visible.value = !visible.value
-  if (visible.value && notifications.value.length === 0) {
-    loadNotifications()
+  if (visible.value) {
+    load()
+    seen.value = signature.value
+    sessionStorage.setItem(SEEN_KEY, seen.value)
   }
 }
 
-const markAsRead = (item) => {
-  item.read = true
+const openItem = (item) => {
+  if (!canOpenDessert.value) return
+  visible.value = false
+  router.push({ path: '/dessert', query: { name: item.name } })
 }
 
-const markAllRead = () => {
-  notifications.value.forEach(n => n.read = true)
+const onDocClick = (e) => {
+  if (!e.target.closest('.notify')) visible.value = false
 }
-
-// 点击外部关闭
-const handleClickOutside = (e) => {
-  if (!e.target.closest('.notification-wrapper')) {
-    visible.value = false
-  }
+const onKey = (e) => {
+  if (e.key === 'Escape') visible.value = false
 }
 
 onMounted(() => {
-  // 预加载未读数量
-  loadNotifications()
-  document.addEventListener('click', handleClickOutside)
+  load()
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onKey)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onKey)
 })
 </script>
 
 <template>
-  <div class="notification-wrapper">
-    <div class="header-action" @click.stop="toggle">
-      <el-icon :size="18"><Bell /></el-icon>
-      <span v-if="unreadCount > 0" class="notification-dot"></span>
-    </div>
+  <div
+    v-if="enabled"
+    class="notify"
+  >
+    <button
+      type="button"
+      class="hdr-btn"
+      :aria-label="unread ? `库存提醒（${alerts.length} 项）` : '库存提醒'"
+      :aria-expanded="visible"
+      @click.stop="toggle"
+    >
+      <SwIcon
+        name="bell"
+        :size="19"
+      />
+      <span
+        v-if="unread"
+        class="notify__dot"
+        aria-hidden="true"
+      ></span>
+    </button>
 
-    <Transition name="dropdown">
-      <div v-if="visible" class="notification-dropdown glass-panel" @click.stop>
-        <!-- 头部 -->
-        <div class="notification-header">
-          <span class="notification-title">通知中心</span>
-          <el-button link size="small" @click="markAllRead" v-if="unreadCount > 0">
-            全部已读
-          </el-button>
+    <Transition name="pop">
+      <div
+        v-if="visible"
+        class="notify__panel"
+        @click.stop
+      >
+        <header class="notify__head">
+          <span class="notify__title">库存提醒</span>
+          <span class="notify__hint">在售且库存低于 {{ LOW_STOCK_THRESHOLD }} 件</span>
+        </header>
+
+        <div
+          v-if="loading && !alerts.length"
+          class="notify__state"
+        >正在加载…</div>
+        <div
+          v-else-if="failed"
+          class="notify__state"
+        >
+          暂时无法获取提醒
+          <button
+            type="button"
+            class="notify__retry"
+            @click="load"
+          >重试</button>
         </div>
+        <div
+          v-else-if="!alerts.length"
+          class="notify__state"
+        >所有在售甜品库存充足</div>
 
-        <!-- 加载中 -->
-        <div v-if="loading" class="notification-loading">
-          <el-icon class="is-loading" :size="20"><Loading /></el-icon>
-          <span>加载中...</span>
-        </div>
-
-        <!-- 空状态 -->
-        <div v-else-if="notifications.length === 0" class="notification-empty">
-          <span>暂无新通知</span>
-        </div>
-
-        <!-- 列表 -->
-        <div v-else class="notification-list">
-          <div
-            v-for="item in notifications"
-            :key="item.id"
-            class="notification-item"
-            :class="{ unread: !item.read }"
-            @click="markAsRead(item)"
+        <ul
+          v-else
+          class="notify__list"
+        >
+          <li
+            v-for="item in alerts"
+            :key="item.name"
           >
-            <div class="notification-item__icon" :class="item.type">
-              <el-icon :size="16"><WarningFilled /></el-icon>
-            </div>
-            <div class="notification-item__content">
-              <span class="notification-item__title">{{ item.title }}</span>
-              <span class="notification-item__message">{{ item.message }}</span>
-            </div>
-            <div v-if="!item.read" class="notification-item__badge"></div>
-          </div>
-        </div>
+            <button
+              type="button"
+              class="notify__item"
+              :disabled="!canOpenDessert"
+              @click="openItem(item)"
+            >
+              <span
+                class="notify__badge"
+                :class="{ 'is-out': item.stock <= 0, 'is-low': item.stock > 0 && item.stock < 10 }"
+              >
+                {{ item.stock <= 0 ? '售罄' : item.stock }}
+              </span>
+              <span class="notify__text">
+                <span class="notify__name">{{ item.name }}</span>
+                <span class="notify__meta">{{ item.stock <= 0 ? '已售罄，顾客端显示为不可购买' : `剩余 ${item.stock} 件，建议补货` }}</span>
+              </span>
+              <SwIcon
+                v-if="canOpenDessert"
+                name="chevron-right"
+                :size="16"
+                class="notify__go"
+              />
+            </button>
+          </li>
+        </ul>
       </div>
     </Transition>
   </div>
 </template>
 
 <style scoped>
-.notification-wrapper {
+.notify {
   position: relative;
 }
 
-.notification-dropdown {
+.notify__dot {
   position: absolute;
-  top: calc(100% + 8px);
-  right: -8px;
-  width: 340px;
-  max-height: 400px;
-  display: flex;
-  flex-direction: column;
-  border-radius: 16px;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sw-accent);
+  box-shadow: 0 0 0 2px var(--sw-bg);
+}
+
+.notify__panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -6px;
+  width: min(340px, calc(100vw - 24px));
   overflow: hidden;
+  border: 1px solid var(--sw-border);
+  border-radius: var(--sw-r-lg);
+  background: var(--sw-surface);
+  box-shadow: var(--sw-shadow-lg);
   z-index: var(--z-dropdown);
-  box-shadow: 0 16px 48px rgba(45, 35, 39, 0.15);
 }
 
-/* 头部 */
-.notification-header {
+.notify__head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--glass-border);
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--sw-border-soft);
 }
 
-.notification-title {
-  font-size: 15px;
+.notify__title {
+  font-size: 14px;
   font-weight: 600;
-  color: var(--color-text-primary);
 }
 
-/* 加载和空状态 */
-.notification-loading,
-.notification-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 40px 0;
-  color: var(--color-text-muted);
+.notify__hint {
+  font-size: 12px;
+  color: var(--sw-ink-3);
+}
+
+.notify__state {
+  padding: 28px 16px;
+  text-align: center;
   font-size: 13px;
+  color: var(--sw-ink-3);
 }
 
-/* 列表 */
-.notification-list {
-  flex: 1;
+.notify__retry {
+  margin-left: 6px;
+  border: 0;
+  background: none;
+  color: var(--sw-accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notify__list {
+  list-style: none;
+  max-height: 360px;
   overflow-y: auto;
   padding: 6px;
 }
 
-.notification-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  position: relative;
-}
-
-.notification-item:hover {
-  background: rgba(240, 163, 92, 0.05);
-}
-
-.notification-item.unread {
-  background: rgba(240, 163, 92, 0.04);
-}
-
-.notification-item__icon {
-  width: 32px;
-  height: 32px;
+.notify__item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  flex-shrink: 0;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: var(--sw-r-md);
+  background: transparent;
+  text-align: left;
+  color: var(--sw-ink);
+  cursor: pointer;
 }
 
-.notification-item__icon.warning {
-  background: rgba(240, 163, 92, 0.1);
-  color: #f0a35c;
+.notify__item:hover:not(:disabled) {
+  background: var(--sw-fill-soft);
 }
 
-.notification-item__content {
+.notify__item:disabled {
+  cursor: default;
+}
+
+.notify__badge {
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--sw-r-sm);
+  background: var(--sw-warning-bg);
+  color: var(--sw-warning);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.notify__badge.is-low,
+.notify__badge.is-out {
+  background: var(--sw-danger-bg);
+  color: var(--sw-danger);
+}
+
+.notify__text {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 0;
 }
 
-.notification-item__title {
+.notify__name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary);
 }
 
-.notification-item__message {
+.notify__meta {
   font-size: 12px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
+  color: var(--sw-ink-3);
 }
 
-.notification-item__badge {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  flex-shrink: 0;
-  margin-top: 6px;
+.notify__go {
+  color: var(--sw-ink-4);
 }
 
-/* 过渡动画 */
-.dropdown-enter-active {
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+.pop-enter-active,
+.pop-leave-active {
+  transition: opacity var(--sw-dur-2) var(--sw-ease), transform var(--sw-dur-2) var(--sw-ease);
 }
 
-.dropdown-leave-active {
-  transition: all 0.15s ease;
-}
-
-.dropdown-enter-from {
+.pop-enter-from,
+.pop-leave-to {
   opacity: 0;
-  transform: scale(0.95) translateY(-8px);
-}
-
-.dropdown-leave-to {
-  opacity: 0;
-  transform: scale(0.98) translateY(-4px);
-}
-
-/* 滚动条 */
-.notification-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.notification-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.notification-list::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 2px;
+  transform: translateY(-4px);
 }
 </style>

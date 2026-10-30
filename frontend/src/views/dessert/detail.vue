@@ -6,7 +6,9 @@ import { StarFilled, ChatDotRound, Delete } from '@element-plus/icons-vue'
 import { queryByIdApi } from '@/api/modules/dessert'
 import { queryByDessertApi, addApi, deleteApi } from '@/api/modules/comment'
 import { useUserStore } from '@/stores/modules/user'
+import { usePermission } from '@/composables/usePermission'
 import { DESSERT_CATEGORIES, CATEGORY_COLORS, getLabelByValue } from '@/utils/constants'
+import { formatPrice } from '@/utils/format'
 import ProductImg from '@/components/ProductImg.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -14,6 +16,10 @@ import SkeletonCard from '@/components/SkeletonCard.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
+const { can } = usePermission()
+const canComment = can('dessert:comment:create')
+const canDeleteComment = can('dessert:comment:delete')
+const canViewComments = can('dessert:comment:list')
 const dessertId = computed(() => Number(route.params.id))
 
 // 甜品信息
@@ -140,7 +146,7 @@ const formatTime = (dateStr) => {
 
 onMounted(() => {
   loadDessert()
-  loadComments()
+  if (canViewComments) loadComments()
 })
 </script>
 
@@ -148,22 +154,22 @@ onMounted(() => {
   <div class="dessert-detail-page">
     <PageHeader :title="dessert?.name || '甜品详情'" description="查看甜品信息和顾客评论">
       <template #actions>
-        <el-button @click="$router.back()">返回</el-button>
+        <el-button @click="$router.push('/dessert')">返回甜品管理</el-button>
       </template>
     </PageHeader>
 
     <!-- 甜品信息卡 -->
     <SkeletonCard v-if="dessertLoading" :count="1" :columns="1" />
-    <div v-else-if="dessert" class="dessert-info-card glass-panel--hover animate-fade-in-up">
+    <div v-else-if="dessert" class="dessert-info-card animate-fade-in-up">
       <div class="info-layout">
         <div class="info-image">
-          <ProductImg :item="dessert" :width="240" :alt="dessert.name" class="dessert-image" eager />
+          <ProductImg :item="dessert" :width="240" ratio="1/1" own :alt="dessert.name" class="dessert-image" eager />
         </div>
         <div class="info-body">
           <div class="info-header">
             <h2 class="dessert-name">{{ dessert.name }}</h2>
             <el-tag
-              :style="{ '--tag-color': categoryColors[dessert.category] || '#e8637a' }"
+              :style="{ '--tag-color': categoryColors[dessert.category] || 'var(--sw-ink-2)' }"
               class="category-tag"
               size="small"
             >
@@ -174,11 +180,11 @@ onMounted(() => {
           <div class="info-stats">
             <div class="stat-item">
               <span class="stat-label">现价</span>
-              <span class="stat-value price-current">¥{{ dessert.price?.toFixed(2) }}</span>
+              <span class="stat-value price-current sw-num">{{ formatPrice(dessert.price) }}</span>
             </div>
             <div class="stat-item" v-if="dessert.originalPrice > dessert.price">
               <span class="stat-label">原价</span>
-              <span class="stat-value price-original">¥{{ dessert.originalPrice?.toFixed(2) }}</span>
+              <span class="stat-value price-original sw-num">{{ formatPrice(dessert.originalPrice) }}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">库存</span>
@@ -208,7 +214,7 @@ onMounted(() => {
     />
 
     <!-- 评论区域 -->
-    <div v-if="dessert" class="comment-section animate-fade-in-up delay-1">
+    <div v-if="dessert && canViewComments" class="comment-section animate-fade-in-up delay-1">
       <div class="comment-section-header">
         <h3 class="section-title">
           <el-icon><ChatDotRound /></el-icon>
@@ -218,7 +224,7 @@ onMounted(() => {
       </div>
 
       <!-- 发表评论 -->
-      <div class="comment-form glass-panel--hover">
+      <div v-if="canComment" class="comment-form">
         <div class="form-header">
           <span class="form-label">发表评论</span>
           <div class="rating-stars">
@@ -226,7 +232,9 @@ onMounted(() => {
               v-for="s in 5"
               :key="s"
               :size="20"
-              :style="{ color: s <= commentRating ? '#f0a35c' : 'rgba(45,35,39,0.15)', cursor: 'pointer' }"
+              :style="{ color: s <= commentRating ? 'var(--chart-star, #cda05a)' : 'var(--sw-border)', cursor: 'pointer' }"
+              role="button"
+              :aria-label="`${s} 星`"
               @click="commentRating = s"
             >
               <StarFilled />
@@ -260,9 +268,9 @@ onMounted(() => {
         <div
           v-for="c in comments"
           :key="c.id"
-          class="comment-item glass-panel--hover"
+          class="comment-item"
         >
-          <div class="comment-avatar" :style="{ background: c.avatarBg || '#e8637a' }">
+          <div class="comment-avatar">
             {{ (c.username || '匿')[0] }}
           </div>
           <div class="comment-body">
@@ -273,7 +281,7 @@ onMounted(() => {
                   v-for="s in 5"
                   :key="s"
                   :size="12"
-                  :style="{ color: s <= (c.rating || 5) ? '#f0a35c' : 'rgba(45,35,39,0.1)' }"
+                  :style="{ color: s <= (c.rating || 5) ? 'var(--chart-star, #cda05a)' : 'var(--sw-border)' }"
                 >
                   <StarFilled />
                 </el-icon>
@@ -283,7 +291,9 @@ onMounted(() => {
             <p class="comment-content">{{ c.content }}</p>
           </div>
           <el-button
+            v-if="canDeleteComment"
             class="comment-delete-btn"
+            :aria-label="`删除 ${c.username || '匿名用户'} 的评论`"
             type="danger"
             size="small"
             text
@@ -428,7 +438,7 @@ onMounted(() => {
 }
 
 .price-current {
-  color: var(--color-primary-dark, #c9354a);
+  color: var(--sw-ink);
   font-size: 20px;
 }
 
@@ -474,8 +484,8 @@ onMounted(() => {
 
 /* 评论表单 */
 .comment-form {
-  background: rgba(255, 255, 255, 0.35);
-  border: 1px solid var(--glass-border);
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-border-soft);
   border-radius: var(--radius-md);
   padding: 20px;
   margin-bottom: 20px;
@@ -522,16 +532,15 @@ onMounted(() => {
   display: flex;
   gap: 14px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.3);
-  border: 1px solid var(--glass-border);
+  background: var(--sw-surface);
+  border: 1px solid var(--sw-border-soft);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast);
   position: relative;
 }
 
 .comment-item:hover {
-  transform: translateY(-1px);
-  border-color: rgba(232, 99, 122, 0.15);
+  border-color: var(--sw-border);
 }
 
 .comment-avatar {
@@ -543,9 +552,9 @@ onMounted(() => {
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
+  background: var(--sw-blush-soft);
+  color: var(--sw-cocoa);
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .comment-body {
@@ -601,7 +610,7 @@ onMounted(() => {
   justify-content: center;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(45, 35, 39, 0.04);
+  border-top: 1px solid var(--sw-border-soft);
 }
 
 @media (max-width: 640px) {

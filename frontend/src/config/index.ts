@@ -14,7 +14,7 @@ export interface AppConfig {
 export const config: AppConfig = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
   apiProxyTarget: import.meta.env.VITE_API_PROXY_TARGET || 'http://localhost:8080',
-  appTitle: import.meta.env.VITE_APP_TITLE || 'DessertShop',
+  appTitle: import.meta.env.VITE_APP_TITLE || '喜甜 SWEETEN',
   appEnv: import.meta.env.VITE_APP_ENV || 'development',
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
