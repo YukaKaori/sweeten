@@ -1,0 +1,12 @@
+# 密码迁移专用配置
+# 使用方法：java -jar app.jar --spring.profiles.active=migration
+
+spring:
+  password:
+    migration:
+      enabled: true
+
+# 日志级别调整，显示迁移详情
+logging:
+  level:
+    com.itheima.runner.PasswordMigrationRunner: DEBUG

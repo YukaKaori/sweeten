@@ -1,0 +1,64 @@
+# =====================================================================
+# 生产环境配置：java -jar app.jar --spring.profiles.active=prod
+#
+# 原则：密钥类配置没有默认值 —— 缺少环境变量时应用直接启动失败，
+#      而不是带着仓库里公开的默认密码/默认 JWT 密钥上线。
+# 必填环境变量：DB_URL、DB_USERNAME、DB_PASSWORD、JWT_SECRET（≥32 字节随机串）、
+#              OSS_ACCESS_KEY_ID、OSS_ACCESS_KEY_SECRET（AliyunOSSOperator 直接读取）
+# 可选：REDIS_HOST / REDIS_PORT / REDIS_PASSWORD / REDIS_DATABASE、CORS_ALLOWED_ORIGINS、
+#      TRUST_FORWARDED_FOR（位于覆盖 XFF 的 Nginx 之后时设为 true）
+# =====================================================================
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+# 生产不打印 SQL（StdOutImpl 会把结果行——包括密码哈希——写进标准输出）
+mybatis:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+logging:
+  level:
+    root: info
+    org.springframework.jdbc.support.JdbcTransactionManager: info
+
+# 接口文档不对公网暴露
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+knife4j:
+  enable: false
+
+spring.web.resources:
+  # 生产后端只提供 API（前端由 Nginx 托管）：关闭静态资源映射，
+  # 否则 Knife4j 的 /doc.html、/webjars/** 以及后端自带的演示页 static/index.html 仍会从 jar 中被直接返回。
+  # 实测：knife4j.production=true 需开启 springdoc 才能启动，且开启后 /v3/api-docs 仍完整暴露，故不采用。
+  add-mappings: false
+
+server:
+  # 不在错误响应里回显异常信息/堆栈
+  error:
+    include-message: never
+    include-stacktrace: never
+  # 位于反向代理之后时，按 X-Forwarded-* 还原协议与客户端地址
+  forward-headers-strategy: native
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  security:
+    trust-forwarded-for: ${TRUST_FORWARDED_FOR:false}

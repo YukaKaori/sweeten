@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.CouponMapper">
+
+    <!-- 会员持有的券，关联查询模板信息 -->
+    <select id="listByMemberId" resultType="com.itheima.pojo.MemberCoupon">
+        SELECT
+            mc.id, mc.member_id, mc.template_id, mc.status,
+            mc.acquired_at, mc.used_at, mc.expire_at, mc.order_id,
+            ct.name    AS coupon_name,
+            ct.type    AS coupon_type,
+            ct.threshold,
+            ct.discount,
+            ct.reduce_amount
+        FROM member_coupon mc
+        JOIN coupon_template ct ON mc.template_id = ct.id
+        WHERE mc.member_id = #{memberId}
+        ORDER BY mc.status ASC, mc.expire_at ASC
+    </select>
+
+    <!-- 会员可用券（未使用 + 未过期） -->
+    <select id="listUsable" resultType="com.itheima.pojo.MemberCoupon">
+        SELECT
+            mc.id, mc.member_id, mc.template_id, mc.status,
+            mc.acquired_at, mc.used_at, mc.expire_at, mc.order_id,
+            ct.name    AS coupon_name,
+            ct.type    AS coupon_type,
+            ct.threshold,
+            ct.discount,
+            ct.reduce_amount
+        FROM member_coupon mc
+        JOIN coupon_template ct ON mc.template_id = ct.id
+        WHERE mc.member_id = #{memberId}
+          AND mc.status = 1
+          AND mc.expire_at > NOW()
+        ORDER BY ct.type, ct.threshold DESC
+    </select>
+
+</mapper>

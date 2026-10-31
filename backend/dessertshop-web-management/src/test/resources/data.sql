@@ -1,0 +1,64 @@
+-- =============================================
+-- H2 兼容测试种子数据
+-- =============================================
+
+-- 部门
+INSERT INTO dept (id, name) VALUES (1, '技术部');
+INSERT INTO dept (id, name) VALUES (2, '运营部');
+INSERT INTO dept (id, name) VALUES (3, '市场部');
+
+-- 员工 (密码: 123456 的 BCrypt hash)
+INSERT INTO emp (id, username, password, name, gender, phone, job, salary, dept_id, entry_date)
+VALUES (1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5Eh', '管理员', 1, '13800000000', 1, 10000.00, 1, '2020-01-01');
+INSERT INTO emp (id, username, password, name, gender, phone, job, salary, dept_id, entry_date)
+VALUES (2, 'chef01', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5Eh', '张厨师', 1, '13800000001', 2, 8000.00, 2, '2021-06-01');
+-- 未绑定任何角色的员工（RBAC "空角色 → 403" 用例）
+INSERT INTO emp (id, username, password, name, gender, phone, job, salary, dept_id, entry_date)
+VALUES (3, 'nobody', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5Eh', '无角色', 1, '13800000003', 3, 3000.00, 1, '2022-01-01');
+
+-- 甜品
+INSERT INTO dessert (id, name, category, price, original_price, sales, stock, status)
+VALUES (1, '草莓慕斯', 'cake', 38.00, 45.00, 100, 50, 1);
+INSERT INTO dessert (id, name, category, price, original_price, sales, stock, status)
+VALUES (2, '提拉米苏', 'cake', 32.00, 38.00, 80, 30, 1);
+INSERT INTO dessert (id, name, category, price, original_price, sales, stock, status)
+VALUES (3, '抹茶拿铁', 'drink', 28.00, 32.00, 200, 100, 1);
+INSERT INTO dessert (id, name, category, price, original_price, sales, stock, status)
+VALUES (4, '红丝绒蛋糕', 'cake', 108.00, 128.00, 50, 0, 0);
+
+-- RBAC 角色
+INSERT INTO sys_role (id, code, name) VALUES (1, 'super_admin', '超级管理员/店长');
+INSERT INTO sys_role (id, code, name) VALUES (2, 'manager', '副店长');
+INSERT INTO sys_role (id, code, name) VALUES (3, 'cashier', '收银/运营');
+INSERT INTO sys_role (id, code, name) VALUES (4, 'warehouse', '仓管/后厨');
+INSERT INTO sys_role (id, code, name) VALUES (5, 'finance', '财务');
+
+-- RBAC 权限 (测试用子集)
+INSERT INTO sys_permission (id, code, name, module) VALUES (1, 'order:order:list', '查询订单', 'order');
+INSERT INTO sys_permission (id, code, name, module) VALUES (2, 'dessert:dessert:list', '查询甜品', 'dessert');
+INSERT INTO sys_permission (id, code, name, module) VALUES (3, 'emp:emp:delete', '删除员工', 'emp');
+INSERT INTO sys_permission (id, code, name, module) VALUES (4, 'dashboard:stats:read', '查看仪表盘', 'dashboard');
+INSERT INTO sys_permission (id, code, name, module) VALUES (5, 'emp:emp:list', '查询员工', 'emp');
+
+-- cashier: 订单 + 甜品只读 + 首页
+INSERT INTO sys_role_permission (role_id, permission_id) VALUES (3, 1);
+INSERT INTO sys_role_permission (role_id, permission_id) VALUES (3, 2);
+INSERT INTO sys_role_permission (role_id, permission_id) VALUES (3, 4);
+
+-- 用户角色: admin → super_admin, chef01 → cashier
+INSERT INTO sys_user_role (user_id, role_id) VALUES (1, 1);
+INSERT INTO sys_user_role (user_id, role_id) VALUES (2, 3);
+
+-- 订单
+INSERT INTO orders (id, order_no, customer_name, phone, items, amount, status, address)
+VALUES (1, 'DS20240601001', '测试用户A', '13900000001', '草莓慕斯 x1', 38.00, 4, '北京市朝阳区');
+INSERT INTO orders (id, order_no, customer_name, phone, items, amount, status, address)
+VALUES (2, 'DS20240601002', '测试用户B', '13900000002', '提拉米苏 x2', 64.00, 2, '北京市海淀区');
+INSERT INTO orders (id, order_no, customer_name, phone, items, amount, status, address)
+VALUES (3, 'DS20240601003', '测试用户C', '13900000003', '抹茶拿铁 x1, 草莓慕斯 x1', 66.00, 0, '北京市西城区');
+
+-- 优惠券模板：新人券（免费发放）+ 积分兑换券
+INSERT INTO coupon_template (id, name, type, threshold, reduce_amount, valid_days, total_stock, issued_count, points_cost, status, created_at)
+VALUES (1, '新人满30减5', 1, 30.00, 5.00, 30, -1, 0, 0, 1, CURRENT_TIMESTAMP);
+INSERT INTO coupon_template (id, name, type, threshold, reduce_amount, valid_days, total_stock, issued_count, points_cost, status, created_at)
+VALUES (2, '积分兑换满50减10', 1, 50.00, 10.00, 30, -1, 0, 50, 1, CURRENT_TIMESTAMP);
