@@ -1,0 +1,7 @@
+# 仓库根目录：只放编辑器与系统文件；前端、后端各自的忽略规则见 frontend/.gitignore、backend/.gitignore
+/.idea/
+/.vscode/
+/.claude/
+.DS_Store
+Thumbs.db
+*.log

@@ -4,8 +4,7 @@
 
 > 品牌只体现在界面与文档中；项目目录、Java 包名、Maven 坐标、数据库名 `dessertshop`、接口路径与订单号前缀 `DS` 均保持不变。
 
-- 后端（本仓库）：https://gitee.com/yuka-kaori/newdessertshop
-- 前端：https://gitee.com/yuka-kaori/dessertshop-frontend
+本目录是 [喜甜 SWEETEN 仓库](https://github.com/YukaKaori/sweeten) 的后端部分，前端在 [`../frontend`](../frontend)。下文命令均在 `backend/` 目录执行。
 
 ## 本地运行
 
@@ -13,7 +12,7 @@
 
 ### 1. 建库导数据
 
-在本仓库根目录执行（建库、表结构、角色权限、演示数据、默认管理员 `admin / 123456` 一次完成）：
+在 `backend/` 目录执行（建库、表结构、角色权限、演示数据、默认管理员 `admin / 123456` 一次完成）：
 
 ```bash
 mysql -u root -p -e "source sql/init_all.sql"
@@ -34,11 +33,10 @@ java -jar dessertshop-web-management/target/dessertshop-web-management-0.0.1-SNA
 
 ### 3. 启动前端
 
-另开一个终端，在后端仓库目录之外执行：
+另开一个终端，进入仓库的 `frontend/` 目录：
 
 ```bash
-git clone https://gitee.com/yuka-kaori/dessertshop-frontend.git
-cd dessertshop-frontend
+cd ../frontend
 npm install
 npm run dev
 ```
@@ -54,7 +52,7 @@ npm run dev
 | `Access denied for user 'root'` | 设置 `DB_PASSWORD` 为本机 MySQL 密码 |
 | `Unknown database 'dessertshop'` | 没执行第 1 步建库 |
 | `mysql` 不是内部或外部命令 | 把 MySQL 安装目录下的 `bin` 加入 PATH |
-| `Failed to open file 'sql/...'` | 没在仓库根目录执行第 1 步 |
+| `Failed to open file 'sql/...'` | 没在 `backend/` 目录执行第 1 步 |
 | 登录提示用户名或密码错误 | 第 1 步没执行完整，重新执行（可重复执行） |
 | `release version 22 not supported` / `无效的目标发行版: 22` | JDK 版本低于 22 |
 | Maven 下载依赖很慢或失败 | 在 Maven `settings.xml` 配置国内镜像 |

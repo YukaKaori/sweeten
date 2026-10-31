@@ -9,12 +9,11 @@
 
 Vue 3 + Pinia + Element Plus + ECharts + Vite。品牌规范见 [BRAND.md](./BRAND.md)。
 
-- 前端（本仓库）：https://gitee.com/yuka-kaori/dessertshop-frontend
-- 后端：https://gitee.com/yuka-kaori/newdessertshop
+本目录是 [喜甜 SWEETEN 仓库](https://github.com/YukaKaori/sweeten) 的前端部分，后端在 [`../backend`](../backend)。下文命令均在 `frontend/` 目录执行。
 
 ## 本地运行
 
-**先按后端 README 建库并启动后端**（监听 `localhost:8080`），再启动前端。需要 Node 20.19+ 或 22.12+。
+**先按 [后端 README](../backend/README.md) 建库并启动后端**（监听 `localhost:8080`），再启动前端。需要 Node 20.19+ 或 22.12+。
 
 ```bash
 npm install
@@ -37,7 +36,7 @@ npm run dev
 
 ## 权限
 
-登录响应携带当前员工的权限码（`模块:资源:操作`，与后端 `sql/rbac_init.sql` 一致）。
+登录响应携带当前员工的权限码（`模块:资源:操作`，与 `backend/sql/rbac_init.sql` 一致）。
 侧栏、⌘K 面板、路由与页面上的新增 / 编辑 / 删除 / 流转按钮都按权限显示；无权限的路由会被重定向到第一个有权限的页面。
 **前端只负责不展示无权限的入口，鉴权以后端 `@RequirePermission` 为准。** 菜单配置在 `src/config/navigation.js`。
 
