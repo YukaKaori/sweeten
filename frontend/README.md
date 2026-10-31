@@ -46,7 +46,8 @@ npm run dev
 npm run build                    # 构建生产版本（输出 dist/）
 npx eslint src --ext .vue,.js    # 代码检查
 npm run format                   # 格式化
-python scripts/brand/build_brand_assets.py   # 重新生成字标路径与品牌字体子集（改了 config/brand.js 的展示文案后）
+python scripts/brand/build_brand_assets.py --skip-logo   # 改了 config/brand.js 的展示文案后，重新生成品牌字体子集
+python scripts/brand/build_brand_assets.py               # 重新生成全部标志、图标与字体子集（见 BRAND.md 1.8）
 ```
 
 ## 项目结构
@@ -54,7 +55,7 @@ python scripts/brand/build_brand_assets.py   # 重新生成字标路径与品牌
 ```
 src/
 ├── api/modules/        # 接口模块
-├── assets/             # 设计系统 base.css（--sw-* 令牌）、品牌字体子集、字标路径
+├── assets/             # 设计系统 base.css（--sw-* 令牌）、品牌字体子集、标志路径数据 brand/logo.js
 ├── components/
 │   ├── brand/          # BrandLogo 标志、SwIcon 线性图标
 │   ├── store/          # 商城：ProductCard、CartPanel

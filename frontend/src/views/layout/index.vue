@@ -212,13 +212,13 @@ const submitPassword = async () => {
         >
           <BrandLogo
             v-if="sidebarCompact"
-            variant="icon"
-            :size="36"
+            variant="symbol"
+            :size="28"
           />
           <BrandLogo
             v-else
-            variant="horizontal"
-            :size="28"
+            variant="inline"
+            :size="30"
           />
         </router-link>
         <span
@@ -348,8 +348,8 @@ const submitPassword = async () => {
             :aria-label="BRAND.fullName"
           >
             <BrandLogo
-              variant="mark"
-              :size="28"
+              variant="symbol"
+              :size="26"
             />
           </router-link>
           <Breadcrumb />
@@ -575,7 +575,7 @@ const submitPassword = async () => {
 }
 
 .sidebar__caption {
-  padding-left: 36px; /* 与字标对齐（图形 28px + 间距） */
+  padding-left: 1px; /* 与「喜」的左缘对齐 */
   font-size: 12px;
   color: var(--sw-ink-3);
   letter-spacing: 0.08em;

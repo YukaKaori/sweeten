@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="frontend/public/brand/sweeten-logo-horizontal.svg" alt="喜甜 SWEETEN — SWEETEN YOUR DAY." width="520">
+</p>
+
 # 喜甜 SWEETEN
 
 **SWEETEN YOUR DAY.** 让每一天，甜一点。
@@ -52,7 +56,7 @@
 
 ## 品牌与技术标识
 
-品牌规范、色彩与标志资源见 [frontend/BRAND.md](frontend/BRAND.md)。
+品牌规范、色彩与标志资源见 [frontend/BRAND.md](frontend/BRAND.md)：标志矢量母版与 PNG 导出在 [`frontend/public/brand/`](frontend/public/brand/)，网站图标与应用图标在 `frontend/public/`，全部由 `frontend/scripts/brand/build_brand_assets.py` 生成。
 
 品牌名只出现在界面与文档中；技术标识保持不变：Java 包名、Maven 坐标、数据库名 `dessertshop`、接口路径、环境变量名与订单号前缀 `DS`。
 

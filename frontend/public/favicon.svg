@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="13" fill="#493B35"/><path d="M11 25.5C15 35 33 35 37 25.5" fill="none" stroke="#F7F3EC" stroke-width="4.4" stroke-linecap="round"/><circle cx="24" cy="15.8" r="5.6" fill="#E6A4A1"/><path d="M24.3 10.6C24.8 7.8 26.6 5.8 29.6 5.2" fill="none" stroke="#F7F3EC" stroke-width="2" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="喜甜 SWEETEN">
+<title>喜甜 SWEETEN</title>
+<rect x="0" y="0" width="64" height="64" rx="14.08" fill="#F7F3EC"/>
+<path fill="#493B35" d="M56.32 20.04C56.36 39.37 45.19 49.14 32.83 51.11C32.51 38.52 40.83 22.73 56.32 20.04ZM7.68 20.04C23.17 22.73 31.49 38.52 31.17 51.11C18.81 49.14 7.64 39.37 7.68 20.04Z"/>
+<path fill="#E6A4A1" d="M32 16.78C32.11 14.82 34.49 14.17 36.05 14.17C37.62 14.17 40.07 14.26 40.07 17.4C40.07 22.65 36.67 29.51 32 35.19C27.33 29.51 23.93 22.65 23.93 17.4C23.93 14.26 26.38 14.17 27.95 14.17C29.51 14.17 31.89 14.82 32 16.78Z"/>
+</svg>

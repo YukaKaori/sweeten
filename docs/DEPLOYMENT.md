@@ -108,7 +108,7 @@ server {
 
 - `VITE_PRODUCT_IMAGE_URL`（`frontend/.env`）为当前统一商品图；留空则使用打包进来的本地图。`VITE_PRODUCT_IMAGE_UNIFORM=false` 改为展示各甜品自己上传的图片；可选 `VITE_PRODUCT_IMAGE_FOCUS` 调整取景焦点。
 - `VITE_DEV_MOCK` 只在开发环境、且显式设为 `true` 时生效（GET 查询兜底演示数据），生产构建不受影响。
-- 品牌字体是仓库内的小子集（`frontend/src/assets/fonts/sweeten-*.woff2`，合计约 25KB），随构建产物发布，不依赖外部字体服务；网站图标为 `frontend/public/favicon.svg`、`favicon.ico`、`apple-touch-icon.png`。
+- 品牌字体是仓库内的小子集（`frontend/src/assets/fonts/sweeten-*.woff2`，合计约 25KB），随构建产物发布，不依赖外部字体服务；网站图标为 `frontend/public/` 下的 `favicon.svg`、`favicon.ico`、`favicon.png`、`apple-touch-icon.png` 与 `site.webmanifest`，标志文件在 `frontend/public/brand/`（构建后位于站点 `/brand/`，属于静态资源，可按 `/assets/` 之外的普通缓存策略托管）。
 - 生产包已核对：无 mock 数据（网络故障时不再静默显示演示数据）、无 devtools、无 source map、无任何密钥。
 - `frontend/index.html` 已移除未使用且会阻塞首屏的 Google Fonts 外链（中国大陆不可达）。
 

@@ -1,0 +1,29 @@
+{
+  "name": "喜甜 SWEETEN",
+  "short_name": "喜甜",
+  "description": "喜甜 SWEETEN — 甜品 · 烘焙 · 饮品。SWEETEN YOUR DAY.",
+  "lang": "zh-CN",
+  "theme_color": "#F7F3EC",
+  "background_color": "#F7F3EC",
+  "display": "browser",
+  "icons": [
+    {
+      "src": "/brand/sweeten-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/sweeten-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/sweeten-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

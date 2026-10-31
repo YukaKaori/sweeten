@@ -97,13 +97,13 @@ onUnmounted(() => {
           :aria-label="`${BRAND.fullName} 首页`"
         >
           <BrandLogo
-            variant="horizontal"
+            variant="inline"
             :size="30"
             class="sh__logo-full"
           />
           <BrandLogo
-            variant="horizontal"
-            :size="25"
+            variant="inline"
+            :size="24"
             class="sh__logo-compact"
           />
         </router-link>
@@ -182,11 +182,10 @@ onUnmounted(() => {
       <div class="sf__inner">
         <div class="sf__brand">
           <BrandLogo
-            variant="stacked"
-            :size="44"
+            variant="primary"
+            :size="168"
           />
           <p class="sf__tagline sw-display">{{ BRAND.taglineCn }}</p>
-          <p class="sf__cat">{{ BRAND.category }}</p>
         </div>
         <div class="sf__cols">
           <div class="sf__col">
@@ -502,17 +501,18 @@ onUnmounted(() => {
   padding: 56px var(--store-pad) 40px;
 }
 
-.sf__tagline {
-  margin-top: 22px;
-  font-size: 20px;
-  color: var(--sw-ink);
+/* 主标志是居中构图：品牌栏内容随之居中 */
+.sf__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
-.sf__cat {
-  margin-top: 6px;
-  font-size: 13px;
-  letter-spacing: 0.16em;
-  color: var(--sw-ink-3);
+.sf__tagline {
+  margin-top: 18px;
+  font-size: 18px;
+  color: var(--sw-ink);
 }
 
 .sf__cols {

@@ -137,7 +137,7 @@ onMounted(async () => {
     >
       <div class="mcard__top">
         <BrandLogo
-          variant="horizontal"
+          variant="inline"
           tone="inverse"
           :size="22"
         />
@@ -172,7 +172,7 @@ onMounted(async () => {
       class="guest"
     >
       <BrandLogo
-        variant="mark"
+        variant="symbol"
         :size="44"
       />
       <h2 class="guest__title">{{ loadFailed ? '会员信息暂时无法加载' : `成为${BRAND.nameCn}会员` }}</h2>

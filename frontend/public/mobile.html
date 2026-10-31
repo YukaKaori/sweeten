@@ -7,6 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>喜甜 SWEETEN · 甜品 · 烘焙 · 饮品</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <style>
         /* ============================================================
            Apple-Inspired Design System · Liquid Glass Morphism
@@ -105,17 +108,16 @@
             display: flex; align-items: center; gap: 8px;
         }
         .top-nav .logo-icon {
-            font-size: 20px;
-            filter: drop-shadow(0 2px 4px rgba(217,87,74,0.25));
+            display: block;
+            width: 26px;
+            height: auto;
             transition: transform 0.35s var(--ease-spring);
         }
         .top-nav .logo-icon:active { transform: scale(1.2) rotate(8deg); }
         .top-nav .logo-text {
             font-size: 18px; font-weight: 620;
             letter-spacing: -0.3px;
-            background: linear-gradient(135deg, #d9574a 20%, #b8453a 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #493B35; /* 品牌可可棕 */
         }
         .top-nav .nav-actions { display:flex; gap:6px; align-items:center; }
         .top-nav .nav-btn {
@@ -896,7 +898,7 @@
     <!-- ==================== TOP NAVIGATION ==================== -->
     <nav class="top-nav">
         <div class="logo-group">
-            <span class="logo-icon">🍰</span>
+            <img class="logo-icon" src="/brand/sweeten-symbol.svg" alt="" width="26" height="21">
             <span class="logo-text">喜甜 SWEETEN</span>
         </div>
         <div class="nav-actions">

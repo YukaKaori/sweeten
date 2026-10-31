@@ -3,7 +3,7 @@
  *
  * 展示字体（assets/fonts/sweeten-display.woff2，思源宋体子集）只包含本文件里出现过的汉字。
  * 修改或新增使用展示字体（.sw-display / var(--font-display)）的文案时，改这里，
- * 然后运行 `python scripts/brand/build_brand_assets.py` 重新生成字体子集。
+ * 然后运行 `python scripts/brand/build_brand_assets.py --skip-logo` 重新生成字体子集。
  * 动态内容（商品名、人名、金额）一律使用系统字体，不要套展示字体。
  */
 

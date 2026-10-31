@@ -715,7 +715,7 @@ onMounted(() => {
             <BrandLogo
               variant="stacked"
               tone="mono"
-              :size="40"
+              :size="48"
             />
             <p class="ticket__tag">{{ BRAND.tagline }}</p>
           </div>

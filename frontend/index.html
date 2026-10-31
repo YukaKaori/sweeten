@@ -8,13 +8,53 @@
     <meta name="theme-color" content="#F7F3EC">
     <meta name="application-name" content="喜甜 SWEETEN">
     <meta name="apple-mobile-web-app-title" content="喜甜">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="喜甜 SWEETEN">
+    <meta property="og:title" content="喜甜 SWEETEN · 甜品 · 烘焙 · 饮品">
+    <meta property="og:description" content="蛋糕、面包与饮品，每日现做。SWEETEN YOUR DAY.">
+    <!-- 网站图标由 scripts/brand/build_brand_assets.py 生成，规范见 BRAND.md -->
     <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
     <!-- 不引用外部字体服务：正文用系统字体栈，品牌字体为仓库内的小子集（assets/fonts） -->
+    <style>
+      /* 首屏加载：应用挂载前显示品牌图形；0.45s 内加载完则不会出现 */
+      .sw-boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        animation: sw-boot-in 0.4s ease 0.45s both;
+      }
+      .sw-boot img {
+        width: 56px;
+        height: auto;
+        animation: sw-boot-breathe 1.8s ease-in-out 0.85s infinite;
+      }
+      @keyframes sw-boot-in { from { opacity: 0; } }
+      @keyframes sw-boot-breathe { 50% { opacity: 0.55; transform: scale(0.94); } }
+      @media (prefers-reduced-motion: reduce) {
+        .sw-boot img { animation: none; }
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div
+        class="sw-boot"
+        role="status"
+        aria-label="喜甜 SWEETEN 正在加载"
+      >
+        <img
+          src="/brand/sweeten-symbol.svg"
+          alt=""
+          width="56"
+          height="44"
+        >
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

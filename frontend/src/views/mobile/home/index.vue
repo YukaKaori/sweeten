@@ -10,6 +10,7 @@ import { STORE_COPY } from '@/config/brand'
 import { formatPrice, formatCount } from '@/utils/format'
 import { BRAND_HERO_IMAGE, PRODUCT_IMAGE_FOCUS } from '@/config/productImage'
 import ProductCard from '@/components/store/ProductCard.vue'
+import BrandLogo from '@/components/brand/BrandLogo.vue'
 import SwIcon from '@/components/brand/SwIcon.vue'
 
 const copy = STORE_COPY
@@ -69,7 +70,14 @@ onMounted(() => {
     >
       <div class="hero__inner">
         <div class="hero__text">
-          <p class="hero__eyebrow sw-eyebrow">{{ copy.hero.eyebrow }}</p>
+          <p class="hero__eyebrow sw-eyebrow">
+            <BrandLogo
+              variant="symbol"
+              :size="18"
+              aria-hidden="true"
+            />
+            {{ copy.hero.eyebrow }}
+          </p>
           <h1
             id="hero-title"
             class="hero__title sw-display"
@@ -375,6 +383,9 @@ onMounted(() => {
 }
 
 .hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--sw-berry);
 }
 

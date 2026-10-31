@@ -147,9 +147,9 @@ onUnmounted(() => clearTimeout(focusTimer))
       <div class="hero__scrim"></div>
       <div class="hero__top">
         <BrandLogo
-          variant="horizontal"
+          variant="inline"
           tone="inverse"
-          :size="30"
+          :size="28"
         />
       </div>
       <div class="hero__copy">
@@ -169,8 +169,8 @@ onUnmounted(() => clearTimeout(focusTimer))
         <header class="panel__head">
           <BrandLogo
             class="panel__logo"
-            variant="stacked"
-            :size="46"
+            variant="primary"
+            :size="168"
           />
           <p class="sw-eyebrow panel__eyebrow">{{ copy.eyebrow }}</p>
           <h1 class="panel__title sw-display">{{ copy.title }}</h1>
@@ -438,12 +438,15 @@ onUnmounted(() => clearTimeout(focusTimer))
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+/* 主标志是居中构图，面板标题随之居中；窄屏隐藏主标志后恢复左对齐 */
 .panel__head {
   margin-bottom: 28px;
+  text-align: center;
 }
 
 .panel__logo {
-  margin-bottom: 36px;
+  display: block;
+  margin: 0 auto 28px;
 }
 
 .panel__eyebrow {
@@ -664,6 +667,7 @@ onUnmounted(() => clearTimeout(focusTimer))
 
   .panel__head {
     margin-bottom: 22px;
+    text-align: left;
   }
 
   .panel__title {

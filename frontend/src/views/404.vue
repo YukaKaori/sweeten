@@ -29,7 +29,7 @@ const goBack = () => {
       aria-label="喜甜 SWEETEN 首页"
     >
       <BrandLogo
-        variant="horizontal"
+        variant="inline"
         :size="30"
       />
     </router-link>
