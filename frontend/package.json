@@ -1,6 +1,7 @@
 {
-  "name": "dessertshop",
-  "version": "0.0.0",
+  "name": "sweeten-web",
+  "version": "1.0.0",
+  "description": "喜甜 SWEETEN 前端：顾客商城（/m）与门店工作台（/）",
   "private": true,
   "type": "module",
   "engines": {

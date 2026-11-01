@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>喜甜 SWEETEN · 后端服务</title>
+  <meta name="robots" content="noindex">
+  <!--
+    后端只提供 API。本页仅在开发环境由后端根路径返回（prod profile 关闭静态资源映射，不会对外提供）。
+    旧版内置的演示商城页（DessertShop 时期）已于 2026-10-31 退役，顾客商城由前端 /m 提供；旧页面见 git 历史。
+  -->
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #F7F3EC; color: #3B2A22;
+           font: 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    main { max-width: 34rem; padding: 2.5rem; }
+    h1 { margin: 0 0 .25rem; font-size: 1.5rem; letter-spacing: .02em; }
+    p { margin: .5rem 0; color: #6B5A50; }
+    a { color: #B5605B; }
+    code { background: #EFE6DA; padding: .1em .35em; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>喜甜 SWEETEN · sweeten-server</h1>
+    <p>后端服务运行中。本服务只提供 API：</p>
+    <p>· 接口文档：<a href="/doc.html">/doc.html</a>（仅开发环境）</p>
+    <p>· 顾客商城与门店工作台由前端提供：开发环境 <code>http://localhost:5173/m</code> 与 <code>/login</code>。</p>
+  </main>
+</body>
+</html>

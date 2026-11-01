@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { getMobileProducts } from '@/api/modules/mobile'
+import { getStorefrontProducts } from '@/api/modules/storefront'
 import { DESSERT_CATEGORIES } from '@/utils/constants'
 
 /**
@@ -21,7 +21,7 @@ async function load(force = false) {
   if (pending) return pending
   loading.value = true
   error.value = ''
-  pending = getMobileProducts('all', { silent: true })
+  pending = getStorefrontProducts('all', { silent: true })
     .then((r) => {
       if (r?.code === 1 && Array.isArray(r.data)) {
         products.value = r.data

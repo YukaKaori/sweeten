@@ -16,14 +16,14 @@ export const supportsViewTransitions =
   typeof document !== 'undefined' && typeof document.startViewTransition === 'function'
 
 // 顾客商城（/m/*）有自己的页面切换，不使用 View Transitions
-const isStore = (path) => path === '/m' || path.startsWith('/m/')
+const isStorefront = (path) => path === '/m' || path.startsWith('/m/')
 
 function shouldUseViewTransition(to, from) {
   if (!supportsViewTransitions) return false
   if (from.matched.length === 0) return false // 首次加载没有旧页面可转场
   const { isStatic } = useMotionPref()
   if (isStatic.value) return false // prefers-reduced-motion
-  if (isStore(to.path) || isStore(from.path)) return false
+  if (isStorefront(to.path) || isStorefront(from.path)) return false
   if (to.path === from.path) return false
   if (document.hidden) return false
   return true
@@ -65,7 +65,7 @@ export function setupRouterGuards(router) {
     userStore.initFromStorage()
 
     // 未登录：只允许访问公开页面（登录页、顾客商城 /m/*、404）
-    const isPublic = to.meta?.public || to.path === '/login' || isStore(to.path)
+    const isPublic = to.meta?.public || to.path === '/login' || isStorefront(to.path)
     if (!userStore.isLoggedIn && !isPublic) {
       return { path: '/login', query: to.fullPath !== '/' && to.fullPath !== '/index' ? { redirect: to.fullPath } : undefined }
     }

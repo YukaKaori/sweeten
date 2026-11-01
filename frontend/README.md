@@ -36,7 +36,7 @@ npm run dev
 
 ## 权限
 
-登录响应携带当前员工的权限码（`模块:资源:操作`，与 `backend/sql/rbac_init.sql` 一致）。
+登录响应携带当前员工的权限码（`模块:资源:操作`，与 `backend/sql/schema/rbac_init.sql` 一致）。
 侧栏、⌘K 面板、路由与页面上的新增 / 编辑 / 删除 / 流转按钮都按权限显示；无权限的路由会被重定向到第一个有权限的页面。
 **前端只负责不展示无权限的入口，鉴权以后端 `@RequirePermission` 为准。** 菜单配置在 `src/config/navigation.js`。
 
@@ -52,24 +52,33 @@ python scripts/brand/build_brand_assets.py               # 重新生成全部标
 
 ## 项目结构
 
+一个应用承载两个产品界面，目录按界面分层（详见 [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) §3）：
+
 ```
 src/
-├── api/modules/        # 接口模块
-├── assets/             # 设计系统 base.css（--sw-* 令牌）、品牌字体子集、标志路径数据 brand/logo.js
+├── views/
+│   ├── storefront/     # 顾客商城 /m/*：home · product · checkout · success · orders · profile · layout
+│   ├── workspace/      # 门店工作台：overview · order · customer · dessert · price · inventory · report · log · emp · dept · layout · login · 403
+│   └── 404.vue
 ├── components/
+│   ├── storefront/     # CartPanel、ProductCard、QtyStepper
+│   ├── workspace/      # PageHeader、Breadcrumb、CommandPalette、NotificationPanel、UserProfilePanel
 │   ├── brand/          # BrandLogo 标志、SwIcon 线性图标
-│   ├── store/          # 商城：ProductCard、CartPanel
-│   └── …               # ProductImg、StatusBadge、QtyStepper、EmptyState、PageHeader …
+│   └── …               # 两个界面共用：ProductImg、StatusBadge、EmptyState、Skeleton*
+├── api/modules/        # storefront.js = 顾客商城公开接口（/mobile/**）；其余为工作台接口
+├── assets/             # 设计系统 base.css（--sw-* 令牌）、品牌字体子集、标志路径数据 brand/logo.js
 ├── composables/        # useCatalog、useDashboard、usePermission、useTheme …
 ├── config/             # brand.js 品牌文案、navigation.js 菜单、productImage.js 商品图唯一入口
-├── router/             # 路由 + 守卫（登录、权限、标题）
-├── stores/modules/     # user（含权限判断）、cart、storeUi、myOrders
-├── utils/              # http、constants、format、echartsTheme、brandTokens
-└── views/
-    ├── mobile/         # 顾客商城（/m/*）
-    ├── layout/         # 工作台外框
-    └── …               # 工作台各页面
+├── router/             # routes/storefront.js · routes/workspace.js · routes/static.js + 守卫（登录、权限、标题）
+├── stores/modules/     # 商城：cart、myOrders、storefrontUi；工作台：user（含权限判断）、app
+└── utils/              # http、constants（状态与分类，与后端一致）、format、storage（存储键迁移）、echartsTheme、brandTokens
+
+design-assets/          # 不参与构建的原始素材（商品图原图等），见其 README
+scripts/brand/          # 品牌资源生成脚本
 ```
+
+顾客端与工作台的页面互不引用；接口统一经 `/api` 前缀转发（开发：Vite 代理；生产：Nginx）。
+`public/mobile.html` 是旧版独立 H5 页面的地址，现仅跳转到 `/m`，保留给旧书签与二维码。
 
 ## 已知限制
 

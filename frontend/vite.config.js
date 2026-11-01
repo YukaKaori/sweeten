@@ -19,17 +19,13 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        // 前端的全部请求（工作台与顾客商城）都走 /api 前缀，转发时去掉前缀；生产由 Nginx 做同样的转发
         '/api': {
           target: env.VITE_API_PROXY_TARGET || 'http://localhost:8080',
           secure: false,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
-        '^/mobile/': {
-          target: env.VITE_API_PROXY_TARGET || 'http://localhost:8080',
-          secure: false,
-          changeOrigin: true,
-        }
       }
     },
     build: {

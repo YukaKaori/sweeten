@@ -10,7 +10,7 @@
 | 品类 | DESSERT · BAKERY · DRINKS（甜品 · 烘焙 · 饮品） |
 
 中文界面以「喜甜」为主名，「SWEETEN」作为英文名与之并列，不另起其它品牌名。
-技术标识（项目目录、Java 包名、Maven 坐标、数据库名 `dessertshop`、接口路径、环境变量、订单号前缀 `DS`）保持不变。
+工程标识已于 2026-10-31 统一为 SWEETEN（Java 包 `com.sweeten`、Maven `sweeten-server`、前端包 `sweeten-web`）；为兼容已有数据与外部契约，数据库名 `dessertshop`、接口路径、商城地址 `/m`、环境变量与订单号前缀 `DS` 保持不变（见 docs/ARCHITECTURE.md §6）。
 
 ---
 
@@ -106,7 +106,7 @@
 | `apple-touch-icon.png` | 180 × 180 | iOS 主屏图标，满版不透明，系统自动切圆角 |
 | `site.webmanifest` | — | 名称、主题色与 192 / 512 / maskable 图标；`display: browser`，不把站点声明为可安装应用 |
 
-`index.html` 已引用以上图标与清单；遗留页面 `public/mobile.html` 同样使用图形与网站图标。
+`index.html` 已引用以上图标与清单；`public/mobile.html` 现仅是跳转到 `/m` 的兼容页面（旧版独立 H5 商城已退役）。
 
 ### 1.7 来源与校正
 

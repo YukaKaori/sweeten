@@ -5,6 +5,8 @@
 > 依据:通读全部 7 份既有报告(PROJECT_SUMMARY / DESSERTSHOP_MASTER_PLAN / NEXT_TASKS / SHOWCASE_REPORT / DEGRADATION_CHECK / IMPROVEMENT_REPORT / SECURITY_UPGRADE+PASSWORD_MIGRATION)+ 对前后端代码逐文件核对
 > 路径约定:前端 = `dessertshop/src/...`,后端 = `newdessertshop/dessertshop-web-management/src/main/java/com/itheima/...`,POJO = `newdessertshop/dessertshop-pojo/.../pojo/...`
 >
+> **现行架构见 [ARCHITECTURE.md](ARCHITECTURE.md)**（2026-10-31）：本文是 2026-07 的诊断与分阶段计划，文中的 `com.itheima.*` 包与 `dessertshop-*` Maven 模块已迁移为 `com.sweeten.<module>` 与单一工程 `sweeten-server`（对应关系见下方 Changelog 2026-10-31）。
+>
 > **合并仓库后的路径对应**（2026-10-30）：文中 `dessertshop/` 即 `frontend/`，`newdessertshop/` 即 `backend/`。IMPROVEMENT_REPORT 在 `frontend/`，SECURITY_UPGRADE / PASSWORD_MIGRATION 在 `backend/`；PROJECT_SUMMARY、DESSERTSHOP_MASTER_PLAN、NEXT_TASKS、SHOWCASE_REPORT、DEGRADATION_CHECK 是早期工作文档，内容已被本文与现行代码取代，未纳入本仓库。
 
 ---
@@ -385,3 +387,34 @@ CustomerServiceImpl ──selectOrdersByCustomerName(姓名匹配)──> orders
 - 后端 85/85；前端 lint 0 error（警告 1674 → 1270）、构建通过。
 - 浏览器端到端（真实后端 / MySQL / Redis）：加购 → 结算校验 → 下单（库存 −2、销量 +2、未新增会员）→ 我的订单 → 工作台取消（库存回补）→ 删除，全部通过，数据回到基线。收银角色界面权限过滤通过。
 - 过程中一笔测试订单被推进到「制作中」（后端规则不允许取消），已用一次事务按其确切影响回退（库存 +2、销量 −2、删除该单）并通过甜品状态接口清缓存。
+
+## 2026-10-31 — SWEETEN 工程结构与架构调整（模块化单体）
+
+**范围**：工程标识、目录结构、后端模块边界、测试安全、数据库脚本整理、前端界面分层与文档。数据库结构与接口契约不变。
+
+### 后端
+- 四个教学项目式 Maven 模块（`dessert-parent` / `dessertshop-pojo` / `dessertshop-utils` / `dessertshop-web-management`）合并为单一工程 `com.sweeten:sweeten-server`（`backend/pom.xml`，产物 `sweeten-server.jar`），依赖版本与运行时类库不变（逐个比对）；编译目标 22 → 21（LTS）。
+- `com.itheima.{controller,service,mapper,pojo,…}` 按业务重组为 `com.sweeten.<module>`：common · identity · staff · catalog · inventory · order · customer · promotion · storefront · analytics · audit · media；MyBatis XML 移到 `resources/mapper/<module>/`。全部文件用 `git mv` 移动，保留历史。
+- 解除模块间的环形依赖：登录 / 改密 / 角色绑定移入 identity（`AuthService`、`RoleAssignmentService`、`AccountMapper`），staff 不再签发 JWT；订单通过 `OrderPlacedEvent` / `OrderStatusChangedEvent` 通知会员体系（`MembershipOrderListener`），order 不再依赖 customer；经营统计改用 analytics 自己的 `AnalyticsMapper`（对应 Phase 3d「DashboardServiceImpl 仍直连 Mapper」的遗留项）；员工变更日志归入 audit。依赖方向由 `ModuleBoundaryTest` 校验。
+- `OrderStatus` 枚举成为状态码与流转规则的唯一来源（替代散落的 0–5 魔法数）；订单明细快照独立为 `OrderLine`（JSON 字段不变）。
+- 「移动端」命名改为顾客商城：`MobileController` → `StorefrontController`、`MobileOrderService` → `CheckoutService`（`/mobile/**` 路径保持不变）。
+- 员工职位统计的标签由教学项目的「班主任 / 讲师…」改为门店职位「经理 / 副经理…」，与前端 `JOB_LIST`、`rbac_init.sql` 一致。
+- 缓存键加 `sweeten:` 前缀（旧键含旧包名，不再读取）；开发 JWT 默认密钥更换，prod 同时拒绝新旧默认值；开发环境支持 `DB_URL`，OSS 地域 / bucket 可用环境变量覆盖。
+- `TokenFilter` 不再借用 OSS SDK 传递依赖里的 `org.apache.http.HttpStatus`；审计切面改用登录上下文取操作人，不再二次解析 JWT。
+
+### 测试
+- 删除会直连开发机真实 MySQL 并改写员工密码的 `PasswordMigrationTest`、无断言的 `JwtTest` 与非测试的 OSS 上传脚本 `Demo.java`；应用冒烟测试改用 H2。
+- 新增 `TestDatabaseGuard`：任何测试上下文的数据源不是 H2 内存库即失败。新增模块边界、订单生命周期、订单事件、经营分析、JWT、BCrypt、密码迁移等测试。后端 81 → 105 个用例，全部通过。
+
+### 数据库脚本
+- `backend/sql/` 按用途分为 `schema/`、`seed/`、`migrations/`（日期化）与 `archive/`（历史脚本加警告，重置全员密码的语句已注释）；`db/migration.sql` 并入 archive。
+- 新增 `seed/demo_coupons.sql`：此前新库没有任何券模板（种子只在会 DROP 表的历史脚本里），新人券与积分兑换无法演示。在隔离的一次性 MySQL 实例上演练 `init_all.sql` 两次，结果一致。
+
+### 前端
+- 页面按产品界面分层：`views/storefront`（原 `views/mobile`）与 `views/workspace`；组件分 `components/storefront`、`components/workspace` 与共享组件；路由合并为 `storefront.js` / `workspace.js`（替代名实不符的 business / system / data / dashboard 四个文件）；商城接口统一到 `api/modules/storefront.js`。URL 不变。
+- 删除未生效的 `.ts` 副本（被同名 `.js` 遮蔽）、未使用的兼容层与汇总导出、已退役视觉效果的 composable；浏览器存储中旧品牌键名迁移为 `sw-*` 并保留原值；`package.json` 更名为 `sweeten-web`。
+- `public/mobile.html`（旧版独立 H5 商城）改为跳转 `/m`；`dessertshop-image/` 整理为 `design-assets/`。
+
+### 验证
+- 后端 105/105；前端 lint 0 error、构建通过。验证用的端到端脚本收录在 `scripts/smoke/`（API 冒烟、浏览器冒烟、OpenAPI 契约比对）。
+- 在一次性的隔离 MySQL / Redis 上：新旧两版 jar 的 OpenAPI 文档 76 个接口零差异；新版端到端 38 项检查与浏览器冒烟 27 项（商城下单全流程、工作台全部页面、旧地址兼容）全部通过；prod profile 拒绝新旧开发 JWT 密钥。未接触本机正式数据库与 Redis。

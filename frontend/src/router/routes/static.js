@@ -1,11 +1,11 @@
 /**
- * 静态路由（不需要权限验证）
+ * 静态路由（不需要权限验证）：员工登录页与全站 404
  */
 export const staticRoutes = [
   {
     path: '/login',
     name: 'login',
-    component: () => import('@/views/login/index.vue'),
+    component: () => import('@/views/workspace/login/index.vue'),
     meta: { title: '登录', public: true },
   },
   {

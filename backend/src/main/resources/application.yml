@@ -1,0 +1,98 @@
+spring:
+  application:
+    name: sweeten-server
+  servlet:
+    multipart:
+      # 与 UploadController 的 5MB 业务上限一致（略留余量给表单字段）
+      max-file-size: 5MB
+      max-request-size: 6MB
+  #mysql连接配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 库名 dessertshop 是沿用的兼容标识（已有数据都在这个库里），改库名属于运维迁移而非代码改动；
+    # 新环境想用别的库名时设置 DB_URL 即可（与 prod profile 同一个变量）
+    url: ${DB_URL:jdbc:mysql://localhost:3306/dessertshop}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
+  # 密码迁移配置
+  password:
+    migration:
+      # 首次运行时设置为true，迁移完成后设置为false
+      enabled: false
+  # Redis 缓存配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # 不再内置默认密码：本机 Redis 无密码时留空即可；生产通过环境变量 REDIS_PASSWORD 提供
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      # 缓存只是加速层：超时宜短，失败后由 RedisConfig 熔断直查数据库
+      timeout: 1000ms
+      connect-timeout: 1000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+          max-wait: 1000ms
+
+# JWT配置
+jwt:
+  # 签名密钥 — 这里只是公开的本地开发默认值；prod profile 必须通过 JWT_SECRET 提供，
+  # 使用本默认值（或旧版默认值）时 ProductionSafetyCheck 会拒绝启动
+  secret: ${JWT_SECRET:SWEETEN-dev-only-jwt-secret-change-me-2026}
+  # Token过期时间（毫秒），默认12小时
+  expire: 43200000
+
+mybatis:
+  # XML 映射按业务模块存放：resources/mapper/<module>/XxxMapper.xml（namespace 为 Mapper 接口全名）
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+
+#分页查询防不规范
+pagehelper:
+  reasonable: true
+  helper-dialect: mysql
+
+#spring事务管理日志
+logging:
+  level:
+    org.springframework.jdbc.support.JdbcTransactionManager: debug
+
+# Knife4j / SpringDoc API 文档配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    enable-swagger-models: true
+    enable-footer: false
+
+#阿里云OSS（凭证只从环境变量 OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET 读取）
+# 地域与 bucket 尚未最终确定，均可用环境变量覆盖；默认值为现有 bucket（已上传的商品图 URL 指向它）
+aliyun:
+  oss:
+    endpoint: ${OSS_ENDPOINT:https://oss-cn-beijing.aliyuncs.com}
+    bucketName: ${OSS_BUCKET:yuka-javaweb}
+    region: ${OSS_REGION:cn-beijing}
+
+# 应用自定义配置（生产环境见 application-prod.yml）
+app:
+  cors:
+    # 前端与接口不同源时才需要，逗号分隔；开发环境经 Vite 代理同源访问，留空
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  security:
+    # 仅当部署在会覆盖 X-Forwarded-For 的反向代理之后才设为 true（登录限流按真实客户端 IP 计数）
+    trust-forwarded-for: ${TRUST_FORWARDED_FOR:false}
+  cache:
+    breaker-open-seconds: 30
+    # 缓存键统一加应用前缀（多个环境/应用共用一个 Redis 时互不干扰）
+    key-prefix: "sweeten:"

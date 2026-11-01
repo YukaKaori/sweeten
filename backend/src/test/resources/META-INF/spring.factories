@@ -1,0 +1,2 @@
+# 仅测试 classpath：所有 Spring 测试上下文的数据源必须是 H2 内存库（见 TestDatabaseGuard）
+org.springframework.context.ApplicationContextInitializer=com.sweeten.support.TestDatabaseGuard

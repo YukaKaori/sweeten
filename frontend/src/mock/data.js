@@ -205,12 +205,12 @@ export const mockDesserts = {
 // ---------- 日志 ----------
 export const mockLogs = {
   rows: [
-    { id: 1, operateEmpId: 1, className: 'com.itheima.controller.DeptController', methodName: 'delete', methodParams: '{"id": 10}', returnValue: '{"code": 1, "msg": "success"}', costTime: 45, operateTime: '2026-06-14 14:30:00' },
-    { id: 2, operateEmpId: 1, className: 'com.itheima.controller.EmpController', methodName: 'insert', methodParams: '{"name": "新员工", "job": 3}', returnValue: '{"code": 1, "msg": "success"}', costTime: 120, operateTime: '2026-06-14 14:00:00' },
-    { id: 3, operateEmpId: 2, className: 'com.itheima.controller.DeptController', methodName: 'update', methodParams: '{"id": 3, "name": "技术部"}', returnValue: '{"code": 1, "msg": "success"}', costTime: 38, operateTime: '2026-06-14 13:15:00' },
-    { id: 4, operateEmpId: 3, className: 'com.itheima.controller.OrderController', methodName: 'update', methodParams: '{"id": 3, "status": 3}', returnValue: '{"code": 1, "msg": "success"}', costTime: 56, operateTime: '2026-06-14 12:05:00' },
-    { id: 5, operateEmpId: 1, className: 'com.itheima.controller.DessertController', methodName: 'update', methodParams: '{"id": 1, "price": 68}', returnValue: '{"code": 1, "msg": "success"}', costTime: 1500, operateTime: '2026-06-14 11:30:00' },
-    { id: 6, operateEmpId: 2, className: 'com.itheima.controller.AuthController', methodName: 'login', methodParams: '{"username": "admin"}', returnValue: '{"code": 1}', costTime: 210, operateTime: '2026-06-14 09:00:00' },
+    { id: 1, operateEmpId: 1, className: 'com.sweeten.staff.web.DeptController', methodName: 'delete', methodParams: '{"id": 10}', returnValue: '{"code": 1, "msg": "success"}', costTime: 45, operateTime: '2026-06-14 14:30:00' },
+    { id: 2, operateEmpId: 1, className: 'com.sweeten.staff.web.EmpController', methodName: 'insert', methodParams: '{"name": "新员工", "job": 3}', returnValue: '{"code": 1, "msg": "success"}', costTime: 120, operateTime: '2026-06-14 14:00:00' },
+    { id: 3, operateEmpId: 2, className: 'com.sweeten.staff.web.DeptController', methodName: 'update', methodParams: '{"id": 3, "name": "技术部"}', returnValue: '{"code": 1, "msg": "success"}', costTime: 38, operateTime: '2026-06-14 13:15:00' },
+    { id: 4, operateEmpId: 3, className: 'com.sweeten.order.web.OrderController', methodName: 'update', methodParams: '{"id": 3, "status": 3}', returnValue: '{"code": 1, "msg": "success"}', costTime: 56, operateTime: '2026-06-14 12:05:00' },
+    { id: 5, operateEmpId: 1, className: 'com.sweeten.catalog.web.DessertController', methodName: 'update', methodParams: '{"id": 1, "price": 68}', returnValue: '{"code": 1, "msg": "success"}', costTime: 1500, operateTime: '2026-06-14 11:30:00' },
+    { id: 6, operateEmpId: 2, className: 'com.sweeten.identity.web.LoginController', methodName: 'login', methodParams: '{"username": "admin"}', returnValue: '{"code": 1}', costTime: 210, operateTime: '2026-06-14 09:00:00' },
   ],
   total: 6,
 }

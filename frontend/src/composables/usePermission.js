@@ -3,7 +3,7 @@ import { useUserStore } from '@/stores/modules/user'
 /**
  * 界面权限判断（隐藏/禁用当前员工无权执行的操作）
  *
- * 权限码格式「模块:资源:操作」，与后端 sql/rbac_init.sql、@RequirePermission 一致。
+ * 权限码格式「模块:资源:操作」，与后端 sql/schema/rbac_init.sql、@RequirePermission 一致。
  * 前端只负责不展示无权限的入口；后端始终做最终校验（越权请求返回 403）。
  *
  * @example

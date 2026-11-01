@@ -1,0 +1,44 @@
+package com.sweeten.catalog.service;
+
+import com.sweeten.catalog.model.Dessert;
+import com.sweeten.catalog.model.DessertQueryParam;
+import com.sweeten.common.paging.PageResult;
+
+import java.util.List;
+import java.util.Map;
+
+public interface DessertService {
+
+    //分页查询甜品
+    PageResult<Dessert> page(DessertQueryParam queryParam);
+
+    //根据分类查询甜品列表
+    List<Dessert> listByCategory(String category);
+
+    //根据ID查询甜品
+    Dessert getById(Integer id);
+
+    //新增甜品
+    void save(Dessert dessert);
+
+    //修改甜品
+    void update(Dessert dessert);
+
+    //删除甜品
+    void deleteById(Integer id);
+
+    //查询各分类数量
+    List<Map<String, Object>> countByCategory();
+
+    //查询全部上架甜品
+    List<Dessert> listOnSale();
+
+    //仅调整价格（现价必填，原价可选）
+    void updatePrice(Integer id, Double price, Double originalPrice);
+
+    //下单扣减库存并累加销量；库存不足或已下架返回 false
+    boolean deductStock(Integer id, Integer qty);
+
+    //取消订单回补库存并回退销量
+    void restoreStock(Integer id, Integer qty);
+}

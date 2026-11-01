@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { migratedKey } from '@/utils/storage'
 
 /**
  * useTheme — 浅色（品牌标准）/ 可可夜（深色）两种外观
@@ -8,7 +9,7 @@ import { ref, computed } from 'vue'
  * 首次加载时如果直接打开的就是工作台页面，initTheme() 会提前应用，避免闪烁。
  */
 
-const MODE_KEY = 'dessertshop-color-mode'
+const MODE_KEY = migratedKey('sw-color-mode', 'dessertshop-color-mode')
 
 const mode = ref('light')
 let active = false
